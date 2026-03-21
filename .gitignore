@@ -1,0 +1,12 @@
+# Node
+node_modules/
+dist/
+
+# .NET
+[Oo]bj/
+[Bb]in/
+appsettings.Development.json
+
+# IDEs
+.vscode/
+.vs/
