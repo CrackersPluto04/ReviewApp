@@ -1,23 +1,31 @@
 import { render } from 'preact';
-import './style.css';
-import { useEffect, useState } from 'preact/hooks';
+import { LoginPage } from './pages/LoginPage';
+import { HomePage } from './pages/HomePage';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { ProtectedRoute } from './components/ProtectedRoute';
+
+const DummyProfilePage = () => (
+	<div style={{ padding: '2rem', textAlign: 'center' }}>
+		<h2>Secret User Profile 🕵️‍♂️</h2>
+		<p>If you can read this, you have a valid JWT token!</p>
+	</div>
+);
 
 function App() {
-	const [backendMessage, setBackendMessage] = useState("Waiting for C#...");
+	return <BrowserRouter>
+		<Routes>
+			<Route path="/login" element={<LoginPage />} />
+			<Route path="/home" element={<HomePage />} />
 
-	useEffect(() => {
-		fetch('https://localhost:7140/api/ping')
-			.then(response => response.text())
-			.then(data => setBackendMessage(data))
-			.catch(error => setBackendMessage("C# Backend is offline! " + error));
-	}, []);
+			<Route path="/profile" element={
+				<ProtectedRoute>
+					<DummyProfilePage />
+				</ProtectedRoute>
+			} />
 
-	return (
-		<div>
-			<h1>THE Review App</h1>
-			<p>{backendMessage}</p>
-		</div>
-	);
+			<Route path="*" element={<Navigate to="/home" replace />} />
+		</Routes>
+	</BrowserRouter>
 }
 
 render(<App />, document.getElementById('app'));
