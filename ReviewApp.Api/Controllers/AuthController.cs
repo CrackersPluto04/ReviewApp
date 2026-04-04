@@ -50,7 +50,7 @@ public class AuthController : ControllerBase
         _context.Users.Add(newUser);
         await _context.SaveChangesAsync();
 
-        return Ok(new { message = "Registration successfull! You can login now!" });
+        return Ok(new { message = "Registration successfull! You can login now." });
     }
 
     [HttpPost("login")]
@@ -64,7 +64,7 @@ public class AuthController : ControllerBase
 
         string token = CreateToken(user);
 
-        return Ok(new { token = token, message = "Login successful." });
+        return Ok(new { token = token, message = "Login successful!" });
     }
 
 

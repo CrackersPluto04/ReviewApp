@@ -27,8 +27,9 @@ export function LoginPage() {
         setSuccess(result.success);
         setMessage(result.message);
 
-        if (!register && result.success)
+        if (!register && result.success) {
             navigate('/home');
+        }
     }
 
     return <Stack spacing={2} alignItems="center">

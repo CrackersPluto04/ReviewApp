@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using ReviewApp.Api.Data;
+using ReviewApp.Api.Services;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -68,6 +69,8 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
 });
+
+builder.Services.AddHttpClient<ITmdbService, TmdbService>();
 
 var app = builder.Build();
 
