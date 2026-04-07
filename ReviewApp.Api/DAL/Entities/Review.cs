@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ReviewApp.Api.Models;
+namespace ReviewApp.Api.DAL.Entities;
 
 public class Review
 {

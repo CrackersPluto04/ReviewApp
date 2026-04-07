@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using ReviewApp.Api.Data;
+using ReviewApp.Api.DAL;
 using ReviewApp.Api.Services;
 using System.Text;
 
@@ -89,7 +89,5 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-
-app.MapGet("/api/ping", () => "Pong! The C# Backend is alive and talking to Preact.");
 
 app.Run();

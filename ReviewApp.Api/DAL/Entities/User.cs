@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace ReviewApp.Api.Models;
+namespace ReviewApp.Api.DAL.Entities;
 
 public class User
 {

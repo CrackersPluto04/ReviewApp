@@ -1,7 +1,7 @@
 ﻿using ReviewApp.Api.Enums;
 using System.ComponentModel.DataAnnotations;
 
-namespace ReviewApp.Api.Models;
+namespace ReviewApp.Api.DAL.Entities;
 
 public abstract class Media
 {

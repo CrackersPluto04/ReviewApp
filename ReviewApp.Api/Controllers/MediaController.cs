@@ -1,9 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using ReviewApp.Api.Data;
+using ReviewApp.Api.DAL;
+using ReviewApp.Api.DAL.Entities;
 using ReviewApp.Api.DTOs;
-using ReviewApp.Api.Models;
 using ReviewApp.Api.Services;
 
 namespace ReviewApp.Api.Controllers;

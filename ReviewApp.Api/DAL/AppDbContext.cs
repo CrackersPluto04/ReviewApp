@@ -1,8 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using ReviewApp.Api.DAL.Entities;
 using ReviewApp.Api.Enums;
-using ReviewApp.Api.Models;
 
-namespace ReviewApp.Api.Data;
+namespace ReviewApp.Api.DAL;
 
 public class AppDbContext : DbContext
 {

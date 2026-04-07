@@ -1,10 +1,9 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using ReviewApp.Api.Data;
+using ReviewApp.Api.DAL;
+using ReviewApp.Api.DAL.Entities;
 using ReviewApp.Api.DTOs;
-using ReviewApp.Api.Models;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -62,20 +61,16 @@ public class AuthController : ControllerBase
             return Unauthorized(new { error = "Invalid email or password." });
         }
 
-        string token = CreateToken(user);
-
-        return Ok(new { token = token, message = "Login successful!" });
-    }
-
-
-    [Authorize]
-    [HttpGet("vip-lounge")]
-    public IActionResult EnterVipLounge()
-    {
-        var userId = User.FindFirst("id")?.Value;
-        var username = User.FindFirst("username")?.Value;
-
-        return Ok(new { message = $"Welcome to the VIP lounge, {username} (User ID: {userId})!" });
+        try
+        {
+            string token = CreateToken(user);
+            return Ok(new { token = token, message = "Login successful!" });
+        }
+        catch (InvalidOperationException ex)
+        {
+            Console.WriteLine("Create Token error: " + ex.Message);
+            return StatusCode(500, new { error = "An error occurred while login, please try again later." });
+        }
     }
 
 
@@ -88,7 +83,13 @@ public class AuthController : ControllerBase
             new Claim("email", user.Email)
         };
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+        var jwtKey = _configuration["Jwt:Key"];
+        if (string.IsNullOrEmpty(jwtKey))
+        {
+            throw new InvalidOperationException("JWT key is not configured.");
+        }
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
 
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
@@ -102,5 +103,4 @@ public class AuthController : ControllerBase
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
-
 }
