@@ -16,10 +16,22 @@ public class TmdbService : ITmdbService
         _httpClient.BaseAddress = new Uri(_config["Tmdb:BaseUrl"]!);
     }
 
-    public async Task<List<TmdbMovieDto>> SearchMoviesAsync(string query)
+    public async Task<List<TmdbItemDto>> SearchMoviesAsync(string query)
+    {
+        return await FetchFromTmdbAsync($"search/movie?query={Uri.EscapeDataString(query)}");
+    }
+
+    public async Task<List<TmdbItemDto>> SearchSeriesAsync(string query)
+    {
+        return await FetchFromTmdbAsync($"search/tv?query={Uri.EscapeDataString(query)}");
+    }
+
+
+    // Helper method to fetch data from TMDb API
+    private async Task<List<TmdbItemDto>> FetchFromTmdbAsync(string endpoint)
     {
         var apiKey = _config["Tmdb:ApiKey"];
-        var response = await _httpClient.GetAsync($"search/movie?api_key={apiKey}&query={Uri.EscapeDataString(query)}");
+        var response = await _httpClient.GetAsync($"{endpoint}&api_key={apiKey}");
 
         if (!response.IsSuccessStatusCode)
         {

@@ -23,7 +23,6 @@ public class AuthController : ControllerBase
         _configuration = configuration;
     }
 
-
     [HttpPost("register")]
     public async Task<IActionResult> Register(UserRegisterDto request)
     {
@@ -73,7 +72,7 @@ public class AuthController : ControllerBase
         }
     }
 
-
+    // Helper method to create JWT token
     private string CreateToken(User user)
     {
         var claims = new[]

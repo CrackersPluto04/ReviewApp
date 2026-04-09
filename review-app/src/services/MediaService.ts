@@ -1,7 +1,7 @@
 class MediaService {
     async searchMovies(query: string) {
         try {
-            const response = await fetch(`https://localhost:7140/api/Media/search?query=${encodeURIComponent(query)}`);
+            const response = await fetch(`https://localhost:7140/api/Media/search/all?query=${encodeURIComponent(query)}`);
 
             if (response.ok) {
                 const data = await response.json();

@@ -6,10 +6,12 @@ namespace ReviewApp.Api.DAL.Entities;
 public abstract class Media
 {
     public int ID { get; set; }
+
     public string? ExternalApiID { get; set; }
 
     [Required]
     public MediaType MediaType { get; set; }
+
 
     [Required, MaxLength(100)]
     public string Title { get; set; } = string.Empty;
