@@ -1,7 +1,24 @@
 class MediaService {
+    async searchAll(query: string) {
+        return this.search(query, 'all');
+    }
+
     async searchMovies(query: string) {
+        return this.search(query, 'movie');
+    }
+
+    async searchSeries(query: string) {
+        return this.search(query, 'series');
+    }
+
+    async searchMusic(query: string) {
+        return this.search(query, 'music');
+    }
+
+    // Private method to handle the actual search logic
+    private async search(query: string, what: 'all' | 'movie' | 'series' | 'music') {
         try {
-            const response = await fetch(`https://localhost:7140/api/Media/search/all?query=${encodeURIComponent(query)}`);
+            const response = await fetch(`https://localhost:7140/api/Media/search/${what}?query=${encodeURIComponent(query)}`);
 
             if (response.ok) {
                 const data = await response.json();

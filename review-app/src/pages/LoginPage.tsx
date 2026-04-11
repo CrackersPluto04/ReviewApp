@@ -33,7 +33,6 @@ export function LoginPage() {
     }
 
     return <Stack spacing={2} alignItems="center">
-
         <Typography variant="h4" component="h1" gutterBottom>
             {register ? "Register Account" : "Login to your account"}
         </Typography>

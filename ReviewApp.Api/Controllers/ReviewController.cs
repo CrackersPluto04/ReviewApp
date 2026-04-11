@@ -19,7 +19,7 @@ public class ReviewController : ControllerBase
     }
 
     [HttpGet("media/{mediaID}")]
-    public async Task<IActionResult> GetReviewsForMedia(int mediaID)
+    public async Task<IActionResult> GetPublicReviewsForMedia(int mediaID)
     {
         var reviews = await _context.Reviews
             .Include(r => r.User)
