@@ -133,7 +133,7 @@ public class MediaController : ControllerBase
     }
 
     // Helper methods to convert external API results to MediaDto
-    private MediaDto ToMediaDto(MediaType type, TmdbItemDto tmdbItem)//SpotifyTrackDto spotifyTrack
+    private MediaDto ToMediaDto(MediaType type, TmdbItemDto tmdbItem)
     {
         return new MediaDto
         {

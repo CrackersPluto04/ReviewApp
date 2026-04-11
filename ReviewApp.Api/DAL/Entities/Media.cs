@@ -7,14 +7,14 @@ public abstract class Media
 {
     public int ID { get; set; }
 
-    public string? ExternalApiID { get; set; }
+    [Required]
+    public string ExternalApiID { get; set; } = null!;
 
     [Required]
     public MediaType MediaType { get; set; }
 
-
-    [Required, MaxLength(100)]
-    public string Title { get; set; } = string.Empty;
+    [MaxLength(100)]
+    public string? Title { get; set; }
     public DateTime? ReleaseDate { get; set; }
     public string? PosterUrl { get; set; }
     public string? Overview { get; set; }

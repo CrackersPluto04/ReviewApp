@@ -3,11 +3,8 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ReviewApp.Api.DTOs;
 
-public class ReviewCreateDto
+public class ReviewDto
 {
-    [Required]
-    public int MediaID { get; set; }
-
     [Required]
     [Range(1.0, 10.0, ErrorMessage = "Score must be between 1 and 10.")]
     public decimal Score { get; set; }
