@@ -1,4 +1,4 @@
-import { Box, Typography, Container, Stack } from '@mui/material';
+import { Box, Typography, Stack } from '@mui/material';
 import { SearchBar } from '../components/SearchBar';
 
 export function HomePage() {

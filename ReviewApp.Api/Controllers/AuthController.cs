@@ -24,7 +24,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
-    public async Task<IActionResult> Register(UserRegisterDto request)
+    public async Task<IActionResult> Register([FromBody] UserRegisterDto request)
     {
         if (await _context.Users.AnyAsync(u => u.Username == request.Username))
         {
@@ -52,7 +52,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
-    public async Task<IActionResult> Login(UserLoginDto request)
+    public async Task<IActionResult> Login([FromBody] UserLoginDto request)
     {
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
         if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))

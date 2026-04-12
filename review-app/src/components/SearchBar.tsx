@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { Box, TextField, Button, Container } from '@mui/material';
+import { Box, TextField, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 
 type SearchBarProps = {

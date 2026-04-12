@@ -5,7 +5,7 @@ namespace ReviewApp.Api.DTOs;
 public class ReviewMediaDto
 {
     [Required]
-    public MediaDto Media { get; set; } = null!;
+    public MediaDto MediaDto { get; set; } = null!;
     [Required]
-    public ReviewDto Review { get; set; } = null!;
+    public ReviewDto ReviewDto { get; set; } = null!;
 }
