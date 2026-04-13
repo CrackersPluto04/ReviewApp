@@ -13,6 +13,6 @@ export function HomePage() {
             </Typography>
         </Stack>
 
-        <SearchBar />
+        <SearchBar placeholder="Search for any media..." />
     </Box>
 }

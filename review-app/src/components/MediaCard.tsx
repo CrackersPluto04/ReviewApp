@@ -2,18 +2,25 @@ import { Card, CardMedia, CardContent, Typography, Box, IconButton, Divider } fr
 import EditIcon from '@mui/icons-material/Edit';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import { MediaDto } from '../types/types';
+import { useNavigate } from 'react-router-dom';
 
 type MediaCardProps = {
     media: MediaDto;
 }
 
 export function MediaCard({ media }: MediaCardProps) {
-    return <Card sx={{ display: 'flex', height: 200, mb: 2, borderRadius: 5, border: '3px solid', borderColor: 'grey.300', boxShadow: 5 }}>
+    const navigate = useNavigate();
+
+    const handleCardClick = () => {
+        navigate('/media', { state: { media } })
+    }
+
+    return <Card onClick={handleCardClick} sx={{ display: 'flex', height: 200, mb: 2, borderRadius: 5, border: '3px solid', borderColor: 'grey.300', boxShadow: 5, cursor: 'pointer' }}>
         {/* LEFT: Poster */}
         <CardMedia
             component="img"
             sx={{ width: 150, minWidth: 150, flexShrink: 0, objectFit: 'cover' }}
-            image={media.posterUrl || 'https://placehold.co/140x200?text=No+Image'}
+            image={media.posterUrl || 'https://placehold.co/140x200?text=No+Poster'}
             alt={media.title}
         />
 
@@ -28,16 +35,9 @@ export function MediaCard({ media }: MediaCardProps) {
                 </Typography>
             </Box>
 
-            {media.creator && (
-                <Typography variant="body2" sx={{ mb: 1, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
-                    {media.creator}
-                </Typography>
-            )}
-            {media.overview && (
-                <Typography variant="body1" sx={{ mb: 1, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
-                    {media.overview}
-                </Typography>
-            )}
+            <Typography variant="body2" sx={{ mb: 1, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
+                {media.mediaType === 2 ? media.creator || 'Unknown Creator' : media.overview || 'No overview available for this title.'}
+            </Typography>
         </CardContent>
 
         {/* Divider */}

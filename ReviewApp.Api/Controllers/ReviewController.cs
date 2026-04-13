@@ -23,11 +23,42 @@ public class ReviewController : ControllerBase
         this.mediaService = mediaService;
     }
 
+    [HttpGet("media")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetMediaReviews([FromQuery] string externalApiId, [FromQuery] MediaType mediaType)
+    {
+        // Find Media ID, if null, nobody has reviewed it yet
+        var media = await _context.Media.FirstOrDefaultAsync(m => m.ExternalApiID == externalApiId && m.MediaType == mediaType);
+        if (media == null)
+        {
+            return Ok(new List<object>());
+        }
+
+        // Get public reviews for media
+        var reviews = await _context.Reviews
+            .Include(r => r.User)
+            .Where(r => r.MediaID == media.ID && r.VisibilityLevel == VisibilityLevel.Public)
+            .Select(r => new
+            {
+                r.Score,
+                r.ReviewText,
+                r.Pros,
+                r.Cons,
+                r.User.Username,
+                r.User.ProfilePictureUrl,
+                r.CreatedAt,
+                r.UpdatedAt
+            })
+            .ToListAsync();
+
+        return Ok(reviews);
+    }
+
     [HttpPost]
     public async Task<IActionResult> CreateReview([FromBody] ReviewMediaDto request)
     {
         // Identify the User and get userId
-        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == "userId");
+        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == "id");
         if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
         {
             return Unauthorized(new { error = "Invalid user token." });
@@ -67,7 +98,7 @@ public class ReviewController : ControllerBase
     public async Task<IActionResult> EditReview([FromBody] ReviewMediaDto request)
     {
         // Identify the User and get userId
-        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == "userId");
+        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == "id");
         if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
         {
             return Unauthorized(new { error = "Invalid user token." });
@@ -103,7 +134,7 @@ public class ReviewController : ControllerBase
     public async Task<IActionResult> CheckIfUserReviewedMedia([FromQuery] string externalApiId, [FromQuery] MediaType mediaType)
     {
         // Identify the User and get userId
-        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == "userId");
+        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == "id");
         if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
         {
             return Unauthorized(new { error = "Invalid user token." });

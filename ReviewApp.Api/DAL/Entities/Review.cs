@@ -10,11 +10,11 @@ public class Review
 
     [Required]
     public int UserID { get; set; }
-    public User? User { get; set; }
+    public User User { get; set; } = null!;
 
     [Required]
     public int MediaID { get; set; }
-    public Media? Media { get; set; }
+    public Media Media { get; set; } = null!;
 
     [Required]
     [Column(TypeName = "decimal(3,1)")]

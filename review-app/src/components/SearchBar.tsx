@@ -5,11 +5,12 @@ import { useNavigate } from 'react-router-dom';
 type SearchBarProps = {
     defaultType?: 'all' | 'movie' | 'series' | 'music';
     placeholder?: string;
+    defaultQuery?: string;
 }
 
-export function SearchBar({ defaultType = 'all', placeholder = "Search for any piece of media..." }: SearchBarProps) {
+export function SearchBar({ defaultType = 'all', placeholder = "Search...", defaultQuery = "" }: SearchBarProps) {
     const navigate = useNavigate();
-    const [query, setQuery] = useState('');
+    const [query, setQuery] = useState(defaultQuery);
 
     const handleSearch = (e: Event) => {
         e.preventDefault();

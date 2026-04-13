@@ -1,4 +1,5 @@
 class AuthService {
+    private readonly baseUrl = 'https://localhost:7140/api/Auth';
     private readonly successObject = { success: true, message: "" };
 
     async register(username: string, email: string, password: string) {
@@ -8,7 +9,7 @@ class AuthService {
         }
 
         try {
-            const response = await fetch('https://localhost:7140/api/Auth/register', {
+            const response = await fetch(`${this.baseUrl}/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, email, password })
@@ -44,7 +45,7 @@ class AuthService {
         }
 
         try {
-            const response = await fetch('https://localhost:7140/api/Auth/login', {
+            const response = await fetch(`${this.baseUrl}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password })

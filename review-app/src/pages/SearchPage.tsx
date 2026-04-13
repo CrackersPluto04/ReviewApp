@@ -52,10 +52,12 @@ export function SearchPage() {
     return <Box>
         {/* Top Search Area */}
         <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Typography variant="h6" sx={{ minWidth: 150 }}>Search results for:</Typography>
+            <Typography variant="h6" sx={{ minWidth: 150 }}>
+                Search results for:
+            </Typography>
 
             <Box sx={{ flexGrow: 1 }}>
-                <SearchBar defaultType={currentType as any} />
+                <SearchBar defaultType={currentType as any} defaultQuery={query} />
             </Box>
         </Box>
 

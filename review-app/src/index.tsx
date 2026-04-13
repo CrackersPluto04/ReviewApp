@@ -9,6 +9,7 @@ import { SeriesPage } from './pages/SeriesPage';
 import { useMemo, useState } from 'preact/hooks';
 import { createTheme, CssBaseline, ThemeProvider } from '@mui/material';
 import { SearchPage } from './pages/SearchPage';
+import { MediaReviewPage } from './pages/MediaReviewPage';
 
 function App() {
 	const [mode, setMode] = useState<"light" | "dark">(() => {
@@ -32,30 +33,43 @@ function App() {
 
 		<BrowserRouter>
 			<Routes>
-				<Route path="/login" element={<LoginPage />} />
+				<Route path="/login" element={
+					<LoginPage />
+				} />
+
 				<Route path="/home" element={
 					<PageContainer mode={mode} toggleTheme={toggleTheme}>
 						<HomePage />
 					</PageContainer>
 				} />
+
 				<Route path="/movies" element={
 					<PageContainer mode={mode} toggleTheme={toggleTheme}>
 						<MoviesPage />
 					</PageContainer>
 				} />
+
 				<Route path="/series" element={
 					<PageContainer mode={mode} toggleTheme={toggleTheme}>
 						<SeriesPage />
 					</PageContainer>
 				} />
+
 				<Route path="/music" element={
 					<PageContainer mode={mode} toggleTheme={toggleTheme}>
 						<MusicPage />
 					</PageContainer>
 				} />
+
 				<Route path="/search" element={
 					<PageContainer mode={mode} toggleTheme={toggleTheme}>
 						<SearchPage />
+					</PageContainer>
+				} />
+
+				<Route path="/media" element={
+					<PageContainer mode={mode} toggleTheme={toggleTheme}>
+						<MediaReviewPage />
 					</PageContainer>
 				} />
 
