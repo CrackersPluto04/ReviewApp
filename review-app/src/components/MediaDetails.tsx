@@ -1,7 +1,8 @@
-import { Avatar, Box, Card, CardContent, CardMedia, CircularProgress, Divider, Grid, Paper, Typography } from "@mui/material";
+import { Box, Card, CardMedia, CircularProgress, Divider, Grid, Paper, Typography } from "@mui/material";
 import { MediaDto } from "../types/types";
 import { useState, useEffect } from "preact/hooks";
 import { reviewService } from "../services/ReviewService";
+import { ReviewCard } from "./ReviewCard";
 
 type MediaDetailsProps = {
     media: MediaDto;
@@ -10,12 +11,18 @@ type MediaDetailsProps = {
 export function MediaDetails({ media }: MediaDetailsProps) {
     const [reviews, setReviews] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [errorMessage, setErrorMessage] = useState('');
 
     useEffect(() => {
         const fetchReviews = async () => {
             setLoading(true);
-            const data = await reviewService.getMediaReviews(media.externalApiID, media.mediaType);
-            setReviews(data);
+
+            const result = await reviewService.getMediaReviews(media.externalApiID, media.mediaType);
+            if (result.success)
+                setReviews(result.data);
+            else
+                setErrorMessage(result.message)
+
             setLoading(false);
         };
 
@@ -71,46 +78,12 @@ export function MediaDetails({ media }: MediaDetailsProps) {
                 {loading ? (
                     <Box display="flex" justifyContent="center" p={4}><CircularProgress /></Box>
                 ) : reviews.length === 0 ? (
-                    <Typography color="text.secondary">No public reviews yet. Be the first!</Typography>
+                    <Typography color={errorMessage ? "error" : "text.secondary"}>
+                        {errorMessage || 'No public reviews yet. Be the first!'}
+                    </Typography>
                 ) : (
                     reviews.map((rev) => (
-                        <Card key={rev.username} variant="outlined" sx={{ mb: 3, display: 'flex', borderRadius: 2 }}>
-                            {/* User Info Column */}
-                            <Box sx={{ width: 140, p: 2, borderRight: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <Avatar sx={{ width: 56, height: 56, mb: 1 }} />
-                                <Typography variant="subtitle2" noWrap>
-                                    {rev.username}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                    {new Date(rev.createdAt).toLocaleDateString()}
-                                </Typography>
-
-                                <Typography variant="h6" fontWeight="bold" sx={{ mt: 2 }}>
-                                    {rev.score}/10
-                                </Typography>
-                                <Typography variant="caption" color={rev.score >= 7 ? 'success.main' : rev.score >= 4 ? 'warning.main' : 'error.main'} fontWeight="bold">
-                                    {rev.score >= 7 ? 'Great' : rev.score >= 4 ? 'Mixed' : 'Poor'}
-                                </Typography>
-                            </Box>
-
-                            {/* Review Text Column */}
-                            <CardContent sx={{ flexGrow: 1 }}>
-                                <Typography variant="body1">
-                                    {rev.reviewText || <span style={{ fontStyle: 'italic', color: 'gray' }}>No written review.</span>}
-                                </Typography>
-
-                                <Grid container spacing={2}>
-                                    <Grid size={{ xs: 6 }}>
-                                        <Typography variant="subtitle2" color="success.main" fontWeight="bold">Pros</Typography>
-                                        <Typography variant="body2">{rev.pros || '-'}</Typography>
-                                    </Grid>
-                                    <Grid size={{ xs: 6 }}>
-                                        <Typography variant="subtitle2" color="error.main" fontWeight="bold">Cons</Typography>
-                                        <Typography variant="body2">{rev.cons || '-'}</Typography>
-                                    </Grid>
-                                </Grid>
-                            </CardContent>
-                        </Card>
+                        <ReviewCard key={rev.username} rev={rev} />
                     ))
                 )}
             </Grid>

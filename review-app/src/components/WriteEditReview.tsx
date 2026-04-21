@@ -12,6 +12,7 @@ export function WriteEditReview({ media }: WriteEditReviewProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
+    const [error, setError] = useState(false);
 
     // Form states
     const [score, setScore] = useState<number>(5);
@@ -20,22 +21,34 @@ export function WriteEditReview({ media }: WriteEditReviewProps) {
     const [cons, setCons] = useState('');
     const [visibility, setVisibility] = useState(1);
 
+    // Text length max limits
+    const MAX_REVIEW = 500;
+    const MAX_PROS_CONS = 250;
+
+    // Length validation
+    const isReviewOver = reviewText.length > MAX_REVIEW;
+    const isProsOver = pros.length > MAX_PROS_CONS;
+    const isConsOver = cons.length > MAX_PROS_CONS;
+
+    const hasErrors = isReviewOver || isProsOver || isConsOver;
+
     useEffect(() => {
         const checkExistingReview = async () => {
             setLoading(true);
 
-            try {
-                const res = await reviewService.checkIfUserReviewedMedia(media.externalApiID, media.mediaType);
-                if (res.hasReviewed && res.reviewData) {
+            const result = await reviewService.checkIfUserReviewedMedia(media.externalApiID, media.mediaType);
+            if (result.success) {
+                if (result.data.hasReviewed && result.data.reviewData) {
                     setIsEditing(true);
-                    setScore(res.reviewData.score);
-                    setReviewText(res.reviewData.reviewText || '');
-                    setPros(res.reviewData.pros || '');
-                    setCons(res.reviewData.cons || '');
-                    setVisibility(res.reviewData.visibilityLevel);
+                    setScore(result.data.reviewData.score);
+                    setReviewText(result.data.reviewData.reviewText || '');
+                    setPros(result.data.reviewData.pros || '');
+                    setCons(result.data.reviewData.cons || '');
+                    setVisibility(result.data.reviewData.visibilityLevel);
                 }
-            } catch (error) {
-                console.error("Failed to check review status", error);
+            } else {
+                setError(true);
+                setToastMessage(result.message)
             }
 
             setLoading(false);
@@ -52,18 +65,19 @@ export function WriteEditReview({ media }: WriteEditReviewProps) {
             reviewDto: { score, reviewText, pros, cons, visibilityLevel: visibility }
         };
 
-        try {
-            if (isEditing) {
-                await reviewService.editReview(payload);
-                setToastMessage('Review updated successfully!');
-            } else {
-                await reviewService.createReview(payload);
-                setToastMessage('Review saved successfully!');
-                setIsEditing(true);
+        if (isEditing) {
+            const result = await reviewService.editReview(payload);
+            if (result.success)
+                setToastMessage(result.data.message);
+        } else {
+            const result = await reviewService.createReview(payload);
+            if (result.success)
+                setToastMessage(result.data.message);
+            else {
+                setError(true);
+                setToastMessage(result.message)
             }
-        } catch (error) {
-            console.error("Failed to save review", error);
-            setToastMessage('Error saving review.');
+            setIsEditing(true);
         }
 
         setIsSubmitting(false);
@@ -91,7 +105,8 @@ export function WriteEditReview({ media }: WriteEditReviewProps) {
                         <Slider
                             value={score}
                             onChange={(_, val) => setScore(val)}
-                            step={0.5} marks min={1} max={10} valueLabelDisplay="auto"
+                            step={0.5} min={1} max={10} valueLabelDisplay="auto"
+                            color={score >= 7 ? 'success' : score >= 4 ? 'warning' : 'error'}
                             sx={{ maxWidth: 400 }}
                         />
                     </Box>
@@ -104,14 +119,32 @@ export function WriteEditReview({ media }: WriteEditReviewProps) {
                         onChange={e => setReviewText(e.currentTarget.value)}
                         fullWidth
                         placeholder="Write your review here..."
+                        error={isReviewOver}
+                        helperText={<Box component="span" sx={{ float: 'right' }}>{reviewText.length} / {MAX_REVIEW}</Box>}
                     />
 
                     <Grid container spacing={3}>
                         <Grid size={{ xs: 12, sm: 6 }}>
-                            <TextField label="Pros (Optional)" value={pros} onChange={e => setPros(e.currentTarget.value)} fullWidth />
+                            <TextField
+                                label="Pros"
+                                multiline rows={2}
+                                value={pros}
+                                onChange={e => setPros(e.currentTarget.value)}
+                                fullWidth
+                                error={isProsOver}
+                                helperText={<Box component="span" sx={{ float: 'right' }}>{pros.length} / {MAX_PROS_CONS}</Box>}
+                            />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6 }}>
-                            <TextField label="Cons (Optional)" value={cons} onChange={e => setCons(e.currentTarget.value)} fullWidth />
+                            <TextField
+                                label="Cons"
+                                multiline rows={2}
+                                value={cons}
+                                onChange={e => setCons(e.currentTarget.value)}
+                                fullWidth
+                                error={isConsOver}
+                                helperText={<Box component="span" sx={{ float: 'right' }}>{cons.length} / {MAX_PROS_CONS}</Box>}
+                            />
                         </Grid>
                     </Grid>
 
@@ -130,7 +163,7 @@ export function WriteEditReview({ media }: WriteEditReviewProps) {
                             variant="contained"
                             size="large"
                             onClick={handleSubmit}
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || hasErrors}
                             sx={{ px: 5, py: 1.5, borderRadius: 2 }}
                         >
                             {isSubmitting ? <CircularProgress size={24} color="inherit" /> : (isEditing ? 'Update Review' : 'Save Review')}
@@ -161,9 +194,9 @@ export function WriteEditReview({ media }: WriteEditReviewProps) {
 
         </Grid>
 
-        {/* Popup after successfull save! */}
+        {/* Popup after successfull save or occuring error! */}
         <Snackbar open={!!toastMessage} autoHideDuration={3000} onClose={() => setToastMessage('')}>
-            <Alert severity="success" sx={{ width: '100%' }}>
+            <Alert severity={error ? "error" : "success"} sx={{ width: '100%' }}>
                 {toastMessage}
             </Alert>
         </Snackbar>

@@ -20,11 +20,11 @@ public class Review
     [Column(TypeName = "decimal(3,1)")]
     public decimal Score { get; set; }
 
-    [MaxLength(250)]
+    [MaxLength(500)]
     public string? ReviewText { get; set; }
-    [MaxLength(500)]
+    [MaxLength(250)]
     public string? Pros { get; set; }
-    [MaxLength(500)]
+    [MaxLength(250)]
     public string? Cons { get; set; }
 
     public VisibilityLevel VisibilityLevel { get; set; } = VisibilityLevel.Private;

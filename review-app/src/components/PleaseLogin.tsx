@@ -1,5 +1,5 @@
 import { Box, Typography, Button } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 type PleaseLoginProps = {
     message?: string;
@@ -7,12 +7,17 @@ type PleaseLoginProps = {
 
 export function PleaseLogin({ message = "You must be logged in to view this." }: PleaseLoginProps) {
     const navigate = useNavigate();
+    const location = useLocation();
+
+    const handleLoginClick = () => {
+        navigate('/login', { state: { returnTo: location } })
+    }
 
     return <Box sx={{ textAlign: 'center', py: 10 }}>
         <Typography variant="h5" gutterBottom>
             {message}
         </Typography>
-        <Button variant="contained" size="large" onClick={() => navigate('/login')} sx={{ mt: 2 }}>
+        <Button variant="contained" size="large" onClick={handleLoginClick} sx={{ mt: 2 }}>
             Log In or Register
         </Button>
     </Box>

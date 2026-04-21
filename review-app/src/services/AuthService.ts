@@ -1,6 +1,5 @@
 class AuthService {
     private readonly baseUrl = 'https://localhost:7140/api/Auth';
-    private readonly successObject = { success: true, message: "" };
 
     async register(username: string, email: string, password: string) {
         const validationMessage = this.checkRegisterDatas(username, email, password);
@@ -17,25 +16,15 @@ class AuthService {
 
             if (response.ok) {
                 const data = await response.json();
-                this.successObject.success = true;
-                this.successObject.message = data.message;
+                return { success: true, message: data.message }
             } else {
                 const errorData = await response.json();
-                this.successObject.success = false;
-                if (errorData.error)
-                    this.successObject.message = errorData.error;
-                else {
-                    this.successObject.message = "Something went wrong. Please try registering again.";
-                    console.error("Registration error:", errorData);
-                }
+                return { success: false, message: errorData.error || "Something went wrong. Please try registering again." }
             }
         } catch (error) {
             console.error("Registration error:", error);
-            this.successObject.success = false;
-            this.successObject.message = "Something went wrong. Please try registering again.";
+            return { success: false, message: 'Network error while registering.' }
         }
-
-        return this.successObject;
     }
 
     async login(email: string, password: string) {
@@ -54,25 +43,20 @@ class AuthService {
             if (response.ok) {
                 const data = await response.json();
                 localStorage.setItem('jwt_token', data.token);
-                this.successObject.success = true;
-                this.successObject.message = data.message;
+                return { success: true, message: data.message }
             } else {
                 const errorData = await response.json();
-                this.successObject.success = false;
                 if (errorData.error)
-                    this.successObject.message = errorData.error;
+                    return { success: false, message: errorData.error }
                 else {
-                    this.successObject.message = "Something went wrong. Please try login again.";
                     console.error("Login error:", errorData);
+                    return { success: false, message: "Something went wrong. Please try logging in again." }
                 }
             }
         } catch (error) {
             console.error("Login error:", error);
-            this.successObject.success = false;
-            this.successObject.message = "Something went wrong. Please try login again.";
+            return { success: false, message: "Something went wrong. Please try logging in again." }
         }
-
-        return this.successObject;
     }
 
     private checkRegisterDatas(username: string, email: string, password: string): string {

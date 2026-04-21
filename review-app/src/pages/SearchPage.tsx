@@ -9,6 +9,7 @@ export function SearchPage() {
     const [searchParams, setSearchParams] = useSearchParams();
     const [results, setResults] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
 
     // Read from the URL parameters
     const query = searchParams.get('q') || '';
@@ -38,6 +39,9 @@ export function SearchPage() {
 
             if (res.success)
                 setResults(res.data);
+            else
+                setErrorMessage(res.message);
+
 
             setLoading(false);
         };
@@ -61,7 +65,7 @@ export function SearchPage() {
             </Box>
         </Box>
 
-        {/* The Filters (Tabs) */}
+        {/* Tabs */}
         <Tabs value={currentType} onChange={handleTabChange} variant="fullWidth" sx={{ mb: 4, borderBottom: 1, borderColor: 'divider' }}>
             <Tab label="Any" value="all" />
             <Tab label="Movies" value="movie" />
@@ -77,8 +81,8 @@ export function SearchPage() {
                 <MediaCard key={item.externalApiID} media={item} />
             ))
         ) : (
-            <Typography textAlign="center" mt={4} color="text.secondary">
-                {query ? "No results found. Try a different search." : "Type something above to start searching!"}
+            <Typography textAlign="center" mt={4} color={errorMessage ? "error" : "text.secondary"}>
+                {query ? errorMessage || "No results found. Try a different search." : "Type something above to start searching!"}
             </Typography>
         )}
     </Box>

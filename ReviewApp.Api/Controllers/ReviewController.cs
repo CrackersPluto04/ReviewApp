@@ -11,7 +11,6 @@ namespace ReviewApp.Api.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-[Authorize]
 public class ReviewController : ControllerBase
 {
     private readonly AppDbContext _context;
@@ -24,7 +23,6 @@ public class ReviewController : ControllerBase
     }
 
     [HttpGet("media")]
-    [AllowAnonymous]
     public async Task<IActionResult> GetMediaReviews([FromQuery] string externalApiId, [FromQuery] MediaType mediaType)
     {
         // Find Media ID, if null, nobody has reviewed it yet
@@ -54,7 +52,30 @@ public class ReviewController : ControllerBase
         return Ok(reviews);
     }
 
+    [HttpGet("stats/average-score")]
+    public async Task<IActionResult> GetAverageScore([FromQuery] string externalApiId, [FromQuery] MediaType mediaType)
+    {
+        // Find Media ID, if null, nobody has reviewed it yet
+        var media = await _context.Media.FirstOrDefaultAsync(m => m.ExternalApiID == externalApiId && m.MediaType == mediaType);
+        if (media == null)
+        {
+            return Ok(new { averageScore = 0, reviewCount = 0 });
+        }
+
+        // Calculate average score
+        var publicReviews = _context.Reviews.Where(r => r.MediaID == media.ID && r.VisibilityLevel == VisibilityLevel.Public);
+        var count = await publicReviews.CountAsync();
+        var average = count > 0 ? await publicReviews.AverageAsync(r => r.Score) : 0;
+
+        return Ok(new
+        {
+            averageScore = Math.Round(average, 1),
+            reviewCount = count
+        });
+    }
+
     [HttpPost]
+    [Authorize]
     public async Task<IActionResult> CreateReview([FromBody] ReviewMediaDto request)
     {
         // Identify the User and get userId
@@ -95,6 +116,7 @@ public class ReviewController : ControllerBase
     }
 
     [HttpPut]
+    [Authorize]
     public async Task<IActionResult> EditReview([FromBody] ReviewMediaDto request)
     {
         // Identify the User and get userId
@@ -131,6 +153,7 @@ public class ReviewController : ControllerBase
     }
 
     [HttpGet("check")]
+    [Authorize]
     public async Task<IActionResult> CheckIfUserReviewedMedia([FromQuery] string externalApiId, [FromQuery] MediaType mediaType)
     {
         // Identify the User and get userId

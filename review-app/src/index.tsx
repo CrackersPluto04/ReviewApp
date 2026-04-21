@@ -10,6 +10,7 @@ import { useMemo, useState } from 'preact/hooks';
 import { createTheme, CssBaseline, ThemeProvider } from '@mui/material';
 import { SearchPage } from './pages/SearchPage';
 import { MediaReviewPage } from './pages/MediaReviewPage';
+import { ScrollToTop } from './components/ScrollToTop';
 
 function App() {
 	const [mode, setMode] = useState<"light" | "dark">(() => {
@@ -32,9 +33,13 @@ function App() {
 		<CssBaseline />
 
 		<BrowserRouter>
+			<ScrollToTop />
+
 			<Routes>
 				<Route path="/login" element={
-					<LoginPage />
+					<PageContainer mode={mode} toggleTheme={toggleTheme}>
+						<LoginPage />
+					</PageContainer>
 				} />
 
 				<Route path="/home" element={

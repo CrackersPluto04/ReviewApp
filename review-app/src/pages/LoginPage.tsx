@@ -3,10 +3,11 @@ import LoginIcon from '@mui/icons-material/Login';
 import HowToRegIcon from '@mui/icons-material/HowToReg';
 import { useState } from "preact/hooks";
 import { authService } from "../services/AuthService";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 export function LoginPage() {
     const navigate = useNavigate();
+    const location = useLocation();
 
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
@@ -28,7 +29,11 @@ export function LoginPage() {
         setMessage(result.message);
 
         if (!register && result.success) {
-            navigate('/home');
+            const returnTo = location.state?.returnTo
+            if (returnTo)
+                navigate(returnTo.pathname, { state: returnTo.state });
+            else
+                navigate('/home');
         }
     }
 
