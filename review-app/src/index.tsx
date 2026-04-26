@@ -11,6 +11,7 @@ import { createTheme, CssBaseline, ThemeProvider } from '@mui/material';
 import { SearchPage } from './pages/SearchPage';
 import { MediaReviewPage } from './pages/MediaReviewPage';
 import { ScrollToTop } from './components/ScrollToTop';
+import { AuthProvider } from './context/AuthContext';
 
 function App() {
 	const [mode, setMode] = useState<"light" | "dark">(() => {
@@ -32,55 +33,57 @@ function App() {
 	return <ThemeProvider theme={theme}>
 		<CssBaseline />
 
-		<BrowserRouter>
-			<ScrollToTop />
+		<AuthProvider>
+			<BrowserRouter>
+				<ScrollToTop />
 
-			<Routes>
-				<Route path="/login" element={
-					<PageContainer mode={mode} toggleTheme={toggleTheme}>
-						<LoginPage />
-					</PageContainer>
-				} />
+				<Routes>
+					<Route path="/login" element={
+						<PageContainer mode={mode} toggleTheme={toggleTheme}>
+							<LoginPage />
+						</PageContainer>
+					} />
 
-				<Route path="/home" element={
-					<PageContainer mode={mode} toggleTheme={toggleTheme}>
-						<HomePage />
-					</PageContainer>
-				} />
+					<Route path="/home" element={
+						<PageContainer mode={mode} toggleTheme={toggleTheme}>
+							<HomePage />
+						</PageContainer>
+					} />
 
-				<Route path="/movies" element={
-					<PageContainer mode={mode} toggleTheme={toggleTheme}>
-						<MoviesPage />
-					</PageContainer>
-				} />
+					<Route path="/movies" element={
+						<PageContainer mode={mode} toggleTheme={toggleTheme}>
+							<MoviesPage />
+						</PageContainer>
+					} />
 
-				<Route path="/series" element={
-					<PageContainer mode={mode} toggleTheme={toggleTheme}>
-						<SeriesPage />
-					</PageContainer>
-				} />
+					<Route path="/series" element={
+						<PageContainer mode={mode} toggleTheme={toggleTheme}>
+							<SeriesPage />
+						</PageContainer>
+					} />
 
-				<Route path="/music" element={
-					<PageContainer mode={mode} toggleTheme={toggleTheme}>
-						<MusicPage />
-					</PageContainer>
-				} />
+					<Route path="/music" element={
+						<PageContainer mode={mode} toggleTheme={toggleTheme}>
+							<MusicPage />
+						</PageContainer>
+					} />
 
-				<Route path="/search" element={
-					<PageContainer mode={mode} toggleTheme={toggleTheme}>
-						<SearchPage />
-					</PageContainer>
-				} />
+					<Route path="/search" element={
+						<PageContainer mode={mode} toggleTheme={toggleTheme}>
+							<SearchPage />
+						</PageContainer>
+					} />
 
-				<Route path="/media" element={
-					<PageContainer mode={mode} toggleTheme={toggleTheme}>
-						<MediaReviewPage />
-					</PageContainer>
-				} />
+					<Route path="/media" element={
+						<PageContainer mode={mode} toggleTheme={toggleTheme}>
+							<MediaReviewPage />
+						</PageContainer>
+					} />
 
-				<Route path="*" element={<Navigate to="/home" replace />} />
-			</Routes>
-		</BrowserRouter>
+					<Route path="*" element={<Navigate to="/home" replace />} />
+				</Routes>
+			</BrowserRouter>
+		</AuthProvider>
 	</ThemeProvider>
 }
 

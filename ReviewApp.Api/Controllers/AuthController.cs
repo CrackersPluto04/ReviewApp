@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using ReviewApp.Api.DAL;
@@ -60,16 +61,32 @@ public class AuthController : ControllerBase
             return Unauthorized(new { error = "Invalid email or password." });
         }
 
-        try
+        string token = CreateToken(user);
+
+        var cookieOptions = new CookieOptions
         {
-            string token = CreateToken(user);
-            return Ok(new { token = token, message = "Login successful!" });
-        }
-        catch (InvalidOperationException ex)
-        {
-            Console.WriteLine("Create Token error: " + ex.Message);
-            return StatusCode(500, new { error = "An error occurred while login, please try again later." });
-        }
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Strict,
+            Expires = DateTime.UtcNow.AddHours(8)
+        };
+
+        Response.Cookies.Append("jwt_token", token, cookieOptions);
+        return Ok(new { message = "Logged in successfully" });
+    }
+
+    [HttpPost("logout")]
+    public IActionResult Logout()
+    {
+        Response.Cookies.Delete("jwt_token");
+        return Ok(new { message = "Logged out successfully" });
+    }
+
+    [HttpGet("check-auth")]
+    [Authorize]
+    public IActionResult CheckAuth()
+    {
+        return Ok(new { isAuthenticated = true });
     }
 
     // Helper method to create JWT token

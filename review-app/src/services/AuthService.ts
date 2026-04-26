@@ -11,6 +11,7 @@ class AuthService {
             const response = await fetch(`${this.baseUrl}/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ username, email, password })
             });
 
@@ -37,12 +38,12 @@ class AuthService {
             const response = await fetch(`${this.baseUrl}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ email, password })
             });
 
             if (response.ok) {
                 const data = await response.json();
-                localStorage.setItem('jwt_token', data.token);
                 return { success: true, message: data.message }
             } else {
                 const errorData = await response.json();
@@ -59,6 +60,34 @@ class AuthService {
         }
     }
 
+    async logout() {
+        try {
+            await fetch(`${this.baseUrl}/logout`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+        } catch (error) {
+            console.error("Logout error:", error);
+        }
+    }
+
+    async checkAuth() {
+        try {
+            const response = await fetch(`${this.baseUrl}/check-auth`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            return response.ok;
+        } catch {
+            return false;
+        }
+    }
+
+    /**
+     * Helper methods for validating input data before sending requests to the backend
+     */
+
+    // Validates registration datas
     private checkRegisterDatas(username: string, email: string, password: string): string {
         if (!username || !email || !password)
             return "Please fill all the required fields.";
@@ -75,6 +104,7 @@ class AuthService {
         return "";
     }
 
+    // Validates login datas
     private checkLoginDatas(email: string, password: string): string {
         if (!email || !password)
             return "Please fill all the required fields.";
@@ -85,6 +115,7 @@ class AuthService {
         return "";
     }
 
+    // Simple email format validation
     private checkEmail(email: string): boolean {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);

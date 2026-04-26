@@ -5,6 +5,7 @@ import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'preact/hooks';
+import { useAuth } from '../context/AuthContext';
 
 export type HeaderProps = {
     mode: 'light' | 'dark';
@@ -13,7 +14,7 @@ export type HeaderProps = {
 
 export function Header({ mode, toggleTheme }: HeaderProps) {
     const navigate = useNavigate();
-    const isLoggedIn = !!localStorage.getItem("jwt_token");
+    const { isLoggedIn, logout } = useAuth();
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const isMenuOpen = Boolean(anchorEl);
 
@@ -27,9 +28,7 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
 
     const handleLogout = () => {
         handleMenuClose();
-        localStorage.removeItem("jwt_token");
-        navigate('/');
-        globalThis.location.reload();
+        logout();
     };
 
     const handleNavigate = (path: string) => {

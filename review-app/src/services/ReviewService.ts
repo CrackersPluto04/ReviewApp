@@ -40,7 +40,8 @@ class ReviewService {
     async checkIfUserReviewedMedia(externalApiId: string, mediaType: number) {
         try {
             const response = await fetch(`${this.baseUrl}/check?externalApiId=${externalApiId}&mediaType=${mediaType}`, {
-                headers: this.getHeaders()
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
             });
 
             if (response.ok) {
@@ -60,7 +61,8 @@ class ReviewService {
         try {
             const response = await fetch(this.baseUrl, {
                 method: 'POST',
-                headers: this.getHeaders(),
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify(data)
             });
 
@@ -81,7 +83,8 @@ class ReviewService {
         try {
             const response = await fetch(this.baseUrl, {
                 method: 'PUT',
-                headers: this.getHeaders(),
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify(data)
             });
 
@@ -96,15 +99,6 @@ class ReviewService {
             console.error('Edit review error:', error);
             return { success: false, message: 'Network error while reaching reviews.' }
         }
-    }
-
-    // Private helper to grab the token from localStorage
-    private getHeaders() {
-        const token = localStorage.getItem('jwt_token');
-        return {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        };
     }
 }
 

@@ -5,13 +5,14 @@ import { MediaDetails } from '../components/MediaDetails';
 import { WriteEditReview } from '../components/WriteEditReview';
 import { PleaseLogin } from '../components/PleaseLogin';
 import { MediaDto } from '../types/types';
+import { useAuth } from '../context/AuthContext';
 
 export function MediaReviewPage() {
     const location = useLocation();
     const media = location.state?.media as MediaDto;
 
     const [activeTab, setActiveTab] = useState<'details' | 'review'>('details');
-    const isLoggedIn = !!localStorage.getItem('jwt_token');
+    const { isLoggedIn } = useAuth();
 
     if (!media) {
         return <Navigate to="/search" replace />;
