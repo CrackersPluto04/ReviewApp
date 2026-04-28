@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ReviewApp.Api.DAL;
+using ReviewApp.Api.DTOs;
 using ReviewApp.Api.Enums;
 using ReviewApp.Api.Services;
 
@@ -31,45 +32,48 @@ public class MediaController : ControllerBase
     }
 
     [HttpGet("search/movie")]
-    public async Task<IActionResult> SearchExternalMovies([FromQuery] string query)
+    public async Task<IActionResult> SearchExternalMovies([FromQuery] string query, [FromQuery] int page = 1)
     {
         if (string.IsNullOrWhiteSpace(query))
         {
             return BadRequest(new { error = "Query parameter is required." });
         }
 
-        var movies = await _tmdbService.SearchMoviesAsync(query);
-        var formattedMovies = movies.Select(m => _mediaService.ToMediaDto(MediaType.Movie, m)).ToList();
+        var tmdbDto = await _tmdbService.SearchMoviesAsync(query, page);
+        var formattedMovies = tmdbDto.Results.Select(m => _mediaService.ToMediaDto(MediaType.Movie, m)).ToList();
 
-        return Ok(formattedMovies);
+        var response = new PagedResponse<MediaDto>(formattedMovies, tmdbDto.TotalCount, page, 20);
+        return Ok(response);
     }
 
     [HttpGet("search/series")]
-    public async Task<IActionResult> SearchExternalSeries([FromQuery] string query)
+    public async Task<IActionResult> SearchExternalSeries([FromQuery] string query, [FromQuery] int page = 1)
     {
         if (string.IsNullOrWhiteSpace(query))
         {
             return BadRequest(new { error = "Query parameter is required." });
         }
 
-        var series = await _tmdbService.SearchSeriesAsync(query);
-        var formattedSeries = series.Select(s => _mediaService.ToMediaDto(MediaType.Series, s)).ToList();
+        var tmdbDto = await _tmdbService.SearchSeriesAsync(query, page);
+        var formattedSeries = tmdbDto.Results.Select(s => _mediaService.ToMediaDto(MediaType.Series, s)).ToList();
 
-        return Ok(formattedSeries);
+        var response = new PagedResponse<MediaDto>(formattedSeries, tmdbDto.TotalCount, page, 20);
+        return Ok(response);
     }
 
     [HttpGet("search/music")]
-    public async Task<IActionResult> SearchExternalMusic([FromQuery] string query)
+    public async Task<IActionResult> SearchExternalMusic([FromQuery] string query, [FromQuery] int page = 1)
     {
         if (string.IsNullOrWhiteSpace(query))
         {
             return BadRequest(new { error = "Query parameter is required." });
         }
 
-        var tracks = await _spotifyService.SearchMusicAsync(query);
-        var formattedTracks = tracks.Select(t => _mediaService.ToMediaDto(MediaType.Music, spotifyTrack: t)).ToList();
+        var spotifyDto = await _spotifyService.SearchMusicAsync(query, page);
+        var formattedTracks = spotifyDto.Items.Select(t => _mediaService.ToMediaDto(MediaType.Music, spotifyTrack: t)).ToList();
 
-        return Ok(formattedTracks);
+        var response = new PagedResponse<MediaDto>(formattedTracks, spotifyDto.TotalCount, page, 20);
+        return Ok(response);
     }
 
     [HttpGet("search/all")]
@@ -80,19 +84,26 @@ public class MediaController : ControllerBase
             return BadRequest(new { error = "Query parameter is required." });
         }
 
-        var moviesTask = _tmdbService.SearchMoviesAsync(query);
+        var movieTask = _tmdbService.SearchMoviesAsync(query);
         var seriesTask = _tmdbService.SearchSeriesAsync(query);
-        var musicsTask = _spotifyService.SearchMusicAsync(query);
+        var spotifyTask = _spotifyService.SearchMusicAsync(query);
 
-        await Task.WhenAll(moviesTask, seriesTask, musicsTask);
+        await Task.WhenAll(movieTask, seriesTask, spotifyTask);
 
-        var movies = moviesTask.Result.Select(m => _mediaService.ToMediaDto(MediaType.Movie, m));
-        var series = seriesTask.Result.Select(s => _mediaService.ToMediaDto(MediaType.Series, s));
-        var musics = musicsTask.Result.Select(t => _mediaService.ToMediaDto(MediaType.Music, spotifyTrack: t));
+        var movieDto = await movieTask;
+        var seriesDto = await seriesTask;
+        var spotifyDto = await spotifyTask;
 
-        var combinedResults = movies.Concat(series).Concat(musics).ToList();
-        //var randomizedResults = combinedResults.OrderBy(_ => Guid.NewGuid()).ToList();
+        // Formatting media items
+        var movies = movieDto.Results.Select(m => _mediaService.ToMediaDto(MediaType.Movie, m));
+        var series = seriesDto.Results.Select(s => _mediaService.ToMediaDto(MediaType.Series, s));
+        var musics = spotifyDto.Items.Select(t => _mediaService.ToMediaDto(MediaType.Music, t));
 
-        return Ok(combinedResults);
+        // Combining results and calculating total count
+        var combinedResults = movies.Take(5).Concat(series.Take(5)).Concat(musics.Take(5)).ToList();
+        var count = combinedResults.Count;
+
+        var response = new PagedResponse<MediaDto>(combinedResults, count, 1, count);
+        return Ok(response);
     }
 }

@@ -16,7 +16,7 @@ export function SearchBar({ defaultType = 'all', placeholder = "Search...", defa
         e.preventDefault();
         if (!query.trim()) return;
 
-        navigate(`/search?q=${encodeURIComponent(query)}&type=${defaultType}`);
+        navigate(`/search?q=${encodeURIComponent(query)}&type=${defaultType}&page=1`);
     };
 
     return <Box component="form" onSubmit={handleSearch} sx={{ display: 'flex', gap: 2, w: '100%' }}>

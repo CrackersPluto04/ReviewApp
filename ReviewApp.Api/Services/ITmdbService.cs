@@ -4,6 +4,6 @@ namespace ReviewApp.Api.Services;
 
 public interface ITmdbService
 {
-    Task<List<TmdbItemDto>> SearchMoviesAsync(string query);
-    Task<List<TmdbItemDto>> SearchSeriesAsync(string query);
+    Task<TmdbSearchResponseDto> SearchMoviesAsync(string query, int page = 1);
+    Task<TmdbSearchResponseDto> SearchSeriesAsync(string query, int page = 1);
 }

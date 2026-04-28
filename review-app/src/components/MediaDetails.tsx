@@ -1,4 +1,4 @@
-import { Box, Card, CardMedia, CircularProgress, Divider, Grid, Paper, Typography } from "@mui/material";
+import { Box, Card, CardMedia, CircularProgress, Divider, Grid, Pagination, Paper, Typography } from "@mui/material";
 import { MediaDto } from "../types/types";
 import { useState, useEffect } from "preact/hooks";
 import { reviewService } from "../services/ReviewService";
@@ -10,6 +10,9 @@ type MediaDetailsProps = {
 
 export function MediaDetails({ media }: MediaDetailsProps) {
     const [reviews, setReviews] = useState<any[]>([]);
+    const [totalCount, setTotalCount] = useState(0);
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
 
@@ -17,9 +20,12 @@ export function MediaDetails({ media }: MediaDetailsProps) {
         const fetchReviews = async () => {
             setLoading(true);
 
-            const result = await reviewService.getMediaReviews(media.externalApiID, media.mediaType);
-            if (result.success)
-                setReviews(result.data);
+            const result = await reviewService.getMediaReviews(media.externalApiID, media.mediaType, page, 10);
+            if (result.success) {
+                setReviews(result.data.items);
+                setTotalCount(result.data.totalCount);
+                setTotalPages(result.data.totalPages);
+            }
             else
                 setErrorMessage(result.message)
 
@@ -27,7 +33,11 @@ export function MediaDetails({ media }: MediaDetailsProps) {
         };
 
         fetchReviews();
-    }, [media]);
+    }, [media, page]);
+
+    const handlePageChange = (_event: any, newPage: number) => {
+        setPage(newPage);
+    };
 
     return <Box sx={{ pb: 8 }}>
         {/* --- TOP SECTION: Media Info --- */}
@@ -67,9 +77,9 @@ export function MediaDetails({ media }: MediaDetailsProps) {
 
         <Divider sx={{ mb: 4 }} />
 
-        {/* --- BOTTOM SECTION: Reviews & Filters --- */}
+        {/* --- BOTTOM SECTION: Reviews & Filters & Pagination --- */}
         <Typography variant="h5" fontWeight="bold" sx={{ mb: 3 }}>
-            Reviews ({reviews.length})
+            Reviews ({totalCount})
         </Typography>
 
         <Grid container spacing={4}>
@@ -97,10 +107,24 @@ export function MediaDetails({ media }: MediaDetailsProps) {
                     <Typography variant="h6" gutterBottom>Filter Reviews</Typography>
                     {/* Placeholder for real filters later! */}
                     <Box sx={{ height: 100, border: '1px dashed grey', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        Filters UI Placeholder
+                        Filters UI Placeholderr
                     </Box>
                 </Paper>
             </Grid>
         </Grid>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4, mb: 4 }}>
+                <Pagination
+                    count={totalPages}
+                    page={page}
+                    onChange={handlePageChange}
+                    size="large"
+                    showFirstButton
+                    showLastButton
+                />
+            </Box>
+        )}
     </Box>
 }

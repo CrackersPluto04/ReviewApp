@@ -5,7 +5,10 @@ namespace ReviewApp.Api.DTOs;
 public class TmdbSearchResponseDto
 {
     [JsonPropertyName("results")]
-    public List<TmdbItemDto> Results { get; set; } = new();
+    public List<TmdbItemDto> Results { get; set; } = [];
+
+    [JsonPropertyName("total_results")]
+    public int TotalCount { get; set; }
 }
 
 public class TmdbItemDto

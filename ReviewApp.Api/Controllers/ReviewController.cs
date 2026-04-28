@@ -23,19 +23,28 @@ public class ReviewController : ControllerBase
     }
 
     [HttpGet("media")]
-    public async Task<IActionResult> GetMediaReviews([FromQuery] string externalApiId, [FromQuery] MediaType mediaType)
+    public async Task<IActionResult> GetMediaReviews(
+        [FromQuery] string externalApiId, [FromQuery] MediaType mediaType,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         // Find Media ID, if null, nobody has reviewed it yet
         var media = await _context.Media.FirstOrDefaultAsync(m => m.ExternalApiID == externalApiId && m.MediaType == mediaType);
         if (media == null)
         {
-            return Ok(new List<object>());
+            return Ok(new PagedResponse<object>(new List<object>(), 0, page, pageSize));
         }
 
         // Get public reviews for media
-        var reviews = await _context.Reviews
+        var query = _context.Reviews
             .Include(r => r.User)
             .Where(r => r.MediaID == media.ID && r.VisibilityLevel == VisibilityLevel.Public)
+            .OrderByDescending(r => r.CreatedAt);
+
+        var reviewsCount = await query.CountAsync();
+
+        var reviews = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(r => new
             {
                 r.Score,
@@ -49,7 +58,9 @@ public class ReviewController : ControllerBase
             })
             .ToListAsync();
 
-        return Ok(reviews);
+        var response = new PagedResponse<object>(reviews, reviewsCount, page, pageSize);
+
+        return Ok(response);
     }
 
     [HttpGet("stats/average-score")]

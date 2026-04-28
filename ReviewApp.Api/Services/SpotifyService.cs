@@ -16,21 +16,27 @@ public class SpotifyService : ISpotifyService
         _config = config;
     }
 
-    public async Task<List<SpotifyTrackDto>> SearchMusicAsync(string query)
+    public async Task<SpotifyTracksDto> SearchMusicAsync(string query, int page = 1)
     {
         var token = await GetAccessTokenAsync();
+        var url = $"https://api.spotify.com/v1/search?q={Uri.EscapeDataString(query)}&type=track&limit=10&offset={(page - 1) * 10}";
 
-        var request = new HttpRequestMessage(HttpMethod.Get, $"https://api.spotify.com/v1/search?q={Uri.EscapeDataString(query)}&type=track&limit=10");
+        var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var response = await _httpClient.SendAsync(request);
         if (!response.IsSuccessStatusCode)
-            return [];
+        {
+            //var errorBody = await response.Content.ReadAsStringAsync();
+            //Console.WriteLine($"SPOTIFY ERROR: {errorBody}");
+
+            return new SpotifyTracksDto { TotalCount = 0, Items = [] };
+        }
 
         var jsonString = await response.Content.ReadAsStringAsync();
         var searchData = JsonSerializer.Deserialize<SpotifySearchResponseDto>(jsonString);
 
-        return searchData?.Tracks?.Items ?? [];
+        return searchData?.Tracks ?? new SpotifyTracksDto { TotalCount = 0, Items = [] };
     }
 
     // Helper method to get Spotify access token using Client Credentials flow
@@ -44,10 +50,10 @@ public class SpotifyService : ISpotifyService
 
         var request = new HttpRequestMessage(HttpMethod.Post, "https://accounts.spotify.com/api/token");
         request.Headers.Authorization = new AuthenticationHeaderValue("Basic", base64Auth);
-        request.Content = new FormUrlEncodedContent(new[]
-        {
+        request.Content = new FormUrlEncodedContent(
+        [
             new KeyValuePair<string, string>("grant_type", "client_credentials")
-        });
+        ]);
 
         var response = await _httpClient.SendAsync(request);
         response.EnsureSuccessStatusCode();

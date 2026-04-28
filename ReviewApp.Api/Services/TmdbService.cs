@@ -16,31 +16,28 @@ public class TmdbService : ITmdbService
         _httpClient.BaseAddress = new Uri(_config["Tmdb:BaseUrl"]!);
     }
 
-    public async Task<List<TmdbItemDto>> SearchMoviesAsync(string query)
+    public async Task<TmdbSearchResponseDto> SearchMoviesAsync(string query, int page = 1)
     {
-        return await FetchFromTmdbAsync($"search/movie?query={Uri.EscapeDataString(query)}");
+        return await FetchFromTmdbAsync($"search/movie?query={Uri.EscapeDataString(query)}&page={page}");
     }
 
-    public async Task<List<TmdbItemDto>> SearchSeriesAsync(string query)
+    public async Task<TmdbSearchResponseDto> SearchSeriesAsync(string query, int page = 1)
     {
-        return await FetchFromTmdbAsync($"search/tv?query={Uri.EscapeDataString(query)}");
+        return await FetchFromTmdbAsync($"search/tv?query={Uri.EscapeDataString(query)}&page={page}");
     }
-
 
     // Helper method to fetch data from TMDb API
-    private async Task<List<TmdbItemDto>> FetchFromTmdbAsync(string endpoint)
+    private async Task<TmdbSearchResponseDto> FetchFromTmdbAsync(string endpoint)
     {
         var apiKey = _config["Tmdb:ApiKey"];
         var response = await _httpClient.GetAsync($"{endpoint}&api_key={apiKey}");
 
         if (!response.IsSuccessStatusCode)
         {
-            return [];
+            return new TmdbSearchResponseDto { Results = [], TotalCount = 0 };
         }
 
         var jsonString = await response.Content.ReadAsStringAsync();
-        var tmdbData = JsonSerializer.Deserialize<TmdbSearchResponseDto>(jsonString);
-
-        return tmdbData?.Results ?? [];
+        return JsonSerializer.Deserialize<TmdbSearchResponseDto>(jsonString) ?? new TmdbSearchResponseDto { Results = [], TotalCount = 0 };
     }
 }

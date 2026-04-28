@@ -16,6 +16,9 @@ public class SpotifySearchResponseDto
 
 public class SpotifyTracksDto
 {
+    [JsonPropertyName("total")]
+    public int TotalCount { get; set; }
+
     [JsonPropertyName("items")]
     public List<SpotifyTrackDto> Items { get; set; } = new();
 }

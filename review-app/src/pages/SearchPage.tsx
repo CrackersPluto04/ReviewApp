@@ -1,19 +1,24 @@
 import { useState, useEffect } from 'preact/hooks';
 import { useSearchParams } from 'react-router-dom';
-import { Box, Typography, Tabs, Tab, CircularProgress } from '@mui/material';
+import { Box, Typography, Tabs, Tab, CircularProgress, Pagination, Button } from '@mui/material';
 import { SearchBar } from '../components/SearchBar';
 import { MediaCard } from '../components/MediaCard';
 import { mediaService } from '../services/MediaService';
 
 export function SearchPage() {
     const [searchParams, setSearchParams] = useSearchParams();
+
     const [results, setResults] = useState<any[]>([]);
+    const [totalCount, setTotalCount] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
+
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
     // Read from the URL parameters
     const query = searchParams.get('q') || '';
     const currentType = searchParams.get('type') || 'all';
+    const page = Number.parseInt(searchParams.get('page') || '1', 10);
 
     useEffect(() => {
         if (!query) return;
@@ -24,33 +29,39 @@ export function SearchPage() {
 
             switch (currentType) {
                 case 'movie':
-                    res = await mediaService.searchMovies(query);
+                    res = await mediaService.searchMovies(query, page);
                     break;
                 case 'series':
-                    res = await mediaService.searchSeries(query);
+                    res = await mediaService.searchSeries(query, page);
                     break;
                 case 'music':
-                    res = await mediaService.searchMusic(query);
+                    res = await mediaService.searchMusic(query, page);
                     break;
                 default:
                     res = await mediaService.searchAll(query);
                     break;
             }
 
-            if (res.success)
-                setResults(res.data);
+            if (res.success) {
+                setResults(res.data.items);
+                setTotalCount(res.data.totalCount);
+                setTotalPages(res.data.totalPages);
+            }
             else
                 setErrorMessage(res.message);
-
 
             setLoading(false);
         };
 
         fetchData();
-    }, [query, currentType]);
+    }, [query, currentType, page]);
+
+    const handlePageChange = (_event: any, newPage: number) => {
+        setSearchParams({ q: query, type: currentType, page: newPage.toString() });
+    };
 
     const handleTabChange = (_event: Event, newValue: string) => {
-        setSearchParams({ q: query, type: newValue });
+        setSearchParams({ q: query, type: newValue, page: '1' });
     };
 
     return <Box>
@@ -66,12 +77,26 @@ export function SearchPage() {
         </Box>
 
         {/* Tabs */}
-        <Tabs value={currentType} onChange={handleTabChange} variant="fullWidth" sx={{ mb: 4, borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs value={currentType} onChange={handleTabChange} variant="fullWidth" sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}>
             <Tab label="Any" value="all" />
             <Tab label="Movies" value="movie" />
             <Tab label="Series" value="series" />
             <Tab label="Music" value="music" />
         </Tabs>
+
+        {/* Pagination Top */}
+        {totalPages > 1 && !loading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                <Pagination
+                    count={totalPages}
+                    page={page}
+                    onChange={handlePageChange}
+                    size="medium"
+                    showFirstButton
+                    showLastButton
+                />
+            </Box>
+        )}
 
         {/* The Results List */}
         {loading ? (
@@ -84,6 +109,35 @@ export function SearchPage() {
             <Typography textAlign="center" mt={4} color={errorMessage ? "error" : "text.secondary"}>
                 {query ? errorMessage || "No results found. Try a different search." : "Type something above to start searching!"}
             </Typography>
+        )}
+
+        {/* Pagination Bottom */}
+        {totalPages > 1 && !loading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4, mb: 4 }}>
+                <Pagination
+                    count={totalPages}
+                    page={page}
+                    onChange={handlePageChange}
+                    size="large"
+                    showFirstButton
+                    showLastButton
+                />
+            </Box>
+        )}
+
+        {/* Search Specific Media Buttons */}
+        {currentType === 'all' && results.length > 0 && (
+            <Box display="flex" justifyContent="center" mt={4} gap={2}>
+                <Button variant="outlined" onClick={() => setSearchParams({ q: query, type: 'movie', page: '1' })}>
+                    See all Movies
+                </Button>
+                <Button variant="outlined" onClick={() => setSearchParams({ q: query, type: 'series', page: '1' })}>
+                    See all Series
+                </Button>
+                <Button variant="outlined" onClick={() => setSearchParams({ q: query, type: 'music', page: '1' })}>
+                    See all Music
+                </Button>
+            </Box>
         )}
     </Box>
 }

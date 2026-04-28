@@ -4,5 +4,5 @@ namespace ReviewApp.Api.Services;
 
 public interface ISpotifyService
 {
-    Task<List<SpotifyTrackDto>> SearchMusicAsync(string query);
+    Task<SpotifyTracksDto> SearchMusicAsync(string query, int page = 1);
 }

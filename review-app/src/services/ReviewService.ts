@@ -3,9 +3,9 @@ import { ReviewMediaDto } from "../types/types";
 class ReviewService {
     private readonly baseUrl = 'https://localhost:7140/api/Review';
 
-    async getMediaReviews(externalApiId: string, mediaType: number) {
+    async getMediaReviews(externalApiId: string, mediaType: number, page: number = 1, pageSize: number = 10) {
         try {
-            const response = await fetch(`${this.baseUrl}/media?externalApiId=${externalApiId}&mediaType=${mediaType}`);
+            const response = await fetch(`${this.baseUrl}/media?externalApiId=${externalApiId}&mediaType=${mediaType}&page=${page}&pageSize=${pageSize}`);
 
             if (response.ok) {
                 const data = await response.json();
