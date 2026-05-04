@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'preact/hooks';
 import { useSearchParams } from 'react-router-dom';
-import { Box, Typography, Tabs, Tab, CircularProgress, Pagination, Button } from '@mui/material';
+import { Box, Typography, Tabs, Tab, CircularProgress, Button, Grid, Paper } from '@mui/material';
 import { SearchBar } from '../components/SearchBar';
 import { MediaCard } from '../components/MediaCard';
 import { mediaService } from '../services/MediaService';
+import { MyPagination } from '../components/MyPagination';
 
 export function SearchPage() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -85,20 +86,10 @@ export function SearchPage() {
         </Tabs>
 
         {/* Pagination Top */}
-        {totalPages > 1 && !loading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-                <Pagination
-                    count={totalPages}
-                    page={page}
-                    onChange={handlePageChange}
-                    size="medium"
-                    showFirstButton
-                    showLastButton
-                />
-            </Box>
-        )}
+        {totalPages > 1 && !loading &&
+            <MyPagination page={page} totalPages={totalPages} onPageChange={handlePageChange} size="medium" mt={2} mb={2} />}
 
-        {/* The Results List */}
+        {/* Results List */}
         {loading ? (
             <Box display="flex" justifyContent="center" mt={4}><CircularProgress /></Box>
         ) : results.length > 0 ? (
@@ -112,21 +103,11 @@ export function SearchPage() {
         )}
 
         {/* Pagination Bottom */}
-        {totalPages > 1 && !loading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4, mb: 4 }}>
-                <Pagination
-                    count={totalPages}
-                    page={page}
-                    onChange={handlePageChange}
-                    size="large"
-                    showFirstButton
-                    showLastButton
-                />
-            </Box>
-        )}
+        {totalPages > 1 && !loading &&
+            <MyPagination page={page} totalPages={totalPages} onPageChange={handlePageChange} size="large" />}
 
         {/* Search Specific Media Buttons */}
-        {currentType === 'all' && results.length > 0 && (
+        {currentType === 'all' && results.length > 0 && !loading && (
             <Box display="flex" justifyContent="center" mt={4} gap={2}>
                 <Button variant="outlined" onClick={() => setSearchParams({ q: query, type: 'movie', page: '1' })}>
                     See all Movies

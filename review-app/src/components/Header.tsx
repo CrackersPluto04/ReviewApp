@@ -46,15 +46,15 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
 
                 {/* MIDDLE: Navigation Links */}
                 <Box sx={{ display: 'flex', gap: 2 }}>
-                    <Button color="inherit" onClick={() => navigate('/movies')}>Movies</Button>
-                    <Button color="inherit" onClick={() => navigate('/series')}>Series</Button>
-                    <Button color="inherit" onClick={() => navigate('/music')}>Music</Button>
+                    <Button color="inherit" onClick={() => navigate('/discover?type=movie')}>Movies</Button>
+                    <Button color="inherit" onClick={() => navigate('/discover?type=series')}>Series</Button>
+                    <Button color="inherit" onClick={() => navigate('/discover/music')}>Music</Button>
                     <Button color="inherit" sx={{ fontWeight: 'bold' }}>*Live</Button>
                 </Box>
 
                 {/* RIGHT: Icons */}
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                    <IconButton color="inherit">
+                    <IconButton color="inherit" onClick={() => navigate('/search')}>
                         <SearchIcon />
                     </IconButton>
                     <IconButton color="inherit">

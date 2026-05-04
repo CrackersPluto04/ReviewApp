@@ -1,3 +1,5 @@
+import { SpotifyParams, TmdbParams } from "../types/types";
+
 class MediaService {
     private readonly baseUrl = 'https://localhost:7140/api/Media';
 
@@ -96,8 +98,42 @@ class MediaService {
         }
     }
 
+    async discoverMovies(params: TmdbParams) {
+        return this.discover(params, 'movie');
+    }
+
+    async discoverSeries(params: TmdbParams) {
+        return this.discover(params, 'series');
+    }
+
+    async discoverMusic(params: SpotifyParams) {
+        try {
+            const query = new URLSearchParams();
+
+            query.append('page', params.page.toString());
+            query.append('genre', params.genre);
+            if (params.year) query.append('year', params.year);
+            query.append('market', params.market);
+
+            const response = await fetch(`${this.baseUrl}/discover/music?${query.toString()}`);
+
+            if (response.ok) {
+                const data = await response.json();
+                return { success: true, data: data };
+            } else {
+                const errorData = await response.json();
+                return { success: false, message: errorData.error || 'Music Discovery failed' };
+            }
+        } catch (error) {
+            console.error('Music Discover error:', error);
+            return { success: false, message: 'Network error while discovering music.' };
+        }
+    }
+
+    /* Helper methods */
+
     // Private helper to handle the actual search logic
-    private async search(query: string, what: 'all' | 'movie' | 'series' | 'music', page: number = 1) {
+    private async search(query: string, what: 'all' | 'movie' | 'series', page: number = 1) {
         try {
             const response = await fetch(`${this.baseUrl}/search/${what}?query=${encodeURIComponent(query)}&page=${page}`);
 
@@ -111,6 +147,33 @@ class MediaService {
         } catch (error) {
             console.error('Search error:', error);
             return { success: false, message: 'Network error while searching.' };
+        }
+    }
+
+    private async discover(params: TmdbParams, what: 'movie' | 'series') {
+        try {
+            const query = new URLSearchParams();
+
+            query.append('page', params.page.toString());
+            query.append('sortBy', params.sortBy);
+
+            if (params.year) query.append('year', params.year);
+            if (params.withGenres) query.append('withGenres', params.withGenres);
+            if (params.minRuntime) query.append('minRuntime', params.minRuntime);
+            if (params.maxRuntime) query.append('maxRuntime', params.maxRuntime);
+
+            const response = await fetch(`${this.baseUrl}/discover/${what}?${query.toString()}`);
+
+            if (response.ok) {
+                const data = await response.json();
+                return { success: true, data: data };
+            } else {
+                const errorData = await response.json();
+                return { success: false, message: errorData.error || 'Discovery failed' };
+            }
+        } catch (error) {
+            console.error('Tmdb Discover error:', error);
+            return { success: false, message: 'Network error while discovering.' };
         }
     }
 }

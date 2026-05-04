@@ -1,8 +1,9 @@
-import { Box, Card, CardMedia, CircularProgress, Divider, Grid, Pagination, Paper, Typography } from "@mui/material";
+import { Box, Card, CardMedia, CircularProgress, Divider, Grid, Paper, Typography } from "@mui/material";
 import { MediaDto } from "../types/types";
 import { useState, useEffect } from "preact/hooks";
 import { reviewService } from "../services/ReviewService";
 import { ReviewCard } from "./ReviewCard";
+import { MyPagination } from "./MyPagination";
 
 type MediaDetailsProps = {
     media: MediaDto;
@@ -82,6 +83,10 @@ export function MediaDetails({ media }: MediaDetailsProps) {
             Reviews ({totalCount})
         </Typography>
 
+        {/* Pagination Top */}
+        {totalPages > 1 &&
+            <MyPagination page={page} totalPages={totalPages} onPageChange={handlePageChange} size="medium" mt={2} mb={2} />}
+
         <Grid container spacing={4}>
             {/* Left: Review List */}
             <Grid size={{ xs: 12, md: 8 }}>
@@ -107,24 +112,14 @@ export function MediaDetails({ media }: MediaDetailsProps) {
                     <Typography variant="h6" gutterBottom>Filter Reviews</Typography>
                     {/* Placeholder for real filters later! */}
                     <Box sx={{ height: 100, border: '1px dashed grey', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        Filters UI Placeholderr
+                        Filters UI Placeholder
                     </Box>
                 </Paper>
             </Grid>
         </Grid>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4, mb: 4 }}>
-                <Pagination
-                    count={totalPages}
-                    page={page}
-                    onChange={handlePageChange}
-                    size="large"
-                    showFirstButton
-                    showLastButton
-                />
-            </Box>
-        )}
+        {/* Pagination Bottom */}
+        {totalPages > 1 &&
+            <MyPagination page={page} totalPages={totalPages} onPageChange={handlePageChange} size="large" />}
     </Box>
 }

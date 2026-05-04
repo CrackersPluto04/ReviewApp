@@ -3,15 +3,14 @@ import { LoginPage } from './pages/LoginPage';
 import { HomePage } from './pages/HomePage';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { PageContainer } from './components/PageContainer';
-import { MoviesPage } from './pages/MoviesPage';
-import { MusicPage } from './pages/MusicPage';
-import { SeriesPage } from './pages/SeriesPage';
 import { useMemo, useState } from 'preact/hooks';
 import { createTheme, CssBaseline, ThemeProvider } from '@mui/material';
 import { SearchPage } from './pages/SearchPage';
 import { MediaReviewPage } from './pages/MediaReviewPage';
 import { ScrollToTop } from './components/ScrollToTop';
 import { AuthProvider } from './context/AuthContext';
+import { DiscoverPage } from './pages/DiscoverPage';
+import { DiscoverMusicPage } from './pages/DiscoverMusicPage';
 
 function App() {
 	const [mode, setMode] = useState<"light" | "dark">(() => {
@@ -50,27 +49,21 @@ function App() {
 						</PageContainer>
 					} />
 
-					<Route path="/movies" element={
-						<PageContainer mode={mode} toggleTheme={toggleTheme}>
-							<MoviesPage />
-						</PageContainer>
-					} />
-
-					<Route path="/series" element={
-						<PageContainer mode={mode} toggleTheme={toggleTheme}>
-							<SeriesPage />
-						</PageContainer>
-					} />
-
-					<Route path="/music" element={
-						<PageContainer mode={mode} toggleTheme={toggleTheme}>
-							<MusicPage />
-						</PageContainer>
-					} />
-
 					<Route path="/search" element={
 						<PageContainer mode={mode} toggleTheme={toggleTheme}>
 							<SearchPage />
+						</PageContainer>
+					} />
+
+					<Route path="/discover" element={
+						<PageContainer mode={mode} toggleTheme={toggleTheme}>
+							<DiscoverPage />
+						</PageContainer>
+					} />
+
+					<Route path="/discover/music" element={
+						<PageContainer mode={mode} toggleTheme={toggleTheme}>
+							<DiscoverMusicPage />
 						</PageContainer>
 					} />
 

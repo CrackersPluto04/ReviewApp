@@ -20,3 +20,19 @@ export interface ReviewMediaDto {
     mediaDto: MediaDto;
     reviewDto: ReviewDto;
 }
+
+export interface TmdbParams {
+    page: number;
+    sortBy: string;
+    year?: string;
+    withGenres?: string;
+    minRuntime?: string;
+    maxRuntime?: string;
+}
+
+export interface SpotifyParams {
+    page: number;
+    genre: string;
+    year?: string;
+    market: string;
+}

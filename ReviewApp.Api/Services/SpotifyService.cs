@@ -27,9 +27,6 @@ public class SpotifyService : ISpotifyService
         var response = await _httpClient.SendAsync(request);
         if (!response.IsSuccessStatusCode)
         {
-            //var errorBody = await response.Content.ReadAsStringAsync();
-            //Console.WriteLine($"SPOTIFY ERROR: {errorBody}");
-
             return new SpotifyTracksDto { TotalCount = 0, Items = [] };
         }
 
@@ -38,6 +35,41 @@ public class SpotifyService : ISpotifyService
 
         return searchData?.Tracks ?? new SpotifyTracksDto { TotalCount = 0, Items = [] };
     }
+
+    public async Task<SpotifyTracksDto> DiscoverMusicAsync(SpotifyParams p)
+    {
+        var token = await GetAccessTokenAsync();
+
+        // Build the query string based on the provided parameters
+        var queryParts = new List<string>
+        {
+            $"genre:{p.Genre.ToLower()}"
+        };
+        if (!string.IsNullOrWhiteSpace(p.Year))
+            queryParts.Add($"year:{p.Year}");
+
+        var queryString = string.Join(" ", queryParts);
+
+        // Build URL and send request to Spotify Recommendations API
+        var url = $"https://api.spotify.com/v1/search?q={Uri.EscapeDataString(queryString)}&type=track&market={p.Market}&limit=10&offset={(p.Page - 1) * 10}";
+
+        var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _httpClient.SendAsync(request);
+        if (!response.IsSuccessStatusCode)
+        {
+            return new SpotifyTracksDto { TotalCount = 0, Items = [] };
+        }
+
+        // Parse the response and return the tracks
+        var jsonString = await response.Content.ReadAsStringAsync();
+        var discoverData = JsonSerializer.Deserialize<SpotifySearchResponseDto>(jsonString);
+
+        return discoverData?.Tracks ?? new SpotifyTracksDto { TotalCount = 0, Items = [] };
+    }
+
+    /* Helper methods */
 
     // Helper method to get Spotify access token using Client Credentials flow
     private async Task<string> GetAccessTokenAsync()

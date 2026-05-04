@@ -106,4 +106,34 @@ public class MediaController : ControllerBase
         var response = new PagedResponse<MediaDto>(combinedResults, count, 1, count);
         return Ok(response);
     }
+
+    [HttpGet("discover/movie")]
+    public async Task<IActionResult> DiscoverMovies([FromQuery] TmdbParams p)
+    {
+        var tmdbDto = await _tmdbService.DiscoverMoviesAsync(p);
+        var formattedMovies = tmdbDto.Results.Select(m => _mediaService.ToMediaDto(MediaType.Movie, m)).ToList();
+
+        var response = new PagedResponse<MediaDto>(formattedMovies, tmdbDto.TotalCount, p.Page, 20);
+        return Ok(response);
+    }
+
+    [HttpGet("discover/series")]
+    public async Task<IActionResult> DiscoverSeries([FromQuery] TmdbParams p)
+    {
+        var tmdbDto = await _tmdbService.DiscoverSeriesAsync(p);
+        var formattedSeries = tmdbDto.Results.Select(s => _mediaService.ToMediaDto(MediaType.Series, s)).ToList();
+
+        var response = new PagedResponse<MediaDto>(formattedSeries, tmdbDto.TotalCount, p.Page, 20);
+        return Ok(response);
+    }
+
+    [HttpGet("discover/music")]
+    public async Task<IActionResult> DiscoverMusic([FromQuery] SpotifyParams p)
+    {
+        var spotifyDto = await _spotifyService.DiscoverMusicAsync(p);
+        var formattedTracks = spotifyDto.Items.Select(t => _mediaService.ToMediaDto(MediaType.Music, spotifyTrack: t)).ToList();
+
+        var response = new PagedResponse<MediaDto>(formattedTracks, spotifyDto.TotalCount, p.Page, 10);
+        return Ok(response);
+    }
 }
