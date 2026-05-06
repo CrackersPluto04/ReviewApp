@@ -67,7 +67,7 @@ function App() {
 						</PageContainer>
 					} />
 
-					<Route path="/media" element={
+					<Route path="/media/:mediaType/:externalApiId" element={
 						<PageContainer mode={mode} toggleTheme={toggleTheme}>
 							<MediaReviewPage />
 						</PageContainer>

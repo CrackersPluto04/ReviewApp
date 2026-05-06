@@ -25,5 +25,8 @@ public class AppDbContext : DbContext
             .HasValue<Movie>(MediaType.Movie)
             .HasValue<Series>(MediaType.Series)
             .HasValue<Music>(MediaType.Music);
+
+        modelBuilder.Entity<Review>()
+            .ToTable(tb => tb.HasTrigger("SetUpdatedAt"));
     }
 }

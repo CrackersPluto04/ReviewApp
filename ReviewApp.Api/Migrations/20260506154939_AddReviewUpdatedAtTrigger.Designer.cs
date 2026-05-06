@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ReviewApp.Api.DAL;
 
@@ -11,9 +12,11 @@ using ReviewApp.Api.DAL;
 namespace ReviewApp.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260506154939_AddReviewUpdatedAtTrigger")]
+    partial class AddReviewUpdatedAtTrigger
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -93,7 +96,6 @@ namespace ReviewApp.Api.Migrations
                         .HasColumnType("decimal(3,1)");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("datetime2");
 
                     b.Property<int>("UserID")
@@ -108,12 +110,7 @@ namespace ReviewApp.Api.Migrations
 
                     b.HasIndex("UserID");
 
-                    b.ToTable("Reviews", t =>
-                        {
-                            t.HasTrigger("SetUpdatedAt");
-                        });
-
-                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
+                    b.ToTable("Reviews");
                 });
 
             modelBuilder.Entity("ReviewApp.Api.DAL.Entities.User", b =>

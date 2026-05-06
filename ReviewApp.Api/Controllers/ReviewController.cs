@@ -22,29 +22,46 @@ public class ReviewController : ControllerBase
         this.mediaService = mediaService;
     }
 
-    [HttpGet("media")]
+    [HttpGet("media/{mediaType}/{externalApiId}")]
     public async Task<IActionResult> GetMediaReviews(
-        [FromQuery] string externalApiId, [FromQuery] MediaType mediaType,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        [FromRoute] MediaType mediaType,
+        [FromRoute] string externalApiId,
+        [FromQuery] ReviewFilterParams p)
     {
         // Find Media ID, if null, nobody has reviewed it yet
         var media = await _context.Media.FirstOrDefaultAsync(m => m.ExternalApiID == externalApiId && m.MediaType == mediaType);
         if (media == null)
         {
-            return Ok(new PagedResponse<object>(new List<object>(), 0, page, pageSize));
+            return Ok(new PagedResponse<object>([], 0, p.Page, p.PageSize));
         }
 
         // Get public reviews for media
         var query = _context.Reviews
             .Include(r => r.User)
-            .Where(r => r.MediaID == media.ID && r.VisibilityLevel == VisibilityLevel.Public)
-            .OrderByDescending(r => r.CreatedAt);
+            .Where(r => r.MediaID == media.ID && r.VisibilityLevel == VisibilityLevel.Public);
 
+        // Apply filters
+        if (p.HasWrittenText)
+            query = query.Where(r => !string.IsNullOrWhiteSpace(r.ReviewText) || !string.IsNullOrWhiteSpace(r.Pros) || !string.IsNullOrWhiteSpace(r.Cons));
+
+        query = query.Where(r => r.Score >= p.MinScore);
+        query = query.Where(r => r.Score <= p.MaxScore);
+
+        query = p.SortBy switch
+        {
+            "created_asc" => query.OrderBy(r => r.CreatedAt),
+            "updated_desc" => query.OrderByDescending(r => r.UpdatedAt),
+            "updated_asc" => query.OrderBy(r => r.UpdatedAt),
+            "score_desc" => query.OrderByDescending(r => r.Score),
+            "score_asc" => query.OrderBy(r => r.Score),
+            _ => query.OrderByDescending(r => r.CreatedAt)
+        };
+
+        // Count reviews and apply pagination
         var reviewsCount = await query.CountAsync();
-
         var reviews = await query
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
+            .Skip((p.Page - 1) * p.PageSize)
+            .Take(p.PageSize)
             .Select(r => new
             {
                 r.Score,
@@ -58,8 +75,7 @@ public class ReviewController : ControllerBase
             })
             .ToListAsync();
 
-        var response = new PagedResponse<object>(reviews, reviewsCount, page, pageSize);
-
+        var response = new PagedResponse<object>(reviews, reviewsCount, p.Page, p.PageSize);
         return Ok(response);
     }
 

@@ -34,7 +34,7 @@ export function MediaCard({ media }: MediaCardProps) {
     }, [media]);
 
     const handleCardClick = () => {
-        navigate('/media', { state: { media } })
+        navigate(`/media/${media.mediaType}/${media.externalApiID}`, { state: { media } })
     }
 
     return <Card

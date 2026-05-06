@@ -1,27 +1,68 @@
-import { Box, Card, CardMedia, CircularProgress, Divider, Grid, Paper, Typography } from "@mui/material";
-import { MediaDto } from "../types/types";
+import { Box, Button, Card, CardMedia, CircularProgress, Divider, FormControl, FormControlLabel, Grid, InputLabel, MenuItem, Paper, Select, Slider, Switch, Typography } from "@mui/material";
+import { MediaDto, ReviewFilterParams } from "../types/types";
 import { useState, useEffect } from "preact/hooks";
 import { reviewService } from "../services/ReviewService";
 import { ReviewCard } from "./ReviewCard";
 import { MyPagination } from "./MyPagination";
+import { useLocation, useSearchParams } from "react-router-dom";
 
 type MediaDetailsProps = {
     media: MediaDto;
 };
 
 export function MediaDetails({ media }: MediaDetailsProps) {
+    const [searchParams, setSearchParams] = useSearchParams();
+    const location = useLocation();
+
+    // --- States ---
     const [reviews, setReviews] = useState<any[]>([]);
     const [totalCount, setTotalCount] = useState(0);
-    const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
 
+    // --- Active States (From URL) ---
+    const pageUrl = Number.parseInt(searchParams.get('page') || '1', 10);
+    const sortByUrl = searchParams.get('sortBy') || 'created_desc';
+    const minScoreUrl = searchParams.get('minScore') ? Number.parseFloat(searchParams.get('minScore')!) : 1;
+    const maxScoreUrl = searchParams.get('maxScore') ? Number.parseFloat(searchParams.get('maxScore')!) : 10;
+    const hasWrittenTextUrl = searchParams.get('hasWrittenText') === 'true';
+
+    const scoreRange = [minScoreUrl, maxScoreUrl];
+
+    // --- Local States (For Inputs) ---
+    const [draftFilters, setDraftFilters] = useState({
+        sortBy: sortByUrl,
+        scoreRange: scoreRange,
+        hasWrittenText: hasWrittenTextUrl
+    });
+
+    // --- Sync local state to URL params ---
+    useEffect(() => {
+        setDraftFilters({
+            sortBy: sortByUrl,
+            scoreRange: scoreRange,
+            hasWrittenText: hasWrittenTextUrl
+        });
+    }, [sortByUrl, minScoreUrl, maxScoreUrl, hasWrittenTextUrl]);
+
+    // --- Fetch Logic ---
     useEffect(() => {
         const fetchReviews = async () => {
             setLoading(true);
+            setErrorMessage('');
 
-            const result = await reviewService.getMediaReviews(media.externalApiID, media.mediaType, page, 10);
+            const params: ReviewFilterParams = {
+                mediaType: media.mediaType,
+                externalApiId: media.externalApiID,
+                page: pageUrl,
+                sortBy: sortByUrl,
+                minScore: minScoreUrl,
+                maxScore: maxScoreUrl,
+                hasWrittenText: hasWrittenTextUrl
+            };
+            const result = await reviewService.getMediaReviews(params);
+
             if (result.success) {
                 setReviews(result.data.items);
                 setTotalCount(result.data.totalCount);
@@ -34,11 +75,42 @@ export function MediaDetails({ media }: MediaDetailsProps) {
         };
 
         fetchReviews();
-    }, [media, page]);
+    }, [media, pageUrl, sortByUrl, minScoreUrl, maxScoreUrl, hasWrittenTextUrl]);
+
+    // --- Handlers ---
+    const updateFilter = (key: string, value: any) => {
+        setDraftFilters(prev => ({ ...prev, [key]: value }));
+    };
 
     const handlePageChange = (_event: any, newPage: number) => {
-        setPage(newPage);
+        setSearchParams(prev => {
+            const newParams = new URLSearchParams(prev);
+            newParams.set('page', newPage.toString());
+            return newParams;
+        }, { state: location.state });
     };
+
+    const handleApply = () => {
+        const newParams = new URLSearchParams();
+
+        if (draftFilters.sortBy) newParams.set('sortBy', draftFilters.sortBy);
+        if (draftFilters.scoreRange[0] !== undefined) newParams.set('minScore', draftFilters.scoreRange[0].toString());
+        if (draftFilters.scoreRange[1] !== undefined) newParams.set('maxScore', draftFilters.scoreRange[1].toString());
+        if (draftFilters.hasWrittenText) newParams.set('hasWrittenText', 'true');
+
+        newParams.set('page', '1');
+
+        setSearchParams(newParams, { state: location.state });
+    };
+
+    const handleClear = () => {
+        setDraftFilters({
+            sortBy: 'created_desc',
+            scoreRange: [1, 10],
+            hasWrittenText: false
+        });
+        setSearchParams({ 'tab': 'details' }, { state: location.state });
+    }
 
     return <Box sx={{ pb: 8 }}>
         {/* --- TOP SECTION: Media Info --- */}
@@ -84,8 +156,8 @@ export function MediaDetails({ media }: MediaDetailsProps) {
         </Typography>
 
         {/* Pagination Top */}
-        {totalPages > 1 &&
-            <MyPagination page={page} totalPages={totalPages} onPageChange={handlePageChange} size="medium" mt={2} mb={2} />}
+        {totalPages > 1 && !loading &&
+            <MyPagination page={pageUrl} totalPages={totalPages} onPageChange={handlePageChange} size="medium" mt={2} mb={2} />}
 
         <Grid container spacing={4}>
             {/* Left: Review List */}
@@ -105,21 +177,68 @@ export function MediaDetails({ media }: MediaDetailsProps) {
 
             {/* Right: Sticky Filters */}
             <Grid size={{ xs: 12, md: 4 }}>
-                <Paper
-                    variant="outlined"
-                    sx={{ p: 3, borderRadius: 2, position: 'sticky', top: 80 }}
-                >
-                    <Typography variant="h6" gutterBottom>Filter Reviews</Typography>
-                    {/* Placeholder for real filters later! */}
-                    <Box sx={{ height: 100, border: '1px dashed grey', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        Filters UI Placeholder
+                <Paper variant="outlined" sx={{ p: 3, borderRadius: 2, position: 'sticky', top: 80 }}>
+                    <Typography variant="h6" gutterBottom>
+                        Filter & Sort Reviews
+                    </Typography>
+
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 2 }}>
+                        {/* Sort Dropdown */}
+                        <FormControl fullWidth>
+                            <InputLabel>Sort By</InputLabel>
+
+                            <Select value={draftFilters.sortBy} label="Sort By" onChange={(e) => updateFilter('sortBy', (e.target as HTMLInputElement).value)}>
+                                <MenuItem value="created_desc">Newest First</MenuItem>
+                                <MenuItem value="created_asc">Oldest First</MenuItem>
+                                <MenuItem value="updated_desc">Recently Updated</MenuItem>
+                                <MenuItem value="updated_asc">Least Recently Updated</MenuItem>
+                                <MenuItem value="score_desc">Highest Score</MenuItem>
+                                <MenuItem value="score_asc">Lowest Score</MenuItem>
+                            </Select>
+                        </FormControl>
+
+                        {/* Score Range Slider */}
+                        <Box sx={{ px: 1 }}>
+                            <Typography gutterBottom>
+                                Score Range: {draftFilters.scoreRange[0]} - {draftFilters.scoreRange[1]}
+                            </Typography>
+
+                            <Slider
+                                value={draftFilters.scoreRange}
+                                onChange={(_e, newValue) => updateFilter('scoreRange', newValue)}
+                                step={0.5} min={1} max={10} valueLabelDisplay="auto" marks
+                            />
+                        </Box>
+
+                        {/* Has Written Text Checkbox */}
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    checked={draftFilters.hasWrittenText}
+                                    onChange={(e) => updateFilter('hasWrittenText', e.currentTarget.checked)}
+                                    color="primary"
+                                />
+                            }
+                            label="Only show written reviews"
+                        />
+
+                        {/* Action Buttons */}
+                        <Box sx={{ display: 'flex', gap: 2 }}>
+                            <Button variant="contained" color="success" fullWidth onClick={handleApply}>
+                                Apply
+                            </Button>
+
+                            <Button variant="outlined" color="error" fullWidth onClick={handleClear}>
+                                Clear
+                            </Button>
+                        </Box>
                     </Box>
                 </Paper>
             </Grid>
         </Grid>
 
         {/* Pagination Bottom */}
-        {totalPages > 1 &&
-            <MyPagination page={page} totalPages={totalPages} onPageChange={handlePageChange} size="large" />}
+        {totalPages > 1 && !loading &&
+            <MyPagination page={pageUrl} totalPages={totalPages} onPageChange={handlePageChange} size="large" />}
     </Box>
 }

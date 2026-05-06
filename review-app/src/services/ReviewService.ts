@@ -1,11 +1,19 @@
-import { ReviewMediaDto } from "../types/types";
+import { ReviewFilterParams, ReviewMediaDto } from "../types/types";
 
 class ReviewService {
     private readonly baseUrl = 'https://localhost:7140/api/Review';
 
-    async getMediaReviews(externalApiId: string, mediaType: number, page: number = 1, pageSize: number = 10) {
+    async getMediaReviews(params: ReviewFilterParams) {
         try {
-            const response = await fetch(`${this.baseUrl}/media?externalApiId=${externalApiId}&mediaType=${mediaType}&page=${page}&pageSize=${pageSize}`);
+            const query = new URLSearchParams();
+
+            query.append('page', params.page.toString());
+            if (params.sortBy) query.append('sortBy', params.sortBy);
+            if (params.minScore !== undefined) query.append('minScore', params.minScore.toString());
+            if (params.maxScore !== undefined) query.append('maxScore', params.maxScore.toString());
+            if (params.hasWrittenText) query.append('hasWrittenText', 'true');
+
+            const response = await fetch(`${this.baseUrl}/media/${params.mediaType}/${params.externalApiId}?${query.toString()}`);
 
             if (response.ok) {
                 const data = await response.json();

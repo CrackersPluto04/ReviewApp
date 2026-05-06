@@ -36,3 +36,13 @@ export interface SpotifyParams {
     year?: string;
     market: string;
 }
+
+export interface ReviewFilterParams {
+    mediaType: number; // 0 = Movie, 1 = Series, 2 = Music
+    externalApiId: string;
+    page: number;
+    sortBy: string;
+    minScore: number;
+    maxScore: number;
+    hasWrittenText: boolean;
+}

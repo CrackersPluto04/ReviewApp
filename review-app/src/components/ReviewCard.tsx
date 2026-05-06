@@ -1,4 +1,4 @@
-import { Card, Box, Avatar, Typography, CardContent, Grid } from "@mui/material";
+import { Card, Box, Avatar, Typography, CardContent, Grid, Stack } from "@mui/material";
 
 type ReviewCardProps = {
     rev: any;
@@ -7,23 +7,28 @@ type ReviewCardProps = {
 export function ReviewCard({ rev }: ReviewCardProps) {
     return <Card variant="outlined" sx={{ mb: 3, display: 'flex', borderRadius: 2 }}>
         {/* User Info Column */}
-        <Box sx={{ width: 140, p: 2, borderRight: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Avatar
-                src={rev.profilePictureUrl}
-                sx={{ width: 56, height: 56, mb: 1 }}
-            />
+        <Box sx={{ width: 200, p: 2, borderRight: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Stack direction="row" spacing={2} alignItems="center" justifyContent="center">
+                <Avatar
+                    src={rev.profilePictureUrl}
+                    sx={{ width: 56, height: 56, mb: 1 }}
+                />
+                <Typography variant="h6" noWrap fontWeight="bold">
+                    {rev.username}
+                </Typography>
+            </Stack>
 
-            <Typography variant="subtitle2" noWrap>
-                {rev.username}
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 2 }}>
+                Created: {new Date(rev.createdAt).toLocaleDateString()}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-                {new Date(rev.createdAt).toLocaleDateString()}
+                Updated: {new Date(rev.updatedAt).toLocaleDateString()}
             </Typography>
 
-            <Typography variant="h6" color={rev.score >= 7 ? 'success' : rev.score >= 4 ? 'warning' : 'error'} fontWeight="bold" sx={{ mt: 2 }}>
+            <Typography variant="h6" color={rev.score >= 7 ? 'success' : rev.score >= 4 ? 'warning' : 'error'} fontWeight="bold" sx={{ mt: 1 }}>
                 {rev.score}/10
             </Typography>
-            <Typography variant="caption" color={rev.score >= 7 ? 'success' : rev.score >= 4 ? 'warning' : 'error'} fontWeight="bold">
+            <Typography variant="body1" color={rev.score >= 7 ? 'success' : rev.score >= 4 ? 'warning' : 'error'} fontWeight="bold">
                 {rev.score >= 7 ? 'Great' : rev.score >= 4 ? 'Mixed' : 'Poor'}
             </Typography>
         </Box>

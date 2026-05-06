@@ -99,7 +99,7 @@ export function DiscoverMusicPage() {
 
     const handleClear = () => {
         setDraftFilters({ genre: 'pop', fromYear: '', toYear: '', market: 'US' });
-        setSearchParams({ genre: 'pop', market: 'US' });
+        setSearchParams({});
     };
 
     return <Box sx={{ p: 3 }}>
