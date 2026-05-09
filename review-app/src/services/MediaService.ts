@@ -2,13 +2,29 @@ import { SpotifyParams, TmdbParams } from "../types/types";
 
 class MediaService {
     private readonly baseUrl = 'https://localhost:7140/api/Media';
-
     private spotifyBuffer = {
         query: '',
         uniqueTracks: [] as any[],
         currentOffset: 0,
         hasMore: true
     };
+
+    async getMediaDetails(mediaType: string, externalApiId: string) {
+        try {
+            const response = await fetch(`${this.baseUrl}/media/${mediaType}/${externalApiId}`);
+
+            if (response.ok) {
+                const data = await response.json();
+                return { success: true, data };
+            } else {
+                const errorData = await response.json();
+                return { success: false, message: errorData.error || 'Failed to fetch media details' };
+            }
+        } catch (error) {
+            console.error('Get media details error:', error);
+            return { success: false, message: 'Network error while fetching media details.' };
+        }
+    }
 
     async searchAll(query: string) {
         return this.search(query, 'all');

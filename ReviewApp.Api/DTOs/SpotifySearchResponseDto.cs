@@ -11,16 +11,16 @@ public class SpotifyTokenDto
 public class SpotifySearchResponseDto
 {
     [JsonPropertyName("tracks")]
-    public SpotifyTracksDto? Tracks { get; set; }
+    public SpotifyTracksDto Tracks { get; set; } = new SpotifyTracksDto();
 }
 
 public class SpotifyTracksDto
 {
     [JsonPropertyName("total")]
-    public int TotalCount { get; set; }
+    public int TotalCount { get; set; } = 0;
 
     [JsonPropertyName("items")]
-    public List<SpotifyTrackDto> Items { get; set; } = new();
+    public List<SpotifyTrackDto> Items { get; set; } = [];
 }
 
 public class SpotifyTrackDto
@@ -35,7 +35,7 @@ public class SpotifyTrackDto
     public SpotifyAlbumDto? Album { get; set; }
 
     [JsonPropertyName("artists")]
-    public List<SpotifyArtistDto> Artists { get; set; } = new();
+    public List<SpotifyArtistDto> Artists { get; set; } = [];
 }
 
 public class SpotifyAlbumDto
@@ -44,7 +44,7 @@ public class SpotifyAlbumDto
     public string? ReleaseDate { get; set; }
 
     [JsonPropertyName("images")]
-    public List<SpotifyImageDto> Images { get; set; } = new();
+    public List<SpotifyImageDto> Images { get; set; } = [];
 }
 
 public class SpotifyArtistDto

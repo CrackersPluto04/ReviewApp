@@ -19,41 +19,52 @@ public class TmdbService : ITmdbService
 
     public async Task<TmdbSearchResponseDto> SearchMoviesAsync(string query, int page = 1)
     {
-        return await FetchFromTmdbAsync($"search/movie?query={Uri.EscapeDataString(query)}&page={page}");
+        return await FetchFromTmdbAsync<TmdbSearchResponseDto>($"search/movie?query={Uri.EscapeDataString(query)}&page={page}");
     }
 
     public async Task<TmdbSearchResponseDto> SearchSeriesAsync(string query, int page = 1)
     {
-        return await FetchFromTmdbAsync($"search/tv?query={Uri.EscapeDataString(query)}&page={page}");
+        return await FetchFromTmdbAsync<TmdbSearchResponseDto>($"search/tv?query={Uri.EscapeDataString(query)}&page={page}");
     }
 
     public async Task<TmdbSearchResponseDto> DiscoverMoviesAsync(TmdbParams p)
     {
         var queryString = BuildDiscoverQueryString(p, MediaType.Movie);
-        return await FetchFromTmdbAsync($"discover/movie?{queryString}");
+        return await FetchFromTmdbAsync<TmdbSearchResponseDto>($"discover/movie?{queryString}");
     }
 
     public async Task<TmdbSearchResponseDto> DiscoverSeriesAsync(TmdbParams p)
     {
         var queryString = BuildDiscoverQueryString(p, MediaType.Series);
-        return await FetchFromTmdbAsync($"discover/tv?{queryString}");
+        return await FetchFromTmdbAsync<TmdbSearchResponseDto>($"discover/tv?{queryString}");
+    }
+
+    public async Task<TmdbItemDto> GetMovieByIdAsync(string id)
+    {
+        return await FetchFromTmdbAsync<TmdbItemDto>($"movie/{Uri.EscapeDataString(id)}");
+    }
+
+    public async Task<TmdbItemDto> GetSeriesByIdAsync(string id)
+    {
+        return await FetchFromTmdbAsync<TmdbItemDto>($"tv/{Uri.EscapeDataString(id)}");
     }
 
     /* Helper methods */
 
-    // Helper method to fetch data from TMDb API
-    private async Task<TmdbSearchResponseDto> FetchFromTmdbAsync(string endpoint)
+    // Generic method to fetch data from TMDb and deserialize it into the specified type
+    private async Task<T> FetchFromTmdbAsync<T>(string endpoint) where T : class, new()
     {
         var apiKey = _config["Tmdb:ApiKey"];
-        var response = await _httpClient.GetAsync($"{endpoint}&api_key={apiKey}");
+        var separator = endpoint.Contains('?') ? "&" : "?";
+        var response = await _httpClient.GetAsync($"{endpoint}{separator}api_key={apiKey}");
 
         if (!response.IsSuccessStatusCode)
         {
-            return new TmdbSearchResponseDto { Results = [], TotalCount = 0 };
+            return new T();
         }
 
         var jsonString = await response.Content.ReadAsStringAsync();
-        return JsonSerializer.Deserialize<TmdbSearchResponseDto>(jsonString) ?? new TmdbSearchResponseDto { Results = [], TotalCount = 0 };
+        return JsonSerializer.Deserialize<T>(jsonString) ?? new T();
     }
 
     // Helper method to build query string for discover endpoints

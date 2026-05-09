@@ -64,6 +64,7 @@ public class ReviewController : ControllerBase
             .Take(p.PageSize)
             .Select(r => new
             {
+                r.ID,
                 r.Score,
                 r.ReviewText,
                 r.Pros,

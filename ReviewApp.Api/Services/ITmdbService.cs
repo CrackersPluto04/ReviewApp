@@ -8,4 +8,6 @@ public interface ITmdbService
     Task<TmdbSearchResponseDto> SearchSeriesAsync(string query, int page = 1);
     Task<TmdbSearchResponseDto> DiscoverMoviesAsync(TmdbParams p);
     Task<TmdbSearchResponseDto> DiscoverSeriesAsync(TmdbParams p);
+    Task<TmdbItemDto> GetMovieByIdAsync(string id);
+    Task<TmdbItemDto> GetSeriesByIdAsync(string id);
 }

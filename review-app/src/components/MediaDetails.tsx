@@ -170,7 +170,7 @@ export function MediaDetails({ media }: MediaDetailsProps) {
                     </Typography>
                 ) : (
                     reviews.map((rev) => (
-                        <ReviewCard key={rev.username} rev={rev} />
+                        <ReviewCard key={rev.id} rev={rev} />
                     ))
                 )}
             </Grid>
@@ -224,11 +224,11 @@ export function MediaDetails({ media }: MediaDetailsProps) {
 
                         {/* Action Buttons */}
                         <Box sx={{ display: 'flex', gap: 2 }}>
-                            <Button variant="contained" color="success" fullWidth onClick={handleApply}>
+                            <Button variant="contained" color="success" fullWidth onClick={handleApply} disabled={reviews.length === 0 || loading || !!errorMessage}>
                                 Apply
                             </Button>
 
-                            <Button variant="outlined" color="error" fullWidth onClick={handleClear}>
+                            <Button variant="outlined" color="error" fullWidth onClick={handleClear} disabled={reviews.length === 0 || loading || !!errorMessage}>
                                 Clear
                             </Button>
                         </Box>

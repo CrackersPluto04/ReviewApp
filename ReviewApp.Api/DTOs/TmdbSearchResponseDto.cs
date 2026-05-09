@@ -8,13 +8,13 @@ public class TmdbSearchResponseDto
     public List<TmdbItemDto> Results { get; set; } = [];
 
     [JsonPropertyName("total_results")]
-    public int TotalCount { get; set; }
+    public int TotalCount { get; set; } = 0;
 }
 
 public class TmdbItemDto
 {
     [JsonPropertyName("id")]
-    public int ID { get; set; }
+    public int ID { get; set; } = -1;
 
     // TMDb can return either "title" or "name"
     // depending on the type of media (movie vs TV show)

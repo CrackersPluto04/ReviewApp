@@ -18,28 +18,13 @@ public class SpotifyService : ISpotifyService
 
     public async Task<SpotifyTracksDto> SearchMusicAsync(string query, int page = 1)
     {
-        var token = await GetAccessTokenAsync();
         var url = $"https://api.spotify.com/v1/search?q={Uri.EscapeDataString(query)}&type=track&limit=10&offset={(page - 1) * 10}";
-
-        var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        var response = await _httpClient.SendAsync(request);
-        if (!response.IsSuccessStatusCode)
-        {
-            return new SpotifyTracksDto { TotalCount = 0, Items = [] };
-        }
-
-        var jsonString = await response.Content.ReadAsStringAsync();
-        var searchData = JsonSerializer.Deserialize<SpotifySearchResponseDto>(jsonString);
-
-        return searchData?.Tracks ?? new SpotifyTracksDto { TotalCount = 0, Items = [] };
+        var result = await FetchFromSpotifyAsync<SpotifySearchResponseDto>(url);
+        return result.Tracks;
     }
 
     public async Task<SpotifyTracksDto> DiscoverMusicAsync(SpotifyParams p)
     {
-        var token = await GetAccessTokenAsync();
-
         // Build the query string based on the provided parameters
         var queryParts = new List<string>
         {
@@ -50,8 +35,23 @@ public class SpotifyService : ISpotifyService
 
         var queryString = string.Join(" ", queryParts);
 
-        // Build URL and send request to Spotify Recommendations API
         var url = $"https://api.spotify.com/v1/search?q={Uri.EscapeDataString(queryString)}&type=track&market={p.Market}&limit=10&offset={(p.Page - 1) * 10}";
+        var result = await FetchFromSpotifyAsync<SpotifySearchResponseDto>(url);
+        return result.Tracks;
+    }
+
+    public async Task<SpotifyTrackDto> GetMusicByIdAsync(string id)
+    {
+        var url = $"https://api.spotify.com/v1/tracks/{Uri.EscapeDataString(id)}";
+        return await FetchFromSpotifyAsync<SpotifyTrackDto>(url);
+    }
+
+    /* Helper methods */
+
+    // Generic method to fetch data from Spotify API and deserialize it into the specified type
+    private async Task<T> FetchFromSpotifyAsync<T>(string url) where T : class, new()
+    {
+        var token = await GetAccessTokenAsync();
 
         var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -59,17 +59,11 @@ public class SpotifyService : ISpotifyService
         var response = await _httpClient.SendAsync(request);
         if (!response.IsSuccessStatusCode)
         {
-            return new SpotifyTracksDto { TotalCount = 0, Items = [] };
+            return new T();
         }
-
-        // Parse the response and return the tracks
         var jsonString = await response.Content.ReadAsStringAsync();
-        var discoverData = JsonSerializer.Deserialize<SpotifySearchResponseDto>(jsonString);
-
-        return discoverData?.Tracks ?? new SpotifyTracksDto { TotalCount = 0, Items = [] };
+        return JsonSerializer.Deserialize<T>(jsonString) ?? new T();
     }
-
-    /* Helper methods */
 
     // Helper method to get Spotify access token using Client Credentials flow
     private async Task<string> GetAccessTokenAsync()
