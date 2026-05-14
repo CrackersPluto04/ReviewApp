@@ -47,10 +47,6 @@ export function MediaReviewPage() {
         </Box>
     }
 
-    if (!media) {
-        return <Navigate to="/search" replace />;
-    }
-
     return <Box sx={{ mt: 2 }}>
         <Tabs value={activeTab} onChange={handleTabChange} centered sx={{ mb: 4 }}>
             <Tab label="Details" value="details" />

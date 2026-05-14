@@ -8,22 +8,38 @@ namespace ReviewApp.Api.Services;
 public class MediaService : IMediaService
 {
     private readonly AppDbContext _context;
-    public MediaService(AppDbContext context)
+    private readonly ITmdbService _tmdbService;
+    private readonly ISpotifyService _spotifyService;
+
+    public MediaService(AppDbContext context, ITmdbService tmdbService, ISpotifyService spotifyService)
     {
         _context = context;
+        _tmdbService = tmdbService;
+        _spotifyService = spotifyService;
     }
 
-    public async Task<int> AddMediaAsync(MediaDto mediaDto)
+    public async Task<int> GetOrCreateMediaAsync(MediaType type, string externalApiId)
     {
-        var media = _context.Media.FirstOrDefault(m => m.ExternalApiID == mediaDto.ExternalApiID && m.MediaType == mediaDto.MediaType);
+        // First, check if the media already exists in the database
+        var media = _context.Media.FirstOrDefault(m => m.ExternalApiID == externalApiId && m.MediaType == type);
         if (media != null)
-        {
             return media.ID;
-        }
 
+        // If not, fetch details from the appropriate external API and create a new media entry
+        MediaDto? mediaDto = type switch
+        {
+            MediaType.Movie => this.ToMediaDto(type, await _tmdbService.GetMovieByIdAsync(externalApiId)),
+            MediaType.Series => this.ToMediaDto(type, await _tmdbService.GetSeriesByIdAsync(externalApiId)),
+            MediaType.Music => this.ToMediaDto(type, await _spotifyService.GetMusicByIdAsync(externalApiId)),
+            _ => null
+        };
+        if (mediaDto == null)
+            return -1; // Invalid media type or failed to fetch media details
+
+        // Create a new media entry based on the fetched details and add to database
         Media newMedia;
 
-        switch (mediaDto.MediaType)
+        switch (type)
         {
             case MediaType.Movie:
                 newMedia = new Movie();
@@ -38,8 +54,8 @@ public class MediaService : IMediaService
                 return -1; // Invalid media type
         }
 
-        newMedia.ExternalApiID = mediaDto.ExternalApiID;
-        newMedia.MediaType = mediaDto.MediaType;
+        newMedia.ExternalApiID = externalApiId;
+        newMedia.MediaType = type;
         newMedia.Title = mediaDto.Title;
         // Try parsing the release date, if provided
         if (!string.IsNullOrWhiteSpace(mediaDto.ReleaseDate) && DateTime.TryParse(mediaDto.ReleaseDate, out var parsedReleaseDate))

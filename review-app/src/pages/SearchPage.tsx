@@ -79,10 +79,10 @@ export function SearchPage() {
 
         {/* Tabs */}
         <Tabs value={currentType} onChange={handleTabChange} variant="fullWidth" sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}>
-            <Tab label="Any" value="all" />
-            <Tab label="Movies" value="movie" />
-            <Tab label="Series" value="series" />
-            <Tab label="Music" value="music" />
+            <Tab label="Any" value="all" disabled={loading} />
+            <Tab label="Movies" value="movie" disabled={loading} />
+            <Tab label="Series" value="series" disabled={loading} />
+            <Tab label="Music" value="music" disabled={loading} />
         </Tabs>
 
         {/* Pagination Top */}

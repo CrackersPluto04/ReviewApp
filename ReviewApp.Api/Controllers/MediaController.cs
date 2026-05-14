@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using ReviewApp.Api.DAL;
 using ReviewApp.Api.DTOs;
 using ReviewApp.Api.Enums;
 using ReviewApp.Api.Services;
@@ -10,14 +9,12 @@ namespace ReviewApp.Api.Controllers;
 [ApiController]
 public class MediaController : ControllerBase
 {
-    private readonly AppDbContext _context;
     private readonly ITmdbService _tmdbService;
     private readonly ISpotifyService _spotifyService;
     private readonly IMediaService _mediaService;
 
-    public MediaController(AppDbContext context, ITmdbService tmdbService, ISpotifyService spotifyService, IMediaService mediaService)
+    public MediaController(ITmdbService tmdbService, ISpotifyService spotifyService, IMediaService mediaService)
     {
-        _context = context;
         _tmdbService = tmdbService;
         _spotifyService = spotifyService;
         _mediaService = mediaService;

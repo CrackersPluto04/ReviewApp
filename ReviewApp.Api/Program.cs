@@ -86,6 +86,7 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddHttpClient<ITmdbService, TmdbService>();
 builder.Services.AddHttpClient<ISpotifyService, SpotifyService>();
 builder.Services.AddScoped<IMediaService, MediaService>();
+builder.Services.AddScoped<ICollectionService, CollectionService>();
 
 var app = builder.Build();
 

@@ -1,3 +1,4 @@
+// Media and Review related DTOs
 export interface MediaDto {
     externalApiID: string;
     mediaType: number; // 0 = Movie, 1 = Series, 2 = Music
@@ -21,6 +22,28 @@ export interface ReviewMediaDto {
     reviewDto: ReviewDto;
 }
 
+// Collection related DTOs
+export interface CollectionDto {
+    id: number;
+    name: string;
+    visibilityLevel: number; // 0 = Private, 1 = Public, 2 = Followers Only
+    createdAt: string;
+    mediaCount: number;
+    isOwner: boolean;
+}
+
+export interface CollectionMediaDto {
+    media: MediaDto;
+    orderIndex: number;
+    addedAt: string;
+}
+
+export interface CollectionWithMediasDto {
+    collection: CollectionDto;
+    mediaItems: CollectionMediaDto[];
+}
+
+// Filter & sort related parameter dtos
 export interface TmdbParams {
     page: number;
     sortBy: string;

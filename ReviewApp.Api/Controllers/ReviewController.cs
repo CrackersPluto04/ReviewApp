@@ -14,12 +14,12 @@ namespace ReviewApp.Api.Controllers;
 public class ReviewController : ControllerBase
 {
     private readonly AppDbContext _context;
-    private readonly IMediaService mediaService;
+    private readonly IMediaService _mediaService;
 
     public ReviewController(AppDbContext context, IMediaService mediaService)
     {
         _context = context;
-        this.mediaService = mediaService;
+        _mediaService = mediaService;
     }
 
     [HttpGet("media/{mediaType}/{externalApiId}")]
@@ -107,14 +107,14 @@ public class ReviewController : ControllerBase
     public async Task<IActionResult> CreateReview([FromBody] ReviewMediaDto request)
     {
         // Identify the User and get userId
-        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == "id");
-        if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+        var userId = GetSecureUserId();
+        if (userId == null)
         {
             return Unauthorized(new { error = "Invalid user token." });
         }
 
         // Check if media exists, if not add it to the database and get ID
-        var mediaId = await mediaService.AddMediaAsync(request.MediaDto);
+        var mediaId = await _mediaService.GetOrCreateMediaAsync(request.MediaDto.MediaType, request.MediaDto.ExternalApiID);
         if (mediaId == -1)
         {
             return BadRequest(new { error = "Invalid media type. Failed to add media." });
@@ -129,7 +129,7 @@ public class ReviewController : ControllerBase
         // Create new review
         var review = new Review
         {
-            UserID = userId,
+            UserID = userId.Value,
             MediaID = mediaId,
             Score = request.ReviewDto.Score,
             ReviewText = request.ReviewDto.ReviewText,
@@ -148,8 +148,8 @@ public class ReviewController : ControllerBase
     public async Task<IActionResult> EditReview([FromBody] ReviewMediaDto request)
     {
         // Identify the User and get userId
-        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == "id");
-        if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+        var userId = GetSecureUserId();
+        if (userId == null)
         {
             return Unauthorized(new { error = "Invalid user token." });
         }
@@ -185,8 +185,8 @@ public class ReviewController : ControllerBase
     public async Task<IActionResult> CheckIfUserReviewedMedia([FromQuery] string externalApiId, [FromQuery] MediaType mediaType)
     {
         // Identify the User and get userId
-        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == "id");
-        if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+        var userId = GetSecureUserId();
+        if (userId == null)
         {
             return Unauthorized(new { error = "Invalid user token." });
         }
@@ -216,5 +216,19 @@ public class ReviewController : ControllerBase
         };
 
         return Ok(new { hasReviewed = true, reviewData = reviewDto });
+    }
+
+    /* Helper methods */
+
+    // Helper method to extract user ID from JWT claims
+    private int? GetSecureUserId()
+    {
+        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == "id");
+        if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
+        {
+            return userId;
+        }
+
+        return null;
     }
 }

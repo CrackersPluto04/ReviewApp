@@ -6,7 +6,7 @@ namespace ReviewApp.Api.Services;
 
 public interface IMediaService
 {
-    Task<int> AddMediaAsync(MediaDto mediaDto);
+    Task<int> GetOrCreateMediaAsync(MediaType type, string externalApiId);
     MediaDto ToMediaDto(MediaType type, TmdbItemDto tmdbItem);
     MediaDto ToMediaDto(MediaType type, SpotifyTrackDto spotifyTrack);
     MediaDto ToMediaDto(MediaType type, Media media);
