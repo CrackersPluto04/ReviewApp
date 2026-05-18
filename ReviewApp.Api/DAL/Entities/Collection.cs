@@ -11,7 +11,7 @@ public class Collection
     public int UserID { get; set; }
     public User User { get; set; } = null!;
 
-    [Required]
+    [Required, MaxLength(50)]
     public string Name { get; set; } = string.Empty;
     public VisibilityLevel VisibilityLevel { get; set; } = VisibilityLevel.Private;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

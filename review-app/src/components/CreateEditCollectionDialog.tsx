@@ -1,18 +1,37 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { collectionService } from "../services/CollectionService";
-import { Dialog, DialogTitle, DialogContent, Typography, TextField, FormControl, InputLabel, Select, MenuItem, DialogActions, Button } from "@mui/material";
+import { Dialog, DialogTitle, DialogContent, Typography, TextField, FormControl, InputLabel, Select, MenuItem, DialogActions, Button, Box } from "@mui/material";
+import { CollectionDto } from "../types/types";
 
-type CreateCollectionDialogProps = {
+type CreateEditCollectionDialogProps = {
     open: boolean;
     onClose: () => void;
-    onSuccess: (newCollectionId: number) => void;
+    onSuccess: ((newCollectionId: number) => void) | ((updatedColl: CollectionDto) => void);
+    collection?: CollectionDto | null;
 }
 
-export function CreateCollectionDialog({ open, onClose, onSuccess }: CreateCollectionDialogProps) {
+export function CreateEditCollectionDialog({ open, onClose, onSuccess, collection = null }: CreateEditCollectionDialogProps) {
     const [name, setName] = useState('');
-    const [visibilityLevel, setVisibilityLevel] = useState(0); // 0 = Private - default
+    const [visibilityLevel, setVisibilityLevel] = useState(0);
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string>('');
+
+    const isEditing = !!collection;
+    const isNameOver = name.length > 50;
+
+    useEffect(() => {
+        if (open) {
+            if (isEditing) {
+                setName(collection.name);
+                setVisibilityLevel(collection.visibilityLevel)
+            } else {
+                setName('');
+                setVisibilityLevel(0);
+            }
+
+            setErrorMessage('');
+        }
+    }, [open, collection])
 
     const handleResetAndClose = () => {
         setName('');
@@ -21,7 +40,7 @@ export function CreateCollectionDialog({ open, onClose, onSuccess }: CreateColle
         onClose();
     };
 
-    const handleCreate = async () => {
+    const handleSubmit = async () => {
         if (!name.trim()) {
             setErrorMessage("Collection name cannot be empty.");
             return;
@@ -30,12 +49,17 @@ export function CreateCollectionDialog({ open, onClose, onSuccess }: CreateColle
         setLoading(true);
         setErrorMessage('');
 
-        const result = await collectionService.createCollection(name.trim(), visibilityLevel);
+        let result;
+        if (isEditing)
+            result = await collectionService.updateCollection(collection.id, name.trim(), visibilityLevel);
+        else
+            result = await collectionService.createCollection(name.trim(), visibilityLevel);
+
         if (result.success) {
-            onSuccess(result.data.id);
+            isEditing ? onSuccess(result.data) : onSuccess(result.data.id);
             handleResetAndClose();
         } else {
-            setErrorMessage(result.message || "Failed to create collection.");
+            setErrorMessage(result.message || `Failed to ${isEditing ? 'edit' : 'create'} collection.`);
         }
 
         setLoading(false);
@@ -43,7 +67,7 @@ export function CreateCollectionDialog({ open, onClose, onSuccess }: CreateColle
 
     return <Dialog open={open} onClose={loading ? undefined : handleResetAndClose} fullWidth maxWidth="sm">
         <DialogTitle fontWeight="bold">
-            Create New Collection
+            {isEditing ? 'Edit Collection' : 'Create New Collection'}
         </DialogTitle>
 
         <DialogContent dividers>
@@ -61,6 +85,8 @@ export function CreateCollectionDialog({ open, onClose, onSuccess }: CreateColle
                 onChange={(e) => setName(e.currentTarget.value)}
                 disabled={loading}
                 sx={{ mb: 3, mt: 1 }}
+                error={isNameOver}
+                helperText={<Box component="span" sx={{ float: 'right' }}>{name.length} / 50</Box>}
             />
 
             <FormControl fullWidth disabled={loading}>
@@ -84,12 +110,12 @@ export function CreateCollectionDialog({ open, onClose, onSuccess }: CreateColle
             </Button>
 
             <Button
-                onClick={handleCreate}
+                onClick={handleSubmit}
                 variant="contained"
                 color="primary"
-                disabled={loading || !name.trim()}
+                disabled={loading || !name.trim() || isNameOver}
             >
-                {loading ? 'Creating...' : 'Create'}
+                {loading ? (isEditing ? 'Saving...' : 'Creating...') : (isEditing ? 'Save Changes' : 'Create')}
             </Button>
         </DialogActions>
     </Dialog>

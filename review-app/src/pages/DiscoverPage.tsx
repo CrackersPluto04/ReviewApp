@@ -1,7 +1,7 @@
 import { useState, useEffect } from "preact/hooks";
 import { useSearchParams } from "react-router-dom";
 import { mediaService } from "../services/MediaService";
-import { TmdbParams } from "../types/types";
+import { MediaDto, TmdbParams } from "../types/types";
 import { Box, Typography, FormControl, InputLabel, Select, MenuItem, Button, CircularProgress, TextField } from "@mui/material";
 import { MediaCard } from "../components/MediaCard";
 import { MyPagination } from "../components/MyPagination";
@@ -10,7 +10,7 @@ export function DiscoverPage() {
     const [searchParams, setSearchParams] = useSearchParams();
 
     // --- State ---
-    const [results, setResults] = useState<any[]>([]);
+    const [results, setResults] = useState<MediaDto[]>([]);
     const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
@@ -133,10 +133,17 @@ export function DiscoverPage() {
 
                 <Select value={draftFilters.sortBy} label="Sort By" onChange={(e) => updateFilter('sortBy', (e.target as HTMLInputElement).value)}>
                     <MenuItem value="popularity.desc">Most Popular</MenuItem>
-                    <MenuItem value="primary_release_date.desc">Newest Releases</MenuItem>
-                    <MenuItem value="primary_release_date.asc">Oldest Releases</MenuItem>
-                    <MenuItem value="original_title.asc">A-Z</MenuItem>
-                    <MenuItem value="runtime.desc">Longest Runtime</MenuItem>
+                    <MenuItem value="popularity.asc">Least Popular</MenuItem>
+
+                    <MenuItem value={draftFilters.type === 'movie' ? "primary_release_date.desc" : "first_air_date.desc"}>
+                        Newest Releases
+                    </MenuItem>
+                    <MenuItem value={draftFilters.type === 'movie' ? "primary_release_date.asc" : "first_air_date.asc"}>
+                        Oldest Releases
+                    </MenuItem>
+
+                    <MenuItem value={draftFilters.type === 'movie' ? "title.asc" : "name.asc"}>A-Z</MenuItem>
+                    <MenuItem value={draftFilters.type === 'movie' ? "title.desc" : "name.desc"}>Z-A</MenuItem>
                 </Select>
             </FormControl>
 
@@ -203,7 +210,7 @@ export function DiscoverPage() {
             <Box display="flex" justifyContent="center" mt={4}><CircularProgress /></Box>
         ) : results.length > 0 ? (
             results.map((item) => (
-                <MediaCard key={item.externalApiID} media={item} />
+                <MediaCard key={item.id} media={item} />
             ))
         ) : (
             <Typography textAlign="center" mt={4} color={errorMessage ? "error" : "text.secondary"}>

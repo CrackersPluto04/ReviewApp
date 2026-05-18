@@ -15,7 +15,7 @@ public class UserController : ControllerBase
     }
 
     [HttpGet("{username}/collections")]
-    public async Task<IActionResult> GetUserCollections([FromRoute] string username, [FromQuery] string sortBy = "createdAt_desc")
+    public async Task<IActionResult> GetUserCollections([FromRoute] string username, [FromQuery] string sortBy = "createdAt_asc")
     {
         var collections = await _collectionService.GetUserCollectionsAsync(username, GetOptionalUserId(), sortBy);
         if (collections == null)

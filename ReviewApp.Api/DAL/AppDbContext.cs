@@ -32,6 +32,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Review>()
             .ToTable(tb => tb.HasTrigger("SetUpdatedAt"));
 
+        // Configure User add-default-collection trigger
+        modelBuilder.Entity<User>()
+            .ToTable(tb => tb.HasTrigger("AddDefaultCollection"));
+
         // Configure Collection unique name per user
         modelBuilder.Entity<Collection>()
             .HasIndex(c => new { c.UserID, c.Name })

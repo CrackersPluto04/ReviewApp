@@ -5,7 +5,7 @@ namespace ReviewApp.Api.DTOs;
 
 public record CreateCollectionDto
 {
-    [Required]
+    [Required, MaxLength(50)]
     public string Name { get; init; } = string.Empty;
     public VisibilityLevel VisibilityLevel { get; init; } = VisibilityLevel.Private;
 }
@@ -14,6 +14,7 @@ public record UpdateCollectionDto
 {
     [Required]
     public int CollectionID { get; init; }
+    [MaxLength(50)]
     public string Name { get; init; } = string.Empty;
     public VisibilityLevel VisibilityLevel { get; init; } = VisibilityLevel.Private;
 }
@@ -29,7 +30,7 @@ public record AddMediaToCollectionDto
 public record ReorderMediaDto
 {
     [Required]
-    public int MediaID { get; init; }
+    public int DbMediaID { get; init; }
     [Required]
     public int NewOrderIndex { get; init; }
 }
@@ -43,6 +44,7 @@ public record CollectionWithMediasDto
 public record CollectionDto
 {
     public int ID { get; init; }
+    [MaxLength(50)]
     public string Name { get; init; } = string.Empty;
     public VisibilityLevel VisibilityLevel { get; init; }
     public DateTime CreatedAt { get; init; }
@@ -52,6 +54,7 @@ public record CollectionDto
 
 public record CollectionMediaDto
 {
+    public int DbMediaID { get; init; }
     public MediaDto Media { get; init; } = null!;
     public int OrderIndex { get; init; }
     public DateTime AddedAt { get; init; }

@@ -130,12 +130,12 @@ public class CollectionService : ICollectionService
         return true;
     }
 
-    public async Task<bool> RemoveMediaFromCollectionAsync(int userId, int collectionId, int mediaId)
+    public async Task<bool> RemoveMediaFromCollectionAsync(int userId, int collectionId, MediaType type, string externalApiId)
     {
         // Check if collection belongs to user and media is in collection
         var item = await _context.CollectionMedias
             .Include(cm => cm.Collection)
-            .FirstOrDefaultAsync(cm => cm.CollectionID == collectionId && cm.MediaID == mediaId && cm.Collection.UserID == userId);
+            .FirstOrDefaultAsync(cm => cm.CollectionID == collectionId && cm.Media.MediaType == type && cm.Media.ExternalApiID == externalApiId && cm.Collection.UserID == userId);
 
         if (item == null) return false;
 
@@ -153,7 +153,7 @@ public class CollectionService : ICollectionService
         return true;
     }
 
-    public async Task<bool> ReorderMediaAsync(int userId, int collectionId, int mediaId, int newOrderIndex)
+    public async Task<bool> ReorderMediaAsync(int userId, int collectionId, int dbMediaId, int newOrderIndex)
     {
         // Get collection and its media items
         var collection = await _context.Collections
@@ -162,8 +162,8 @@ public class CollectionService : ICollectionService
 
         if (collection == null) return false;
 
-        // Find the media item to reorder
-        var mediaItem = collection.CollectionMedias.FirstOrDefault(cm => cm.MediaID == mediaId);
+        // Find the CollectionMedia item to reorder
+        var mediaItem = collection.CollectionMedias.FirstOrDefault(cm => cm.MediaID == dbMediaId);
         if (mediaItem == null) return false;
 
         // Get current order index and desired new index
@@ -177,7 +177,7 @@ public class CollectionService : ICollectionService
         // Move the media item to the new index
         foreach (var item in collection.CollectionMedias)
         {
-            if (item.MediaID == mediaId) continue; // Skip the item we are moving
+            if (item.MediaID == dbMediaId) continue; // Skip the item we are moving
 
             if (oldIndex < newOrderIndex) // Dragged DOWN the list
             {
@@ -197,7 +197,7 @@ public class CollectionService : ICollectionService
         return true;
     }
 
-    public async Task<List<CollectionDto>> GetUserCollectionsAsync(string targetUsername, int? requestingUserId, string sortBy = "createdAt_desc")
+    public async Task<List<CollectionDto>> GetUserCollectionsAsync(string targetUsername, int? requestingUserId, string sortBy = "createdAt_asc")
     {
         // Find target user by username
         var targetUser = await _context.Users.FirstOrDefaultAsync(u => u.Username == targetUsername);
@@ -223,10 +223,10 @@ public class CollectionService : ICollectionService
 
         selectedQuery = sortBy switch
         {
-            "createdAt_asc" => selectedQuery.OrderBy(c => c.CreatedAt),
-            "name_desc" => selectedQuery.OrderByDescending(c => c.Name),
+            "createdAt_desc" => selectedQuery.OrderByDescending(c => c.CreatedAt),
             "name_asc" => selectedQuery.OrderBy(c => c.Name),
-            _ => selectedQuery.OrderByDescending(c => c.CreatedAt)
+            "name_desc" => selectedQuery.OrderByDescending(c => c.Name),
+            _ => selectedQuery.OrderBy(c => c.CreatedAt)
         };
 
         return await selectedQuery.ToListAsync();
@@ -249,6 +249,7 @@ public class CollectionService : ICollectionService
                 .OrderBy(cm => cm.OrderIndex)
                 .Select(cm => new
                 {
+                    cm.MediaID,
                     cm.Media,
                     cm.OrderIndex,
                     cm.AddedAt
@@ -272,6 +273,7 @@ public class CollectionService : ICollectionService
             },
             MediaItems = rawCollection.RawMedias.Select(rm => new CollectionMediaDto
             {
+                DbMediaID = rm.MediaID,
                 Media = _mediaService.ToMediaDto(rm.Media.MediaType, rm.Media),
                 OrderIndex = rm.OrderIndex,
                 AddedAt = rm.AddedAt

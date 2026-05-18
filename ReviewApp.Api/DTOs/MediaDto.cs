@@ -6,6 +6,9 @@ namespace ReviewApp.Api.DTOs;
 public class MediaDto
 {
     [Required]
+    public string ID { get; set; } = null!;
+
+    [Required]
     public string ExternalApiID { get; set; } = null!;
 
     [Required]

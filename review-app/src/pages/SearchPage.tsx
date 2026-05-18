@@ -5,11 +5,12 @@ import { SearchBar } from '../components/SearchBar';
 import { MediaCard } from '../components/MediaCard';
 import { mediaService } from '../services/MediaService';
 import { MyPagination } from '../components/MyPagination';
+import { MediaDto } from '../types/types';
 
 export function SearchPage() {
     const [searchParams, setSearchParams] = useSearchParams();
 
-    const [results, setResults] = useState<any[]>([]);
+    const [results, setResults] = useState<MediaDto[]>([]);
     const [totalCount, setTotalCount] = useState(0);
     const [totalPages, setTotalPages] = useState(1);
 
@@ -94,7 +95,7 @@ export function SearchPage() {
             <Box display="flex" justifyContent="center" mt={4}><CircularProgress /></Box>
         ) : results.length > 0 ? (
             results.map((item) => (
-                <MediaCard key={item.externalApiID} media={item} />
+                <MediaCard key={item.id} media={item} />
             ))
         ) : (
             <Typography textAlign="center" mt={4} color={errorMessage ? "error" : "text.secondary"}>

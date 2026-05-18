@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ReviewApp.Api.DAL;
 
@@ -11,9 +12,11 @@ using ReviewApp.Api.DAL;
 namespace ReviewApp.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260517133340_AddDefaultCollectionTrigger")]
+    partial class AddDefaultCollectionTrigger
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -200,12 +203,7 @@ namespace ReviewApp.Api.Migrations
 
                     b.HasKey("ID");
 
-                    b.ToTable("Users", t =>
-                        {
-                            t.HasTrigger("AddDefaultCollection");
-                        });
-
-                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("ReviewApp.Api.DAL.Entities.Movie", b =>

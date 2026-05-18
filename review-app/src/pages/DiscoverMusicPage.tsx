@@ -1,7 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { useSearchParams } from "react-router-dom";
 import { mediaService } from "../services/MediaService";
-import { SpotifyParams } from "../types/types";
+import { MediaDto, SpotifyParams } from "../types/types";
 import { Box, Typography, FormControl, InputLabel, Select, MenuItem, TextField, Button, CircularProgress } from "@mui/material";
 import { MediaCard } from "../components/MediaCard";
 import { MyPagination } from "../components/MyPagination";
@@ -10,7 +10,7 @@ export function DiscoverMusicPage() {
     const [searchParams, setSearchParams] = useSearchParams();
 
     // --- State ---
-    const [results, setResults] = useState<any[]>([]);
+    const [results, setResults] = useState<MediaDto[]>([]);
     const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
@@ -167,7 +167,7 @@ export function DiscoverMusicPage() {
             <Box display="flex" justifyContent="center" mt={4}><CircularProgress /></Box>
         ) : results.length > 0 ? (
             results.map((item) => (
-                <MediaCard key={item.externalApiID} media={item} />
+                <MediaCard key={item.id} media={item} />
             ))
         ) : (
             <Typography textAlign="center" mt={4} color={errorMessage ? "error" : "text.secondary"}>

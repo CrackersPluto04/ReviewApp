@@ -1,5 +1,6 @@
 // Media and Review related DTOs
 export interface MediaDto {
+    id: string;
     externalApiID: string;
     mediaType: number; // 0 = Movie, 1 = Series, 2 = Music
     title: string;
@@ -33,6 +34,7 @@ export interface CollectionDto {
 }
 
 export interface CollectionMediaDto {
+    dbMediaID: number,
     media: MediaDto;
     orderIndex: number;
     addedAt: string;

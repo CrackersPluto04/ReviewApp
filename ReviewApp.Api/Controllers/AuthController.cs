@@ -72,7 +72,17 @@ public class AuthController : ControllerBase
         };
 
         Response.Cookies.Append("jwt_token", token, cookieOptions);
-        return Ok(new { message = "Logged in successfully" });
+
+        return Ok(new
+        {
+            message = "Logged in successfully",
+            user = new
+            {
+                id = user.ID,
+                username = user.Username,
+                profilePictureUrl = user.ProfilePictureUrl
+            }
+        });
     }
 
     [HttpPost("logout")]
@@ -84,9 +94,24 @@ public class AuthController : ControllerBase
 
     [HttpGet("check-auth")]
     [Authorize]
-    public IActionResult CheckAuth()
+    public async Task<IActionResult> CheckAuth()
     {
-        return Ok(new { isAuthenticated = true });
+        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == "id");
+        if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+        {
+            return Unauthorized();
+        }
+
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null)
+            return NotFound();
+
+        return Ok(new
+        {
+            id = user.ID,
+            username = user.Username,
+            profilePictureUrl = user.ProfilePictureUrl
+        });
     }
 
     // Helper method to create JWT token

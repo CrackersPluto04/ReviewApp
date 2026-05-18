@@ -57,8 +57,7 @@ class CollectionService {
             const response = await fetch(`${this.baseUrl}/${collectionId}`, this.getFetchOptions('DELETE'));
 
             if (response.ok) {
-                const data = await response.json();
-                return { success: true, data: data };
+                return { success: true, data: null };
             } else {
                 const errorData = await response.json();
                 return { success: false, message: errorData.error || 'Something went wrong while deleting collection.' };
@@ -86,13 +85,12 @@ class CollectionService {
         }
     }
 
-    async removeMediaFromCollection(collectionId: number, mediaId: number) {
+    async removeMediaFromCollection(collectionId: number, mediaType: number, externalApiId: string) {
         try {
-            const response = await fetch(`${this.baseUrl}/${collectionId}/media/${mediaId}`, this.getFetchOptions('DELETE'));
+            const response = await fetch(`${this.baseUrl}/${collectionId}/media/${mediaType}-${externalApiId}`, this.getFetchOptions('DELETE'));
 
             if (response.ok) {
-                const data = await response.json();
-                return { success: true, data: data };
+                return { success: true, data: null };
             } else {
                 const errorData = await response.json();
                 return { success: false, message: errorData.error || 'Something went wrong while removing media from collection.' };
@@ -103,9 +101,9 @@ class CollectionService {
         }
     }
 
-    async reorderMedia(collectionId: number, mediaId: number, newOrderIndex: number) {
+    async reorderMedia(collectionId: number, dbMediaID: number, newOrderIndex: number) {
         try {
-            const response = await fetch(`${this.baseUrl}/${collectionId}/reorder`, this.getFetchOptions('PATCH', { mediaId, newOrderIndex }));
+            const response = await fetch(`${this.baseUrl}/${collectionId}/reorder`, this.getFetchOptions('PUT', { dbMediaID, newOrderIndex }));
 
             if (response.ok) {
                 const data = await response.json();

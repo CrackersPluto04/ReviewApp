@@ -1,9 +1,10 @@
-import { Box, Button, CircularProgress, List, ListItemButton, ListItemText, Paper, Typography } from "@mui/material";
+import { Box, CircularProgress, FormControl, IconButton, List, ListItemButton, ListItemText, MenuItem, Paper, Select, Typography } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add"
 import { useState, useEffect } from "preact/hooks";
 import { useParams } from "react-router-dom";
 import { userService } from "../services/UserService";
 import { CollectionDto } from "../types/types";
-import { CreateCollectionDialog } from "./CreateCollectionDialog";
+import { CreateEditCollectionDialog } from "./CreateEditCollectionDialog";
 import { CollectionDetails } from "./CollectionDetails";
 
 export function CollectionsTab() {
@@ -11,6 +12,7 @@ export function CollectionsTab() {
 
     const [collections, setCollections] = useState<CollectionDto[]>([]);
     const [selectedCollectionId, setSelectedCollectionId] = useState<number | null>(null);
+    const [sortBy, setSortBy] = useState("createdAt_asc");
 
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState<string>('');
@@ -18,7 +20,7 @@ export function CollectionsTab() {
 
     useEffect(() => {
         fetchCollections();
-    }, [username]);
+    }, [username, sortBy]);
 
     const fetchCollections = async () => {
         if (!username) return;
@@ -26,7 +28,7 @@ export function CollectionsTab() {
         setLoading(true);
         setErrorMessage('');
 
-        const result = await userService.getUserCollections(username);
+        const result = await userService.getUserCollections(username, sortBy);
         if (result.success) {
             setCollections(result.data);
             // Auto-select the first collection if they have one
@@ -39,9 +41,7 @@ export function CollectionsTab() {
     };
 
     const handleCollectionCreated = async (newId: number) => {
-        // Re-fetch the sidebar so the new collection appears
         await fetchCollections();
-        // Instantly switch the user's view to their brand new collection!
         setSelectedCollectionId(newId);
     };
 
@@ -59,12 +59,35 @@ export function CollectionsTab() {
     return <Box sx={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 3, alignItems: 'start' }}>
         {/* LEFT SIDEBAR */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {collections[0]?.isOwner && (
-                <Button variant="contained" color="primary" fullWidth onClick={() => setIsCreateDialogOpen(true)}>
-                    + Create Collection
-                </Button>
-            )}
+            {/* Collections list header */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1 }}>
+                <FormControl variant="standard" sx={{ minWidth: 120 }}>
+                    <Select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(String((e.target as HTMLInputElement).value))}
+                        disableUnderline
+                        sx={{ fontSize: '0.875rem', fontWeight: 'bold' }}
+                    >
+                        <MenuItem value="createdAt_desc">Newest First</MenuItem>
+                        <MenuItem value="createdAt_asc">Oldest First</MenuItem>
+                        <MenuItem value="name_asc">Name (A-Z)</MenuItem>
+                        <MenuItem value="name_desc">Name (Z-A)</MenuItem>
+                    </Select>
+                </FormControl>
 
+                {collections[0]?.isOwner && (
+                    <IconButton
+                        color="primary"
+                        size="medium"
+                        onClick={() => setIsCreateDialogOpen(true)}
+                        sx={{ border: '1px solid', borderColor: 'primary.main' }}
+                    >
+                        <AddIcon fontSize="small" />
+                    </IconButton>
+                )}
+            </Box>
+
+            {/* Collections list */}
             <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
                 <List disablePadding>
                     {collections.length === 0 ? (
@@ -96,9 +119,10 @@ export function CollectionsTab() {
             {selectedCollectionId ? (
                 <CollectionDetails
                     collectionId={selectedCollectionId}
+                    onCollectionEdited={async () => await fetchCollections()}
                     onCollectionDeleted={handleCollectionDeleted}
+                    onMediaRemoved={async () => await fetchCollections()}
                 />
-                // <Typography variant="h6">Loading Collection #{selectedCollectionId} details...</Typography>
             ) : (
                 <Box sx={{ display: 'flex', height: '100%', justifyContent: 'center', alignItems: 'center', color: 'text.secondary' }}>
                     <Typography>Select a collection to view its contents.</Typography>
@@ -107,7 +131,7 @@ export function CollectionsTab() {
         </Paper>
 
         {/* CREATE COLLECTION DIALOG */}
-        <CreateCollectionDialog
+        <CreateEditCollectionDialog
             open={isCreateDialogOpen}
             onClose={() => setIsCreateDialogOpen(false)}
             onSuccess={handleCollectionCreated}

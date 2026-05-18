@@ -5,19 +5,24 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useState, useEffect } from "preact/hooks";
 import { collectionService } from "../services/CollectionService";
-import { CollectionWithMediasDto, CollectionMediaDto } from "../types/types";
+import { CollectionWithMediasDto, CollectionMediaDto, CollectionDto } from "../types/types";
 import { SortableMediaCard } from "./SortableMediaCard";
+import { CreateEditCollectionDialog } from "./CreateEditCollectionDialog";
 
 type CollectionDetailsProps = {
     collectionId: number;
+    onCollectionEdited: () => void;
     onCollectionDeleted: () => void;
+    onMediaRemoved: () => void;
 }
 
-export function CollectionDetails({ collectionId, onCollectionDeleted }: CollectionDetailsProps) {
+export function CollectionDetails({ collectionId, onCollectionEdited, onCollectionDeleted, onMediaRemoved }: CollectionDetailsProps) {
     const [data, setData] = useState<CollectionWithMediasDto | null>(null);
     const [mediaItems, setMediaItems] = useState<CollectionMediaDto[]>([]);
+
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState<string>('');
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
     // Set up drag-and-drop sensors
     const sensors = useSensors(
@@ -27,22 +32,22 @@ export function CollectionDetails({ collectionId, onCollectionDeleted }: Collect
 
     // Fetch the collection details and items
     useEffect(() => {
-        const fetchDetails = async () => {
-            setLoading(true);
-            setErrorMessage('');
-
-            const result = await collectionService.getCollectionWithMedias(collectionId);
-            if (result.success) {
-                setData(result.data);
-                setMediaItems(result.data.mediaItems);
-            } else
-                setErrorMessage(result.message);
-
-            setLoading(false);
-        };
-
         fetchDetails();
     }, [collectionId]);
+
+    const fetchDetails = async () => {
+        setLoading(true);
+        setErrorMessage('');
+
+        const result = await collectionService.getCollectionWithMedias(collectionId);
+        if (result.success) {
+            setData(result.data);
+            setMediaItems(result.data.mediaItems);
+        } else
+            setErrorMessage(result.message);
+
+        setLoading(false);
+    };
 
     /* Handlers */
 
@@ -52,27 +57,65 @@ export function CollectionDetails({ collectionId, onCollectionDeleted }: Collect
 
         if (over && active.id !== over.id) {
             setMediaItems((items) => {
-                const oldIndex = items.findIndex((item) => item.media.externalApiID === active.id);
-                const newIndex = items.findIndex((item) => item.media.externalApiID === over.id);
+                const oldIndex = items.findIndex((item) => item.media.id === active.id);
+                const newIndex = items.findIndex((item) => item.media.id === over.id);
+
+                const draggedMedia = items[oldIndex];
 
                 // Instant UI update
                 const newArray = arrayMove(items, oldIndex, newIndex);
 
                 // Background sync
-                collectionService.reorderMedia(collectionId, active.id as number, newIndex);
+                collectionService.reorderMedia(collectionId, draggedMedia.dbMediaID, newIndex);
 
                 return newArray;
             });
         }
     };
 
-    // Handle Deletion
-    const handleDelete = async () => {
+    // Handle Editing
+    const handleCollectionEdited = async (updatedColl: CollectionDto) => {
+        setData((prevData) => {
+            if (!prevData) return null;
+
+            return {
+                ...prevData,
+                collection: updatedColl
+            };
+        });
+
+        onCollectionEdited();
+    }
+
+    // Handle Collection Deletion
+    const handleCollectionDelete = async () => {
         if (!globalThis.confirm("Are you sure you want to delete this collection? This cannot be undone.")) return;
 
         const result = await collectionService.deleteCollection(collectionId);
-        if (result.success) onCollectionDeleted();
+        if (result.success)
+            onCollectionDeleted();
+        else
+            setErrorMessage(result.message);
     };
+
+    // Handle Media item deletion
+    const handleMediaRemoved = async (mediaType: number, externalApiId: string) => {
+        const result = await collectionService.removeMediaFromCollection(collectionId, mediaType, externalApiId);
+        if (result.success) {
+            setMediaItems((prevItems) => prevItems.filter(item => item.media.mediaType !== mediaType || item.media.externalApiID !== externalApiId));
+
+            setData((prevData) => prevData ? {
+                ...prevData,
+                collection: {
+                    ...prevData.collection,
+                    mediaCount: prevData.collection.mediaCount - 1
+                }
+            } : null);
+
+            onMediaRemoved();
+        } else
+            setErrorMessage(result.message);
+    }
 
     // Check for loading and error states
     if (loading) {
@@ -107,10 +150,11 @@ export function CollectionDetails({ collectionId, onCollectionDeleted }: Collect
             {/* Owner action buttons */}
             {isOwner && (
                 <Box>
-                    <IconButton color="primary" onClick={() => alert("Wire up Edit Dialog here!")}>
+                    <IconButton color="primary" onClick={() => setIsEditDialogOpen(true)}>
                         <EditIcon />
                     </IconButton>
-                    <IconButton color="error" onClick={handleDelete}>
+
+                    <IconButton color="error" onClick={handleCollectionDelete}>
                         <DeleteIcon />
                     </IconButton>
                 </Box>
@@ -134,15 +178,17 @@ export function CollectionDetails({ collectionId, onCollectionDeleted }: Collect
             ) : (
                 // Drag and drop context
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <SortableContext items={mediaItems.map(m => m.media.externalApiID)} strategy={verticalListSortingStrategy}>
+                    <SortableContext items={mediaItems.map(m => m.media.id)} strategy={verticalListSortingStrategy}>
                         <Box sx={{
                             display: 'flex',
                             flexDirection: 'column'
                         }}>
                             {mediaItems.map((item) => (
                                 <SortableMediaCard
-                                    key={item.media.externalApiID}
+                                    key={item.media.id}
                                     media={item.media}
+                                    collectionId={collectionId}
+                                    onRemove={handleMediaRemoved}
                                     isOwner={isOwner}
                                 />
                             ))}
@@ -151,5 +197,13 @@ export function CollectionDetails({ collectionId, onCollectionDeleted }: Collect
                 </DndContext>
             )}
         </Box>
+
+        {/* EDIT COLLECTION DIALOG */}
+        <CreateEditCollectionDialog
+            open={isEditDialogOpen}
+            onClose={() => setIsEditDialogOpen(false)}
+            onSuccess={handleCollectionEdited}
+            collection={collection}
+        />
     </Box>
 }

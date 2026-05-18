@@ -44,7 +44,7 @@ class AuthService {
 
             if (response.ok) {
                 const data = await response.json();
-                return { success: true, message: data.message }
+                return { success: true, data: data }
             } else {
                 const errorData = await response.json();
                 if (errorData.error)
@@ -75,11 +75,18 @@ class AuthService {
         try {
             const response = await fetch(`${this.baseUrl}/check-auth`, {
                 method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'
             });
-            return response.ok;
-        } catch {
-            return false;
+
+            if (response.ok) {
+                const data = await response.json();
+                return { success: true, data: data };
+            }
+            return { success: false };
+        } catch (error) {
+            console.error("Check auth error:", error);
+            return { success: false };
         }
     }
 

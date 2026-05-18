@@ -9,7 +9,7 @@ import { useAuth } from "../context/AuthContext";
 export function LoginPage() {
     const navigate = useNavigate();
     const location = useLocation();
-    const { setIsLoggedIn } = useAuth();
+    const { setUser } = useAuth();
 
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
@@ -22,22 +22,27 @@ export function LoginPage() {
     const handleAuth = async (e: Event) => {
         e.preventDefault();
 
-        const result = register ?
-            await authService.register(username, email, password)
-            :
-            await authService.login(email, password);
+        if (register) {
+            const result = await authService.register(username, email, password);
 
-        setSuccess(result.success);
-        setMessage(result.message);
+            setSuccess(result.success);
+            setMessage(result.message || '');
+        } else {
+            const result = await authService.login(email, password);
 
-        if (!register && result.success) {
-            setIsLoggedIn(true);
+            setSuccess(result.success);
+            setMessage(result.message || '');
 
-            const returnTo = location.state?.returnTo
-            if (returnTo)
-                navigate(returnTo.pathname, { state: returnTo.state });
-            else
-                navigate('/home');
+            if (result.success) {
+                setUser(result.data.user);
+
+                const returnTo = location.state?.returnTo;
+                if (returnTo) {
+                    navigate(returnTo.pathname, { state: returnTo.state });
+                } else {
+                    navigate('/home');
+                }
+            }
         }
     }
 

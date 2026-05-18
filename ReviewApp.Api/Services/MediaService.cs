@@ -76,6 +76,7 @@ public class MediaService : IMediaService
     {
         return new MediaDto
         {
+            ID = tmdbItem.ID.ToString() + type.ToString(),
             ExternalApiID = tmdbItem.ID.ToString(),
             MediaType = type,
             Title = tmdbItem.DisplayTitle,
@@ -90,6 +91,7 @@ public class MediaService : IMediaService
     {
         return new MediaDto
         {
+            ID = spotifyTrack.Id + type.ToString(),
             ExternalApiID = spotifyTrack.Id,
             MediaType = type,
             Title = spotifyTrack.Name,
@@ -104,6 +106,7 @@ public class MediaService : IMediaService
     {
         return new MediaDto
         {
+            ID = media.ExternalApiID + type.ToString(),
             ExternalApiID = media.ExternalApiID,
             MediaType = type,
             Title = media.Title,

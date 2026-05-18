@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ReviewApp.Api.DTOs;
+using ReviewApp.Api.Enums;
 using ReviewApp.Api.Services;
 
 namespace ReviewApp.Api.Controllers;
@@ -93,13 +94,13 @@ public class CollectionController : ControllerBase
         }
     }
 
-    [HttpDelete("{id}/media/{mediaId}")]
+    [HttpDelete("{id}/media/{type}-{externalApiId}")]
     [Authorize]
-    public async Task<IActionResult> RemoveMediaFromCollection([FromRoute] int id, [FromRoute] int mediaId)
+    public async Task<IActionResult> RemoveMediaFromCollection([FromRoute] int id, [FromRoute] MediaType type, [FromRoute] string externalApiId)
     {
         try
         {
-            var success = await _collectionService.RemoveMediaFromCollectionAsync(GetSecureUserId(), id, mediaId);
+            var success = await _collectionService.RemoveMediaFromCollectionAsync(GetSecureUserId(), id, type, externalApiId);
             if (!success) return NotFound(new { error = "Media not found in this collection." });
 
             return NoContent();
@@ -110,13 +111,13 @@ public class CollectionController : ControllerBase
         }
     }
 
-    [HttpPatch("{id}/reorder")]
+    [HttpPut("{id}/reorder")]
     [Authorize]
     public async Task<IActionResult> ReorderMedia([FromRoute] int id, [FromBody] ReorderMediaDto dto)
     {
         try
         {
-            var success = await _collectionService.ReorderMediaAsync(GetSecureUserId(), id, dto.MediaID, dto.NewOrderIndex);
+            var success = await _collectionService.ReorderMediaAsync(GetSecureUserId(), id, dto.DbMediaID, dto.NewOrderIndex);
             if (!success) return BadRequest(new { error = "Failed to reorder media." });
 
             return Ok(new { message = "Media reordered successfully." });

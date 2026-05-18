@@ -5,10 +5,12 @@ import { MediaCard } from "./MediaCard";
 
 type SortableMediaCardProps = {
     media: MediaDto;
+    collectionId?: number;
+    onRemove?: (mediaType: number, externalApiId: string) => void;
     isOwner: boolean;
 }
 
-export function SortableMediaCard({ media, isOwner }: SortableMediaCardProps) {
+export function SortableMediaCard({ media, collectionId, onRemove, isOwner }: SortableMediaCardProps) {
     const {
         attributes,
         listeners,
@@ -17,7 +19,7 @@ export function SortableMediaCard({ media, isOwner }: SortableMediaCardProps) {
         transition,
         isDragging,
     } = useSortable({
-        id: media.externalApiID,
+        id: media.id,
         disabled: !isOwner
     });
 
@@ -30,6 +32,6 @@ export function SortableMediaCard({ media, isOwner }: SortableMediaCardProps) {
     };
 
     return <div ref={setNodeRef} style={style} {...(attributes as any)} {...(listeners as any)}>
-        <MediaCard media={media} />
+        <MediaCard media={media} collectionId={collectionId} onRemove={onRemove} isOwner={isOwner} />
     </div>
 }
