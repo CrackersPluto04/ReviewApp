@@ -81,7 +81,7 @@ function App() {
 						</PageContainer>
 					}>
 						{/* Nested routes for the profile layout */}
-						<Route index element={<Navigate to="collections" replace />} /> {/* Default to collections */}
+						<Route index element={<Navigate to="overview" replace />} /> {/* Default to collections */}
 
 						<Route path="overview" element={<div>Overview Tab (Coming Soon)</div>} />
 						<Route path="reviews" element={<div>Reviews Tab (Coming Soon)</div>} />

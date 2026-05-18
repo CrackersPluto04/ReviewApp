@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks';
 import { useSearchParams } from 'react-router-dom';
-import { Box, Typography, Tabs, Tab, CircularProgress, Button, Grid, Paper } from '@mui/material';
+import { Box, Typography, Tabs, Tab, CircularProgress, Button } from '@mui/material';
 import { SearchBar } from '../components/SearchBar';
 import { MediaCard } from '../components/MediaCard';
 import { mediaService } from '../services/MediaService';

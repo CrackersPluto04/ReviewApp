@@ -38,7 +38,8 @@ export function LoginPage() {
 
                 const returnTo = location.state?.returnTo;
                 if (returnTo) {
-                    navigate(returnTo.pathname, { state: returnTo.state });
+                    const fullReturnPath = returnTo.pathname + (returnTo.search || '');
+                    navigate(fullReturnPath, { state: returnTo.state });
                 } else {
                     navigate('/home');
                 }

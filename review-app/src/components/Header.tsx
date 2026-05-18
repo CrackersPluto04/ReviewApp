@@ -1,9 +1,8 @@
 import { AppBar, Toolbar, Typography, Button, IconButton, Box, Container, Avatar, Divider, Menu, MenuItem } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
-import NotificationsIcon from '@mui/icons-material/Notifications';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'preact/hooks';
 import { useAuth } from '../context/AuthContext';
 
@@ -14,7 +13,8 @@ export type HeaderProps = {
 
 export function Header({ mode, toggleTheme }: HeaderProps) {
     const navigate = useNavigate();
-    const { isLoggedIn, logout } = useAuth();
+    const location = useLocation();
+    const { user, isLoggedIn, logout } = useAuth();
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const isMenuOpen = Boolean(anchorEl);
 
@@ -26,10 +26,16 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
         setAnchorEl(null);
     };
 
-    const handleLogout = () => {
+    // Hard reset after logout to clean memory
+    const handleLogout = async () => {
         handleMenuClose();
-        logout();
+        await logout();
+        globalThis.location.href = '/';
     };
+
+    const handleLogin = () => {
+        navigate('/login', { state: { returnTo: location } });
+    }
 
     const handleNavigate = (path: string) => {
         handleMenuClose();
@@ -49,7 +55,6 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
                     <Button color="inherit" onClick={() => navigate('/discover?type=movie')}>Movies</Button>
                     <Button color="inherit" onClick={() => navigate('/discover?type=series')}>Series</Button>
                     <Button color="inherit" onClick={() => navigate('/discover/music')}>Music</Button>
-                    <Button color="inherit" sx={{ fontWeight: 'bold' }}>*Live</Button>
                 </Box>
 
                 {/* RIGHT: Icons */}
@@ -57,18 +62,18 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
                     <IconButton color="inherit" onClick={() => navigate('/search')}>
                         <SearchIcon />
                     </IconButton>
-                    <IconButton color="inherit">
-                        <NotificationsIcon />
-                    </IconButton>
+
                     <IconButton color="inherit" onClick={toggleTheme}>
                         {mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
                     </IconButton>
 
                     {isLoggedIn ? (
                         <>
-                            <IconButton onClick={handleProfileClick} sx={{ p: 0, ml: 1 }}>
-                                {/* TODO: You can pull the actual user's ProfilePictureUrl from localStorage or Context here later! */}
-                                <Avatar alt="User Profile" />
+                            <IconButton onClick={handleProfileClick} sx={{ p: 0, ml: 5 }}>
+                                <Avatar
+                                    alt="Profile Picture"
+                                    src={user?.profilePictureUrl}
+                                />
                             </IconButton>
 
                             {/* Dropdown Menu */}
@@ -79,14 +84,16 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
                                 transformOrigin={{ horizontal: 'right', vertical: 'top' }}
                                 anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
                             >
-                                <MenuItem onClick={() => handleNavigate('/profile')}>My Profile</MenuItem>
-                                <MenuItem onClick={() => handleNavigate('/profile/edit')}>Edit Profile</MenuItem>
+                                <MenuItem onClick={() => handleNavigate(`/profile/${user?.username}/overview`)}>My Profile</MenuItem>
+                                <MenuItem onClick={() => handleNavigate(`/profile/${user?.username}/edit`)}>Edit Profile</MenuItem>
 
                                 <Divider />
 
-                                <MenuItem onClick={() => handleNavigate('/followers')}>Followers</MenuItem>
-                                <MenuItem onClick={() => handleNavigate('/favourites')}>Favourites</MenuItem>
-                                <MenuItem onClick={() => handleNavigate('/collections')}>Collections</MenuItem>
+                                <MenuItem onClick={() => handleNavigate(`/profile/${user?.username}/followers`)}>Followers</MenuItem>
+                                <MenuItem onClick={() => handleNavigate(`/profile/${user?.username}/reviews`)}>Reviews</MenuItem>
+                                <MenuItem onClick={() => handleNavigate(`/profile/${user?.username}/collections`)}>Collections</MenuItem>
+                                <MenuItem onClick={() => handleNavigate(`/profile/${user?.username}/statistics`)}>Statistics</MenuItem>
+                                <MenuItem onClick={() => handleNavigate(`/profile/${user?.username}/badges`)}>Badges</MenuItem>
 
                                 <Divider />
 
@@ -95,7 +102,7 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
                         </>
                     ) : (
                         <Button variant='contained' color='success' sx={{ ml: 2, borderRadius: 2 }}
-                            onClick={() => navigate('/login')}
+                            onClick={handleLogin}
                         >
                             Login
                         </Button>

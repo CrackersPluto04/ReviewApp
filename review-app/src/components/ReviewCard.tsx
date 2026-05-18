@@ -1,22 +1,31 @@
-import { Card, Box, Avatar, Typography, CardContent, Grid, Stack } from "@mui/material";
+import { Card, Box, Avatar, Typography, CardContent, Grid, Stack, IconButton } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 
 type ReviewCardProps = {
     rev: any;
 }
 
 export function ReviewCard({ rev }: ReviewCardProps) {
+    const navigate = useNavigate();
+
+    const handleUserClick = () => {
+        navigate(`/profile/${rev.username}`);
+    }
+
     return <Card variant="outlined" sx={{ mb: 3, display: 'flex', borderRadius: 2 }}>
         {/* User Info Column */}
         <Box sx={{ width: 200, p: 2, borderRight: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Stack direction="row" spacing={2} alignItems="center" justifyContent="center">
-                <Avatar
-                    src={rev.profilePictureUrl}
-                    sx={{ width: 56, height: 56, mb: 1 }}
-                />
-                <Typography variant="h6" noWrap fontWeight="bold">
-                    {rev.username}
-                </Typography>
-            </Stack>
+            <IconButton onClick={handleUserClick} >
+                <Stack direction="row" spacing={2} alignItems="center" justifyContent="center">
+                    <Avatar
+                        alt="Profile Picture"
+                        src={rev.profilePictureUrl}
+                    />
+                    <Typography variant="h6" noWrap fontWeight="bold">
+                        {rev.username}
+                    </Typography>
+                </Stack>
+            </IconButton>
 
             <Typography variant="caption" color="text.secondary" sx={{ mt: 2 }}>
                 Created: {new Date(rev.createdAt).toLocaleDateString()}
