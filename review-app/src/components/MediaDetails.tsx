@@ -1,10 +1,11 @@
-import { Box, Button, Card, CardMedia, CircularProgress, Divider, FormControl, FormControlLabel, Grid, InputLabel, MenuItem, Paper, Select, Slider, Switch, Typography } from "@mui/material";
+import { Box, Card, CardMedia, CircularProgress, Divider, Grid, Typography } from "@mui/material";
 import { MediaDto, ReviewFilterParams } from "../types/types";
 import { useState, useEffect } from "preact/hooks";
 import { reviewService } from "../services/ReviewService";
 import { ReviewCard } from "./ReviewCard";
 import { MyPagination } from "./MyPagination";
 import { useLocation, useSearchParams } from "react-router-dom";
+import { ReviewFilter } from "./ReviewFilter";
 
 type MediaDetailsProps = {
     media: MediaDto;
@@ -20,6 +21,8 @@ export function MediaDetails({ media }: MediaDetailsProps) {
     const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
+
+    const disabled = reviews.length === 0 || loading || !!errorMessage;
 
     // --- Active States (From URL) ---
     const pageUrl = Number.parseInt(searchParams.get('page') || '1', 10);
@@ -78,10 +81,6 @@ export function MediaDetails({ media }: MediaDetailsProps) {
     }, [media, pageUrl, sortByUrl, minScoreUrl, maxScoreUrl, hasWrittenTextUrl]);
 
     // --- Handlers ---
-    const updateFilter = (key: string, value: any) => {
-        setDraftFilters(prev => ({ ...prev, [key]: value }));
-    };
-
     const handlePageChange = (_event: any, newPage: number) => {
         setSearchParams(prev => {
             const newParams = new URLSearchParams(prev);
@@ -90,13 +89,13 @@ export function MediaDetails({ media }: MediaDetailsProps) {
         }, { state: location.state });
     };
 
-    const handleApply = () => {
+    const handleApply = (filters: any) => {
         const newParams = new URLSearchParams();
 
-        if (draftFilters.sortBy) newParams.set('sortBy', draftFilters.sortBy);
-        if (draftFilters.scoreRange[0] !== undefined) newParams.set('minScore', draftFilters.scoreRange[0].toString());
-        if (draftFilters.scoreRange[1] !== undefined) newParams.set('maxScore', draftFilters.scoreRange[1].toString());
-        if (draftFilters.hasWrittenText) newParams.set('hasWrittenText', 'true');
+        if (filters.sortBy) newParams.set('sortBy', filters.sortBy);
+        if (filters.scoreRange[0] !== undefined) newParams.set('minScore', filters.scoreRange[0].toString());
+        if (filters.scoreRange[1] !== undefined) newParams.set('maxScore', filters.scoreRange[1].toString());
+        if (filters.hasWrittenText) newParams.set('hasWrittenText', 'true');
 
         newParams.set('page', '1');
 
@@ -177,63 +176,12 @@ export function MediaDetails({ media }: MediaDetailsProps) {
 
             {/* Right: Sticky Filters */}
             <Grid size={{ xs: 12, md: 4 }}>
-                <Paper variant="outlined" sx={{ p: 3, borderRadius: 2, position: 'sticky', top: 80 }}>
-                    <Typography variant="h6" gutterBottom>
-                        Filter & Sort Reviews
-                    </Typography>
-
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 2 }}>
-                        {/* Sort Dropdown */}
-                        <FormControl fullWidth>
-                            <InputLabel>Sort By</InputLabel>
-
-                            <Select value={draftFilters.sortBy} label="Sort By" onChange={(e) => updateFilter('sortBy', (e.target as HTMLInputElement).value)}>
-                                <MenuItem value="created_desc">Newest First</MenuItem>
-                                <MenuItem value="created_asc">Oldest First</MenuItem>
-                                <MenuItem value="updated_desc">Recently Updated</MenuItem>
-                                <MenuItem value="updated_asc">Least Recently Updated</MenuItem>
-                                <MenuItem value="score_desc">Highest Score</MenuItem>
-                                <MenuItem value="score_asc">Lowest Score</MenuItem>
-                            </Select>
-                        </FormControl>
-
-                        {/* Score Range Slider */}
-                        <Box sx={{ px: 1 }}>
-                            <Typography gutterBottom>
-                                Score Range: {draftFilters.scoreRange[0]} - {draftFilters.scoreRange[1]}
-                            </Typography>
-
-                            <Slider
-                                value={draftFilters.scoreRange}
-                                onChange={(_e, newValue) => updateFilter('scoreRange', newValue)}
-                                step={0.5} min={1} max={10} valueLabelDisplay="auto" marks
-                            />
-                        </Box>
-
-                        {/* Has Written Text Checkbox */}
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                    checked={draftFilters.hasWrittenText}
-                                    onChange={(e) => updateFilter('hasWrittenText', e.currentTarget.checked)}
-                                    color="primary"
-                                />
-                            }
-                            label="Only show written reviews"
-                        />
-
-                        {/* Action Buttons */}
-                        <Box sx={{ display: 'flex', gap: 2 }}>
-                            <Button variant="contained" color="success" fullWidth onClick={handleApply} disabled={reviews.length === 0 || loading || !!errorMessage}>
-                                Apply
-                            </Button>
-
-                            <Button variant="outlined" color="error" fullWidth onClick={handleClear} disabled={reviews.length === 0 || loading || !!errorMessage}>
-                                Clear
-                            </Button>
-                        </Box>
-                    </Box>
-                </Paper>
+                <ReviewFilter
+                    filters={draftFilters}
+                    handleApply={handleApply}
+                    handleClear={handleClear}
+                    disabled={disabled}
+                />
             </Grid>
         </Grid>
 

@@ -180,6 +180,28 @@ public class ReviewController : ControllerBase
         return Ok(new { message = "Review edited successfully!" });
     }
 
+    [HttpDelete("{id}")]
+    [Authorize]
+    public async Task<IActionResult> DeleteReview(int id)
+    {
+        // Identify the User and get userId
+        var userId = GetSecureUserId();
+        if (userId == null)
+        {
+            return Unauthorized(new { error = "Invalid user token." });
+        }
+
+        // Check if review exists
+        var review = await _context.Reviews.FirstOrDefaultAsync(r => r.UserID == userId && r.ID == id);
+        if (review == null)
+            return NotFound(new { error = "Review not found." });
+
+        // Delete review if exists
+        _context.Reviews.Remove(review);
+        await _context.SaveChangesAsync();
+        return NoContent();
+    }
+
     [HttpGet("check")]
     [Authorize]
     public async Task<IActionResult> CheckIfUserReviewedMedia([FromQuery] string externalApiId, [FromQuery] MediaType mediaType)

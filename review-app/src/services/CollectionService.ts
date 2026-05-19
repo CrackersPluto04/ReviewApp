@@ -35,9 +35,9 @@ class CollectionService {
         }
     }
 
-    async updateCollection(collectionId: number, name: string, visibilityLevel: number) {
+    async updateCollection(collectionID: number, name: string, visibilityLevel: number) {
         try {
-            const response = await fetch(this.baseUrl, this.getFetchOptions('PUT', { collectionId, name, visibilityLevel }));
+            const response = await fetch(this.baseUrl, this.getFetchOptions('PUT', { collectionID, name, visibilityLevel }));
 
             if (response.ok) {
                 const data = await response.json();
@@ -68,9 +68,9 @@ class CollectionService {
         }
     }
 
-    async addMediaToCollection(collectionId: number, mediaType: number, externalApiId: string) {
+    async addMediaToCollection(collectionId: number, type: number, externalApiID: string) {
         try {
-            const response = await fetch(`${this.baseUrl}/${collectionId}/media`, this.getFetchOptions('POST', { mediaType, externalApiId }));
+            const response = await fetch(`${this.baseUrl}/${collectionId}/media`, this.getFetchOptions('POST', { type, externalApiID }));
 
             if (response.ok) {
                 const data = await response.json();

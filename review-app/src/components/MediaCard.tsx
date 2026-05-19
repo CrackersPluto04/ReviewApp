@@ -115,6 +115,8 @@ export function MediaCard({ media, collectionId, onRemove, isOwner }: MediaCardP
             return;
         }
 
+        console.log(favCollection.id, media.mediaType, media.externalApiID);
+
         // Add to it
         const result = await collectionService.addMediaToCollection(favCollection.id, media.mediaType, media.externalApiID);
         if (result.success)

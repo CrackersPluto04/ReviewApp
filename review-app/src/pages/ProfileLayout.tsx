@@ -13,7 +13,7 @@ export function ProfileLayout() {
         navigate(`/profile/${username}/${newValue}`);
     };
 
-    return <Box sx={{ maxWidth: 1200, mx: 'auto', mt: 4, p: 2 }}>
+    return <Box sx={{ mt: 2 }}>
         {/* TOP HEADER SECTION */}
         <Box sx={{ display: 'flex', gap: 4, mb: 4, alignItems: 'flex-start' }}>
             {/* Profile Avatar & Stats */}

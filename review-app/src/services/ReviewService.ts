@@ -108,6 +108,26 @@ class ReviewService {
             return { success: false, message: 'Network error while reaching reviews.' }
         }
     }
+
+    async deleteReview(id: number) {
+        try {
+            const response = await fetch(`${this.baseUrl}/${id}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                return { success: true, data: null };
+            } else {
+                const errorData = await response.json();
+                return { success: false, message: errorData.error || 'Something went wrong while deleting review. Please try again.' }
+            }
+        } catch (error) {
+            console.error('Delete review error:', error);
+            return { success: false, message: 'Network error while reaching reviews.' }
+        }
+    }
 }
 
 export const reviewService = new ReviewService();

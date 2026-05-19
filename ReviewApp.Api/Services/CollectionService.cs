@@ -41,7 +41,7 @@ public class CollectionService : ICollectionService
             ID = collection.ID,
             Name = collection.Name,
             VisibilityLevel = collection.VisibilityLevel,
-            CreatedAt = collection.CreatedAt,
+            CreatedAt = collection.CreatedAt.ToString("yyyy-MM-dd"),
             MediaCount = 0,
             IsOwner = true
         };
@@ -74,7 +74,7 @@ public class CollectionService : ICollectionService
             ID = collection.ID,
             Name = collection.Name,
             VisibilityLevel = collection.VisibilityLevel,
-            CreatedAt = collection.CreatedAt,
+            CreatedAt = collection.CreatedAt.ToString("yyyy-MM-dd"),
             MediaCount = collection.CollectionMedias.Count,
             IsOwner = true
         };
@@ -211,23 +211,24 @@ public class CollectionService : ICollectionService
         if (!isOwner)
             query = query.Where(c => c.VisibilityLevel == VisibilityLevel.Public);
 
+        query = sortBy switch
+        {
+            "createdAt_desc" => query.OrderByDescending(c => c.CreatedAt),
+            "name_asc" => query.OrderBy(c => c.Name),
+            "name_desc" => query.OrderByDescending(c => c.Name),
+            _ => query.OrderBy(c => c.CreatedAt)
+        };
+
+        // Map to DTO
         var selectedQuery = query.Select(c => new CollectionDto
         {
             ID = c.ID,
             Name = c.Name,
             VisibilityLevel = c.VisibilityLevel,
-            CreatedAt = c.CreatedAt,
+            CreatedAt = c.CreatedAt.ToString("yyyy-MM-dd"),
             MediaCount = c.CollectionMedias.Count,
             IsOwner = isOwner
         });
-
-        selectedQuery = sortBy switch
-        {
-            "createdAt_desc" => selectedQuery.OrderByDescending(c => c.CreatedAt),
-            "name_asc" => selectedQuery.OrderBy(c => c.Name),
-            "name_desc" => selectedQuery.OrderByDescending(c => c.Name),
-            _ => selectedQuery.OrderBy(c => c.CreatedAt)
-        };
 
         return await selectedQuery.ToListAsync();
     }
@@ -267,7 +268,7 @@ public class CollectionService : ICollectionService
                 ID = rawCollection.ID,
                 Name = rawCollection.Name,
                 VisibilityLevel = rawCollection.VisibilityLevel,
-                CreatedAt = rawCollection.CreatedAt,
+                CreatedAt = rawCollection.CreatedAt.ToString("yyyy-MM-dd"),
                 MediaCount = rawCollection.MediaCount,
                 IsOwner = requestingUserId.HasValue && requestingUserId.Value == rawCollection.UserID
             },

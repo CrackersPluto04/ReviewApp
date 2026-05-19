@@ -13,6 +13,7 @@ import { DiscoverPage } from './pages/DiscoverPage';
 import { DiscoverMusicPage } from './pages/DiscoverMusicPage';
 import { ProfileLayout } from './pages/ProfileLayout';
 import { CollectionsTab } from './components/CollectionsTab';
+import { ReviewsTab } from './components/ReviewsTab';
 
 function App() {
 	const [mode, setMode] = useState<"light" | "dark">(() => {
@@ -81,10 +82,10 @@ function App() {
 						</PageContainer>
 					}>
 						{/* Nested routes for the profile layout */}
-						<Route index element={<Navigate to="overview" replace />} /> {/* Default to collections */}
+						<Route index element={<Navigate to="overview" replace />} />
 
 						<Route path="overview" element={<div>Overview Tab (Coming Soon)</div>} />
-						<Route path="reviews" element={<div>Reviews Tab (Coming Soon)</div>} />
+						<Route path="reviews" element={<ReviewsTab />} />
 						<Route path="collections" element={<CollectionsTab />} />
 						<Route path="statistics" element={<div>Stats Tab (Coming Soon)</div>} />
 						<Route path="badges" element={<div>Badges Tab (Coming Soon)</div>} />

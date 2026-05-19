@@ -47,7 +47,7 @@ public record CollectionDto
     [MaxLength(50)]
     public string Name { get; init; } = string.Empty;
     public VisibilityLevel VisibilityLevel { get; init; }
-    public DateTime CreatedAt { get; init; }
+    public string? CreatedAt { get; init; }
     public int MediaCount { get; init; }
     public bool IsOwner { get; init; }
 }

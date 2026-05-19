@@ -142,7 +142,7 @@ export function CollectionDetails({ collectionId, onCollectionEdited, onCollecti
 
                 <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
                     {collection.visibilityLevel === 0 ? 'Private' : collection.visibilityLevel === 1 ? 'Public' : 'Followers Only'}
-                    {' • '} Created: {new Date(collection.createdAt).toLocaleDateString()}
+                    {' • '} Created: {collection.createdAt}
                     {' • '} {mediaItems.length} items
                 </Typography>
             </Box>
