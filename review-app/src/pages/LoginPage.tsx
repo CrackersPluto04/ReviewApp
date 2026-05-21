@@ -47,7 +47,7 @@ export function LoginPage() {
         }
     }
 
-    return <Stack spacing={2} alignItems="center">
+    return <Stack component="form" onSubmit={handleAuth} spacing={2} alignItems="center">
         <Typography variant="h4" component="h1" gutterBottom>
             {register ? "Register Account" : "Login to your account"}
         </Typography>
@@ -66,15 +66,13 @@ export function LoginPage() {
             value={password} onChange={(e) => setPassword(e.currentTarget.value)}
         />
 
-        <Button variant="contained" startIcon={register ? <HowToRegIcon /> : <LoginIcon />}
-            onClick={handleAuth}
-        >
+        <Button type="submit" variant="contained" startIcon={register ? <HowToRegIcon /> : <LoginIcon />} >
             {register ? "Register" : "Login"}
         </Button>
 
         <Typography>
-            {register ? "Already have an account?" : "Don't have an account?"}
-            <Link component="button" onClick={() => { setRegister(!register); setMessage(''); }}>
+            {register ? "Already have an account? " : "Don't have an account? "}
+            <Link component="button" type="button" onClick={() => { setRegister(!register); setMessage(''); }}>
                 {register ? "Login here" : "Register here"}
             </Link>
         </Typography>

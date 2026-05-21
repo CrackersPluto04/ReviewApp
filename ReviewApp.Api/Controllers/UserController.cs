@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ReviewApp.Api.DAL;
 using ReviewApp.Api.DTOs;
@@ -30,6 +31,24 @@ public class UserController : ControllerBase
             return NotFound(new { error = "User profile not found." });
 
         return Ok(userProfile);
+    }
+
+    [HttpPatch("me")]
+    [Authorize]
+    public async Task<IActionResult> UpdateMyProfile([FromBody] UserUpdateDto dto)
+    {
+        try
+        {
+            var (Success, Message) = await _userService.UpdateUserProfileAsync(GetSecureUserId(), dto);
+            if (!Success)
+                return BadRequest(new { error = Message });
+
+            return Ok(new { message = Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
     }
 
     [HttpGet("{username}/collections")]
@@ -134,6 +153,18 @@ public class UserController : ControllerBase
     }
 
     /* Helper methods */
+
+    // Helper method to extract user ID from JWT claims, but throws an exception if not found or invalid
+    private int GetSecureUserId()
+    {
+        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == "id");
+        if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
+        {
+            return userId;
+        }
+
+        throw new UnauthorizedAccessException("Invalid user token.");
+    }
 
     // Helper method to extract user ID from JWT claims, but returns null if not found or invalid
     private int? GetOptionalUserId()

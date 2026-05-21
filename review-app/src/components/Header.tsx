@@ -1,4 +1,4 @@
-import { AppBar, Toolbar, Typography, Button, IconButton, Box, Container, Avatar, Divider, Menu, MenuItem } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button, IconButton, Box, Container, Avatar, Divider, Menu, MenuItem, CircularProgress } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
@@ -14,7 +14,7 @@ export type HeaderProps = {
 export function Header({ mode, toggleTheme }: HeaderProps) {
     const navigate = useNavigate();
     const location = useLocation();
-    const { user, isLoggedIn, logout } = useAuth();
+    const { user, isLoggedIn, logout, isLoading } = useAuth();
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const isMenuOpen = Boolean(anchorEl);
 
@@ -67,7 +67,9 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
                         {mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
                     </IconButton>
 
-                    {isLoggedIn ? (
+                    {isLoading ? (
+                        <Box p={5} display="flex" justifyContent="center"><CircularProgress /></Box>
+                    ) : isLoggedIn ? (
                         <>
                             <IconButton onClick={handleProfileClick} sx={{ p: 0, ml: 5 }}>
                                 <Avatar
@@ -85,15 +87,11 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
                                 anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
                             >
                                 <MenuItem onClick={() => handleNavigate(`/profile/${user?.username}/overview`)}>My Profile</MenuItem>
-                                <MenuItem onClick={() => handleNavigate(`/profile/${user?.username}/edit`)}>Edit Profile</MenuItem>
 
                                 <Divider />
 
-                                <MenuItem onClick={() => handleNavigate(`/profile/${user?.username}/followers`)}>Followers</MenuItem>
                                 <MenuItem onClick={() => handleNavigate(`/profile/${user?.username}/reviews`)}>Reviews</MenuItem>
                                 <MenuItem onClick={() => handleNavigate(`/profile/${user?.username}/collections`)}>Collections</MenuItem>
-                                <MenuItem onClick={() => handleNavigate(`/profile/${user?.username}/statistics`)}>Statistics</MenuItem>
-                                <MenuItem onClick={() => handleNavigate(`/profile/${user?.username}/badges`)}>Badges</MenuItem>
 
                                 <Divider />
 

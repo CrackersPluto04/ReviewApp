@@ -45,6 +45,19 @@ public class UserService : IUserService
         };
     }
 
+    public async Task<(bool Success, string Message)> UpdateUserProfileAsync(int userId, UserUpdateDto userUpdateDto)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null)
+            return (false, "User not found.");
+
+        user.Bio = userUpdateDto.Bio ?? user.Bio;
+        user.ProfilePictureUrl = userUpdateDto.ProfilePictureUrl ?? user.ProfilePictureUrl;
+
+        await _context.SaveChangesAsync();
+        return (true, "Profile updated successfully.");
+    }
+
     public async Task<List<UserFollowDto>> GetUserFollowersAsync(string username, int? currentUserId)
     {
         // Get target user

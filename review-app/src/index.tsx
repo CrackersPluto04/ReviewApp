@@ -87,8 +87,6 @@ function App() {
 						<Route path="overview" element={<div>Overview Tab (Coming Soon)</div>} />
 						<Route path="reviews" element={<ReviewsTab />} />
 						<Route path="collections" element={<CollectionsTab />} />
-						<Route path="statistics" element={<div>Stats Tab (Coming Soon)</div>} />
-						<Route path="badges" element={<div>Badges Tab (Coming Soon)</div>} />
 					</Route>
 
 					<Route path="*" element={<Navigate to="/home" replace />} />

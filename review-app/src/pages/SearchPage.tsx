@@ -63,6 +63,7 @@ export function SearchPage() {
     };
 
     const handleTabChange = (_event: Event, newValue: string) => {
+        //setTotalCount(-1);
         setSearchParams({ q: query, type: newValue, page: '1' });
     };
 
@@ -79,10 +80,10 @@ export function SearchPage() {
         </Box>
 
         {/* Tabs */}
-        <Tabs value={currentType} onChange={handleTabChange} variant="fullWidth" sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}>
-            <Tab label="Any" value="all" disabled={loading} />
-            <Tab label="Movies" value="movie" disabled={loading} />
-            <Tab label="Series" value="series" disabled={loading} />
+        <Tabs value={currentType} onChange={handleTabChange} variant="fullWidth" sx={{ mb: 2, borderBottom: 1, borderTop: 1, borderColor: 'divider' }}>
+            <Tab label={"Any" + (currentType === 'all' && !loading ? ` (${totalCount})` : '')} value="all" disabled={loading} />
+            <Tab label={"Movies" + (currentType === 'movie' && !loading ? ` (${totalCount})` : '')} value="movie" disabled={loading} />
+            <Tab label={"Series" + (currentType === 'series' && !loading ? ` (${totalCount})` : '')} value="series" disabled={loading} />
             <Tab label="Music" value="music" disabled={loading} />
         </Tabs>
 

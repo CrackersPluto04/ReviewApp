@@ -160,7 +160,7 @@ export function DiscoverMusicPage() {
 
         {/* --- PAGINATION TOP --- */}
         {totalPages > 1 && !loading &&
-            <MyPagination page={pageUrl} totalPages={totalPages} onPageChange={handlePageChange} size="large" />}
+            <MyPagination page={pageUrl} totalPages={totalPages} onPageChange={handlePageChange} size="medium" mt={2} mb={2} />}
 
         {/* --- RESULTS --- */}
         {loading ? (

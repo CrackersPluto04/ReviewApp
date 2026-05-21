@@ -20,6 +20,23 @@ class UserService {
         }
     }
 
+    async updateMyProfile(bio?: string, profilePictureUrl?: string) {
+        try {
+            const response = await fetch(`${this.baseUrl}/me`, this.getFetchOptions('PATCH', { bio, profilePictureUrl }));
+
+            if (response.ok) {
+                const data = await response.json();
+                return { success: true, message: data.message };
+            } else {
+                const errorData = await response.json();
+                return { success: false, message: errorData.error || 'Something went wrong while updating user profile.' }
+            }
+        } catch (error) {
+            console.error('UpdateMyProfile error:', error);
+            return { success: false, message: 'Network error while updating user profile.' }
+        }
+    }
+
     async getUserCollections(username: string, sortBy: string = 'createdAt_desc') {
         try {
             const response = await fetch(`${this.baseUrl}/${username}/collections?sortBy=${sortBy}`, this.getFetchOptions());
