@@ -87,6 +87,8 @@ builder.Services.AddHttpClient<ITmdbService, TmdbService>();
 builder.Services.AddHttpClient<ISpotifyService, SpotifyService>();
 builder.Services.AddScoped<IMediaService, MediaService>();
 builder.Services.AddScoped<ICollectionService, CollectionService>();
+builder.Services.AddScoped<IFollowerService, FollowerService>();
+builder.Services.AddScoped<IUserService, UserService>();
 
 var app = builder.Build();
 

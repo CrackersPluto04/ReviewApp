@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<Review> Reviews { get; set; }
     public DbSet<Collection> Collections { get; set; }
     public DbSet<CollectionMedia> CollectionMedias { get; set; }
+    public DbSet<UserFollower> UserFollowers { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,22 +42,42 @@ public class AppDbContext : DbContext
             .HasIndex(c => new { c.UserID, c.Name })
             .IsUnique();
 
-        // Configure CollectionMedia composite key
+        /* Configure CollectionMedia */
+        // Composite key
         modelBuilder.Entity<CollectionMedia>()
             .HasKey(cm => new { cm.CollectionID, cm.MediaID });
 
-        // Configure CollectionMedia - Collection relationship
+        // CollectionMedia - Collection relationship
         modelBuilder.Entity<CollectionMedia>()
             .HasOne(cm => cm.Collection)
             .WithMany(c => c.CollectionMedias)
             .HasForeignKey(cm => cm.CollectionID)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Configure CollectionMedia - Media relationship
+        // CollectionMedia - Media relationship
         modelBuilder.Entity<CollectionMedia>()
             .HasOne(cm => cm.Media)
             .WithMany()
             .HasForeignKey(cm => cm.MediaID)
             .OnDelete(DeleteBehavior.Cascade);
+
+        /* Configure UserFollower */
+        // Composite key
+        modelBuilder.Entity<UserFollower>()
+            .HasKey(uf => new { uf.FollowerID, uf.FollowingID });
+
+        // Follower relationship
+        modelBuilder.Entity<UserFollower>()
+            .HasOne(uf => uf.Follower)
+            .WithMany(u => u.Following)
+            .HasForeignKey(uf => uf.FollowerID)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Following relationship
+        modelBuilder.Entity<UserFollower>()
+            .HasOne(uf => uf.Following)
+            .WithMany(u => u.Followers)
+            .HasForeignKey(uf => uf.FollowingID)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

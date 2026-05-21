@@ -12,12 +12,24 @@ namespace ReviewApp.Api.Controllers;
 public class UserController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly IUserService _userService;
     private readonly ICollectionService _collectionService;
 
-    public UserController(AppDbContext context, ICollectionService collectionService)
+    public UserController(AppDbContext context, IUserService userService, ICollectionService collectionService)
     {
         _context = context;
+        _userService = userService;
         _collectionService = collectionService;
+    }
+
+    [HttpGet("{username}")]
+    public async Task<IActionResult> GetUserProfile([FromRoute] string username)
+    {
+        var userProfile = await _userService.GetUserProfileAsync(username, GetOptionalUserId());
+        if (userProfile == null)
+            return NotFound(new { error = "User profile not found." });
+
+        return Ok(userProfile);
     }
 
     [HttpGet("{username}/collections")]
@@ -39,13 +51,29 @@ public class UserController : ControllerBase
             return NotFound(new { error = "User profile not found." });
 
         // Check if requesting user is the owner of the collections
+        // or a follower of the owner
         var requestingUserId = GetOptionalUserId();
+
         var isOwner = requestingUserId.HasValue && requestingUserId.Value == targetUser.ID;
 
-        // Build the query to get reviews, applying visibility filter if not owner
+        var isFollower = false;
+        if (requestingUserId.HasValue && !isOwner)
+            isFollower = await _context.UserFollowers.AnyAsync(uf =>
+                uf.FollowerID == requestingUserId.Value &&
+                uf.FollowingID == targetUser.ID);
+
+        // Build the query to get reviews, applying visibility filter
         var query = _context.Reviews.Where(r => r.UserID == targetUser.ID);
+
         if (!isOwner)
-            query = query.Where(c => c.VisibilityLevel == VisibilityLevel.Public);
+        {
+            if (isFollower)
+                query = query.Where(r =>
+                    r.VisibilityLevel == VisibilityLevel.Public ||
+                    r.VisibilityLevel == VisibilityLevel.FollowersOnly);
+            else
+                query = query.Where(r => r.VisibilityLevel == VisibilityLevel.Public);
+        }
 
         // Apply filters
         if (p.HasWrittenText)
@@ -89,6 +117,20 @@ public class UserController : ControllerBase
 
         var response = new PagedResponse<object>(reviews, reviewsCount, p.Page, p.PageSize);
         return Ok(response);
+    }
+
+    [HttpGet("{username}/followers")]
+    public async Task<IActionResult> GetUserFollowers([FromRoute] string username)
+    {
+        var followers = await _userService.GetUserFollowersAsync(username, GetOptionalUserId());
+        return Ok(followers);
+    }
+
+    [HttpGet("{username}/following")]
+    public async Task<IActionResult> GetUserFollowing([FromRoute] string username)
+    {
+        var following = await _userService.GetUserFollowingAsync(username, GetOptionalUserId());
+        return Ok(following);
     }
 
     /* Helper methods */

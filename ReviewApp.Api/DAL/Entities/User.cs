@@ -18,4 +18,7 @@ public class User
     public string? ProfilePictureUrl { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public ICollection<UserFollower> Followers { get; set; } = [];
+    public ICollection<UserFollower> Following { get; set; } = [];
 }

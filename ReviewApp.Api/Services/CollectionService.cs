@@ -204,13 +204,29 @@ public class CollectionService : ICollectionService
         if (targetUser == null) return null!;
 
         // Check if requesting user is the owner of the collections
+        // or a follower of the owner
         bool isOwner = requestingUserId.HasValue && requestingUserId.Value == targetUser.ID;
 
-        // Build the query to get collections, applying visibility filter if not owner
-        var query = _context.Collections.Where(c => c.UserID == targetUser.ID);
-        if (!isOwner)
-            query = query.Where(c => c.VisibilityLevel == VisibilityLevel.Public);
+        var isFollower = false;
+        if (requestingUserId.HasValue && !isOwner)
+            isFollower = await _context.UserFollowers.AnyAsync(uf =>
+                uf.FollowerID == requestingUserId.Value &&
+                uf.FollowingID == targetUser.ID);
 
+        // Build the query to get collections, applying visibility filter
+        var query = _context.Collections.Where(c => c.UserID == targetUser.ID);
+
+        if (!isOwner)
+        {
+            if (isFollower)
+                query = query.Where(c =>
+                    c.VisibilityLevel == VisibilityLevel.Public ||
+                    c.VisibilityLevel == VisibilityLevel.FollowersOnly);
+            else
+                query = query.Where(c => c.VisibilityLevel == VisibilityLevel.Public);
+        }
+
+        // Apply filters
         query = sortBy switch
         {
             "createdAt_desc" => query.OrderByDescending(c => c.CreatedAt),
@@ -235,30 +251,58 @@ public class CollectionService : ICollectionService
 
     public async Task<CollectionWithMediasDto?> OpenCollectionAsync(int? requestingUserId, int collectionId)
     {
-        // Get collection with medias, applying visibility filter
-        var rawCollection = await _context.Collections
-        .Where(c => c.ID == collectionId && (c.UserID == requestingUserId || c.VisibilityLevel == VisibilityLevel.Public))
-        .Select(c => new
-        {
-            c.ID,
-            c.Name,
-            c.VisibilityLevel,
-            c.CreatedAt,
-            MediaCount = c.CollectionMedias.Count,
-            c.UserID,
-            RawMedias = c.CollectionMedias
-                .OrderBy(cm => cm.OrderIndex)
-                .Select(cm => new
-                {
-                    cm.MediaID,
-                    cm.Media,
-                    cm.OrderIndex,
-                    cm.AddedAt
-                })
-        })
-        .FirstOrDefaultAsync();
+        // Build the query
+        var query = _context.Collections.Where(c => c.ID == collectionId);
 
-        if (rawCollection == null) return null;
+        // Get targerUserID
+        var targetUserId = await query
+            .Select(c => c.UserID)
+            .FirstOrDefaultAsync();
+
+        // Get visibility relationships
+        var isOwner = requestingUserId.HasValue && requestingUserId.Value == targetUserId;
+
+        var isFollower = false;
+        if (requestingUserId.HasValue && !isOwner)
+            isFollower = await _context.UserFollowers.AnyAsync(uf =>
+                uf.FollowerID == requestingUserId.Value &&
+                uf.FollowingID == targetUserId);
+
+        // Apply visibility filter
+        if (!isOwner)
+        {
+            if (isFollower)
+                query = query.Where(c =>
+                    c.VisibilityLevel == VisibilityLevel.Public ||
+                    c.VisibilityLevel == VisibilityLevel.FollowersOnly);
+            else
+                query = query.Where(r => r.VisibilityLevel == VisibilityLevel.Public);
+        }
+
+        // Get collection with medias
+        var rawCollection = await query
+            .Select(c => new
+            {
+                c.ID,
+                c.Name,
+                c.VisibilityLevel,
+                c.CreatedAt,
+                MediaCount = c.CollectionMedias.Count,
+                c.UserID,
+                RawMedias = c.CollectionMedias
+                    .OrderBy(cm => cm.OrderIndex)
+                    .Select(cm => new
+                    {
+                        cm.MediaID,
+                        cm.Media,
+                        cm.OrderIndex,
+                        cm.AddedAt
+                    })
+            })
+            .FirstOrDefaultAsync();
+
+        if (rawCollection == null)
+            return null;
 
         // Map to DTO
         var result = new CollectionWithMediasDto

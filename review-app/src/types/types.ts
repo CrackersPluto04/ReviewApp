@@ -1,3 +1,15 @@
+// User related DTOs
+export interface UserProfileDto {
+    id: number,
+    username: string,
+    bio?: string,
+    profilePictureUrl?: string,
+    createdAt: string,
+    followersCount: number,
+    followingCount: number,
+    isFollowedByCurrentUser: boolean
+}
+
 // Media and Review related DTOs
 export interface MediaDto {
     id: string;
@@ -43,6 +55,14 @@ export interface CollectionMediaDto {
 export interface CollectionWithMediasDto {
     collection: CollectionDto;
     mediaItems: CollectionMediaDto[];
+}
+
+// Follower System related DTOs
+export interface UserFollowDto {
+    id: number,
+    username: string,
+    profilePictureUrl?: string,
+    isFollowedByCurrentUser: boolean
 }
 
 // Filter & sort related parameter dtos
