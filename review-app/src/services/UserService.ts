@@ -3,6 +3,22 @@ import { ReviewFilterParams } from "../types/types";
 class UserService {
     private readonly baseUrl = 'https://localhost:7140/api/User';
 
+    async searchUsers(query: string) {
+        try {
+            const response = await fetch(`${this.baseUrl}/search?q=${encodeURIComponent(query)}`, this.getFetchOptions());
+
+            if (response.ok) {
+                const data = await response.json();
+                return { success: true, data: data };
+            } else {
+                return { success: false, data: [] }
+            }
+        } catch (error) {
+            console.error('SearchUsers error:', error);
+            return { success: false, data: [] }
+        }
+    }
+
     async getUserProfile(username: string) {
         try {
             const response = await fetch(`${this.baseUrl}/${username}`, this.getFetchOptions());

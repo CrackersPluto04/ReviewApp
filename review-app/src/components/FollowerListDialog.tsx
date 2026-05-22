@@ -1,7 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { UserFollowDto } from "../types/types";
+import { UserCompactDto } from "../types/types";
 import { userService } from "../services/UserService";
 import { followerService } from "../services/FollowerService";
 import { Dialog, DialogTitle, Typography, IconButton, DialogContent, Box, CircularProgress, List, ListItem, ListItemAvatar, Avatar, ListItemText, Button } from "@mui/material";
@@ -20,7 +20,7 @@ export function FollowerListDialog({ open, onClose, username, type, onFollowerRe
     const { user, isLoggedIn } = useAuth();
     const navigate = useNavigate();
 
-    const [users, setUsers] = useState<UserFollowDto[]>([]);
+    const [users, setUsers] = useState<UserCompactDto[]>([]);
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 

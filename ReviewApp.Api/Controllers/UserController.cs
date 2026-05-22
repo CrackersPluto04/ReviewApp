@@ -23,6 +23,13 @@ public class UserController : ControllerBase
         _collectionService = collectionService;
     }
 
+    [HttpGet("search")]
+    public async Task<IActionResult> SearchUsers([FromQuery] string q)
+    {
+        var users = await _userService.SearchUsersAsync(q);
+        return Ok(users);
+    }
+
     [HttpGet("{username}")]
     public async Task<IActionResult> GetUserProfile([FromRoute] string username)
     {

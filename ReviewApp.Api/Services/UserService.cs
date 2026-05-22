@@ -13,6 +13,22 @@ public class UserService : IUserService
         _context = context;
     }
 
+    public async Task<List<UserCompactDto>> SearchUsersAsync(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return [];
+
+        return await _context.Users
+            .Where(u => u.Username.Contains(query))
+            .Take(10)
+            .Select(u => new UserCompactDto
+            {
+                ID = u.ID,
+                Username = u.Username,
+                ProfilePictureUrl = u.ProfilePictureUrl
+            })
+            .ToListAsync();
+    }
+
     public async Task<UserProfileDto?> GetUserProfileAsync(string username, int? currentUserId)
     {
         // Get target user
@@ -58,7 +74,7 @@ public class UserService : IUserService
         return (true, "Profile updated successfully.");
     }
 
-    public async Task<List<UserFollowDto>> GetUserFollowersAsync(string username, int? currentUserId)
+    public async Task<List<UserCompactDto>> GetUserFollowersAsync(string username, int? currentUserId)
     {
         // Get target user
         var targetUser = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
@@ -67,7 +83,7 @@ public class UserService : IUserService
 
         var followers = await _context.UserFollowers
             .Where(uf => uf.FollowingID == targetUser.ID)
-            .Select(uf => new UserFollowDto
+            .Select(uf => new UserCompactDto
             {
                 ID = uf.FollowerID,
                 Username = uf.Follower.Username,
@@ -83,7 +99,7 @@ public class UserService : IUserService
         return followers;
     }
 
-    public async Task<List<UserFollowDto>> GetUserFollowingAsync(string username, int? currentUserId)
+    public async Task<List<UserCompactDto>> GetUserFollowingAsync(string username, int? currentUserId)
     {
         var targetUser = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
         if (targetUser == null)
@@ -91,7 +107,7 @@ public class UserService : IUserService
 
         var following = await _context.UserFollowers
             .Where(uf => uf.FollowerID == targetUser.ID)
-            .Select(uf => new UserFollowDto
+            .Select(uf => new UserCompactDto
             {
                 ID = uf.FollowingID,
                 Username = uf.Following.Username,

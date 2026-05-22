@@ -1,6 +1,6 @@
 ﻿namespace ReviewApp.Api.DTOs;
 
-public record UserFollowDto
+public record UserCompactDto
 {
     public int ID { get; init; }
     public string Username { get; init; } = string.Empty;

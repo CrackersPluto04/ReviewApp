@@ -1,10 +1,10 @@
 import { AppBar, Toolbar, Typography, Button, IconButton, Box, Container, Avatar, Divider, Menu, MenuItem, CircularProgress } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'preact/hooks';
 import { useAuth } from '../context/AuthContext';
+import { UserSearchBar } from './UserSearchBar';
 
 export type HeaderProps = {
     mode: 'light' | 'dark';
@@ -45,24 +45,23 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
     return <AppBar position="static" color="default" elevation={1}>
         <Container disableGutters maxWidth="xl" sx={{ pr: 12, pl: 12 }}>
             <Toolbar disableGutters sx={{ justifyContent: 'space-between' }}>
-                {/* LEFT: Logo */}
+                {/* Logo */}
                 <Typography variant="h6" fontWeight="bold" sx={{ cursor: 'pointer' }} onClick={() => navigate('/')}>
                     THE Review App
                 </Typography>
 
-                {/* MIDDLE: Navigation Links */}
+                {/* Navigation Links */}
                 <Box sx={{ display: 'flex', gap: 2 }}>
                     <Button color="inherit" onClick={() => navigate('/discover?type=movie')}>Movies</Button>
                     <Button color="inherit" onClick={() => navigate('/discover?type=series')}>Series</Button>
                     <Button color="inherit" onClick={() => navigate('/discover/music')}>Music</Button>
                 </Box>
 
-                {/* RIGHT: Icons */}
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                    <IconButton color="inherit" onClick={() => navigate('/search')}>
-                        <SearchIcon />
-                    </IconButton>
+                {/* User Search Bar */}
+                <UserSearchBar />
 
+                {/* Theme Toggle & Login/Profile */}
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                     <IconButton color="inherit" onClick={toggleTheme}>
                         {mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
                     </IconButton>
@@ -71,7 +70,7 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
                         <Box p={5} display="flex" justifyContent="center"><CircularProgress /></Box>
                     ) : isLoggedIn ? (
                         <>
-                            <IconButton onClick={handleProfileClick} sx={{ p: 0, ml: 5 }}>
+                            <IconButton onClick={handleProfileClick} sx={{ p: 0, ml: 2 }}>
                                 <Avatar
                                     alt="Profile Picture"
                                     src={user?.profilePictureUrl}
