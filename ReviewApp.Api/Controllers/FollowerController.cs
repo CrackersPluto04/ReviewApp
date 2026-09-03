@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ReviewApp.Api.Services;
+using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Controllers;
 
@@ -10,10 +10,12 @@ namespace ReviewApp.Api.Controllers;
 public class FollowerController : ControllerBase
 {
     private readonly IFollowerService _followerService;
+    private readonly IUserAuthHelper _userAuthHelper;
 
-    public FollowerController(IFollowerService followerService)
+    public FollowerController(IFollowerService followerService, IUserAuthHelper userAuthHelper)
     {
         _followerService = followerService;
+        _userAuthHelper = userAuthHelper;
     }
 
     [HttpPost("{targerUserId}/follow")]
@@ -21,7 +23,7 @@ public class FollowerController : ControllerBase
     {
         try
         {
-            var (Success, Message) = await _followerService.FollowUserAsync(GetSecureUserId(), targerUserId);
+            var (Success, Message) = await _followerService.FollowUserAsync(_userAuthHelper.GetSecureUserID(), targerUserId);
             if (Success)
                 return Ok(new { message = Message });
             else
@@ -38,7 +40,7 @@ public class FollowerController : ControllerBase
     {
         try
         {
-            var (Success, Message) = await _followerService.UnfollowUserAsync(GetSecureUserId(), targerUserId);
+            var (Success, Message) = await _followerService.UnfollowUserAsync(_userAuthHelper.GetSecureUserID(), targerUserId);
             if (Success)
                 return Ok(new { message = Message });
             else
@@ -55,7 +57,7 @@ public class FollowerController : ControllerBase
     {
         try
         {
-            var (Success, Message) = await _followerService.RemoveFollowerAsync(GetSecureUserId(), followerToRemoveId);
+            var (Success, Message) = await _followerService.RemoveFollowerAsync(_userAuthHelper.GetSecureUserID(), followerToRemoveId);
             if (Success)
                 return Ok(new { message = Message });
             else
@@ -65,19 +67,5 @@ public class FollowerController : ControllerBase
         {
             return Unauthorized(new { error = ex.Message });
         }
-    }
-
-    /* Helper methods */
-
-    // Helper method to extract user ID from JWT claims
-    private int GetSecureUserId()
-    {
-        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == "id");
-        if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
-        {
-            return userId;
-        }
-
-        throw new UnauthorizedAccessException("Invalid user token.");
     }
 }

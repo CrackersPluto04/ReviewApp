@@ -1,6 +1,6 @@
 ﻿using ReviewApp.Api.DTOs;
 
-namespace ReviewApp.Api.Services;
+namespace ReviewApp.Api.Services.Interfaces;
 
 public interface IUserService
 {

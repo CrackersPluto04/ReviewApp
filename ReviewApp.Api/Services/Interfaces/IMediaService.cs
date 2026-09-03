@@ -2,7 +2,7 @@
 using ReviewApp.Api.DTOs;
 using ReviewApp.Api.Enums;
 
-namespace ReviewApp.Api.Services;
+namespace ReviewApp.Api.Services.Interfaces;
 
 public interface IMediaService
 {

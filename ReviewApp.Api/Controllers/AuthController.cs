@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using ReviewApp.Api.DAL;
 using ReviewApp.Api.DAL.Entities;
 using ReviewApp.Api.DTOs;
+using ReviewApp.Api.Services.Interfaces;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -17,11 +18,13 @@ public class AuthController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly IUserAuthHelper _userAuthHelper;
 
-    public AuthController(AppDbContext context, IConfiguration configuration)
+    public AuthController(AppDbContext context, IConfiguration configuration, IUserAuthHelper userAuthHelper)
     {
         _context = context;
         _configuration = configuration;
+        _userAuthHelper = userAuthHelper;
     }
 
     [HttpPost("register")]
@@ -96,22 +99,25 @@ public class AuthController : ControllerBase
     [Authorize]
     public async Task<IActionResult> CheckAuth()
     {
-        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == "id");
-        if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+        try
         {
-            return Unauthorized();
+            var userId = _userAuthHelper.GetSecureUserID();
+
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null)
+                return NotFound();
+
+            return Ok(new
+            {
+                id = user.ID,
+                username = user.Username,
+                profilePictureUrl = user.ProfilePictureUrl
+            });
         }
-
-        var user = await _context.Users.FindAsync(userId);
-        if (user == null)
-            return NotFound();
-
-        return Ok(new
+        catch (Exception ex)
         {
-            id = user.ID,
-            username = user.Username,
-            profilePictureUrl = user.ProfilePictureUrl
-        });
+            return Unauthorized(new { error = ex.Message });
+        }
     }
 
     // Helper method to create JWT token

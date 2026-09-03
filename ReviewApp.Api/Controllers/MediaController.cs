@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using ReviewApp.Api.DTOs;
 using ReviewApp.Api.Enums;
-using ReviewApp.Api.Services;
+using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Controllers;
 

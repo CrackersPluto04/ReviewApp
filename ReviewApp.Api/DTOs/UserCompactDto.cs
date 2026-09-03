@@ -6,5 +6,5 @@ public record UserCompactDto
     public string Username { get; init; } = string.Empty;
     public string? ProfilePictureUrl { get; init; }
 
-    public bool IsFollowedByCurrentUser { get; init; }
+    public bool? IsFollowedByCurrentUser { get; init; }
 }

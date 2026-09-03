@@ -2,6 +2,7 @@
 using ReviewApp.Api.DAL.Entities;
 using ReviewApp.Api.DTOs;
 using ReviewApp.Api.Enums;
+using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services;
 

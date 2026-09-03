@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using ReviewApp.Api.DAL;
 using ReviewApp.Api.Services;
+using ReviewApp.Api.Services.Interfaces;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -83,12 +84,16 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+builder.Services.AddHttpContextAccessor();
+
 builder.Services.AddHttpClient<ITmdbService, TmdbService>();
 builder.Services.AddHttpClient<ISpotifyService, SpotifyService>();
 builder.Services.AddScoped<IMediaService, MediaService>();
+builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<ICollectionService, CollectionService>();
 builder.Services.AddScoped<IFollowerService, FollowerService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IUserAuthHelper, UserAuthHelper>();
 
 var app = builder.Build();
 

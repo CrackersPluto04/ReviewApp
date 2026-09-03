@@ -1,11 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using ReviewApp.Api.DAL;
-using ReviewApp.Api.DAL.Entities;
 using ReviewApp.Api.DTOs;
 using ReviewApp.Api.Enums;
-using ReviewApp.Api.Services;
+using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Controllers;
 
@@ -13,244 +10,97 @@ namespace ReviewApp.Api.Controllers;
 [ApiController]
 public class ReviewController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly IReviewService _reviewService;
     private readonly IMediaService _mediaService;
+    private readonly IUserAuthHelper _userAuthHelper;
 
-    public ReviewController(AppDbContext context, IMediaService mediaService)
+    public ReviewController(IReviewService reviewService, IMediaService mediaService, IUserAuthHelper userAuthHelper)
     {
-        _context = context;
+        _reviewService = reviewService;
         _mediaService = mediaService;
+        _userAuthHelper = userAuthHelper;
     }
 
     [HttpGet("media/{mediaType}/{externalApiId}")]
-    public async Task<IActionResult> GetMediaReviews(
-        [FromRoute] MediaType mediaType,
-        [FromRoute] string externalApiId,
-        [FromQuery] ReviewFilterParams p)
+    public async Task<IActionResult> GetMediaReviews([FromRoute] MediaType mediaType, [FromRoute] string externalApiId, [FromQuery] ReviewFilterParams p)
     {
-        // Find Media ID, if null, nobody has reviewed it yet
-        var media = await _context.Media.FirstOrDefaultAsync(m => m.ExternalApiID == externalApiId && m.MediaType == mediaType);
-        if (media == null)
-        {
-            return Ok(new PagedResponse<object>([], 0, p.Page, p.PageSize));
-        }
-
-        // Get public reviews for media
-        var query = _context.Reviews
-            .Include(r => r.User)
-            .Where(r => r.MediaID == media.ID && r.VisibilityLevel == VisibilityLevel.Public);
-
-        // Apply filters
-        if (p.HasWrittenText)
-            query = query.Where(r => !string.IsNullOrWhiteSpace(r.ReviewText) || !string.IsNullOrWhiteSpace(r.Pros) || !string.IsNullOrWhiteSpace(r.Cons));
-
-        query = query.Where(r => r.Score >= p.MinScore);
-        query = query.Where(r => r.Score <= p.MaxScore);
-
-        query = p.SortBy switch
-        {
-            "created_asc" => query.OrderBy(r => r.CreatedAt),
-            "updated_desc" => query.OrderByDescending(r => r.UpdatedAt),
-            "updated_asc" => query.OrderBy(r => r.UpdatedAt),
-            "score_desc" => query.OrderByDescending(r => r.Score),
-            "score_asc" => query.OrderBy(r => r.Score),
-            _ => query.OrderByDescending(r => r.CreatedAt)
-        };
-
-        // Count reviews and apply pagination
-        var reviewsCount = await query.CountAsync();
-        var reviews = await query
-            .Skip((p.Page - 1) * p.PageSize)
-            .Take(p.PageSize)
-            .Select(r => new
-            {
-                r.ID,
-                r.Score,
-                r.ReviewText,
-                r.Pros,
-                r.Cons,
-                r.User.Username,
-                r.User.ProfilePictureUrl,
-                r.CreatedAt,
-                r.UpdatedAt
-            })
-            .ToListAsync();
-
-        var response = new PagedResponse<object>(reviews, reviewsCount, p.Page, p.PageSize);
-        return Ok(response);
+        var pagedReviews = await _reviewService.GetMediaReviewsAsync(mediaType, externalApiId, p);
+        return Ok(pagedReviews);
     }
 
     [HttpGet("stats/average-score")]
     public async Task<IActionResult> GetAverageScore([FromQuery] string externalApiId, [FromQuery] MediaType mediaType)
     {
-        // Find Media ID, if null, nobody has reviewed it yet
-        var media = await _context.Media.FirstOrDefaultAsync(m => m.ExternalApiID == externalApiId && m.MediaType == mediaType);
-        if (media == null)
-        {
-            return Ok(new { averageScore = 0, reviewCount = 0 });
-        }
-
-        // Calculate average score
-        var publicReviews = _context.Reviews.Where(r => r.MediaID == media.ID && r.VisibilityLevel == VisibilityLevel.Public);
-        var count = await publicReviews.CountAsync();
-        var average = count > 0 ? await publicReviews.AverageAsync(r => r.Score) : 0;
-
-        return Ok(new
-        {
-            averageScore = Math.Round(average, 1),
-            reviewCount = count
-        });
+        var (AverageScore, ReviewCount) = await _reviewService.GetAverageScoreAsync(mediaType, externalApiId);
+        return Ok(new { averageScore = AverageScore, reviewCount = ReviewCount });
     }
 
     [HttpPost]
     [Authorize]
     public async Task<IActionResult> CreateReview([FromBody] ReviewMediaDto request)
     {
-        // Identify the User and get userId
-        var userId = GetSecureUserId();
-        if (userId == null)
+        try
         {
-            return Unauthorized(new { error = "Invalid user token." });
+            var (Success, Message) = await _reviewService.CreateReviewAsync(_userAuthHelper.GetSecureUserID(), request);
+            if (Success)
+                return Ok(new { message = Message });
+            else
+                return BadRequest(new { error = Message });
         }
-
-        // Check if media exists, if not add it to the database and get ID
-        var mediaId = await _mediaService.GetOrCreateMediaAsync(request.MediaDto.MediaType, request.MediaDto.ExternalApiID);
-        if (mediaId == -1)
+        catch (UnauthorizedAccessException ex)
         {
-            return BadRequest(new { error = "Invalid media type. Failed to add media." });
+            return Unauthorized(new { error = ex.Message });
         }
-
-        // Check if user has reviewed this media already
-        if (await _context.Reviews.AnyAsync(r => r.UserID == userId && r.MediaID == mediaId))
-        {
-            return BadRequest(new { error = "Media already reviewed, please use edit instead." });
-        }
-
-        // Create new review
-        var review = new Review
-        {
-            UserID = userId.Value,
-            MediaID = mediaId,
-            Score = request.ReviewDto.Score,
-            ReviewText = request.ReviewDto.ReviewText,
-            Pros = request.ReviewDto.Pros,
-            Cons = request.ReviewDto.Cons,
-            VisibilityLevel = request.ReviewDto.VisibilityLevel
-        };
-        _context.Reviews.Add(review);
-        await _context.SaveChangesAsync();
-
-        return Ok(new { message = "Review created successfully!" });
     }
 
     [HttpPut]
     [Authorize]
     public async Task<IActionResult> EditReview([FromBody] ReviewMediaDto request)
     {
-        // Identify the User and get userId
-        var userId = GetSecureUserId();
-        if (userId == null)
+        try
         {
-            return Unauthorized(new { error = "Invalid user token." });
+            var (Success, Message) = await _reviewService.EditReviewAsync(_userAuthHelper.GetSecureUserID(), request);
+            if (Success)
+                return Ok(new { message = Message });
+            else
+                return BadRequest(new { error = Message });
         }
-
-        // Check if media exists
-        var media = await _context.Media.FirstOrDefaultAsync(m => m.ExternalApiID == request.MediaDto.ExternalApiID && m.MediaType == request.MediaDto.MediaType);
-        if (media == null)
+        catch (UnauthorizedAccessException ex)
         {
-            return NotFound(new { error = "Media not found. Invalid media type or API ID." });
+            return Unauthorized(new { error = ex.Message });
         }
-
-        // Check if user has not reviewed this media already
-        var review = await _context.Reviews.FirstOrDefaultAsync(r => r.UserID == userId && r.MediaID == media.ID);
-        if (review == null)
-        {
-            return NotFound(new { error = "Review not found, please use create instead." });
-        }
-
-        // Update existing review
-        review.Score = request.ReviewDto.Score;
-        review.ReviewText = request.ReviewDto.ReviewText;
-        review.Pros = request.ReviewDto.Pros;
-        review.Cons = request.ReviewDto.Cons;
-        review.VisibilityLevel = request.ReviewDto.VisibilityLevel;
-
-        await _context.SaveChangesAsync();
-
-        return Ok(new { message = "Review edited successfully!" });
     }
 
     [HttpDelete("{id}")]
     [Authorize]
     public async Task<IActionResult> DeleteReview(int id)
     {
-        // Identify the User and get userId
-        var userId = GetSecureUserId();
-        if (userId == null)
+        try
         {
-            return Unauthorized(new { error = "Invalid user token." });
+            var (Success, Message) = await _reviewService.DeleteReviewAsync(_userAuthHelper.GetSecureUserID(), id);
+            if (Success)
+                return NoContent();
+            else
+                return NotFound(new { error = Message });
         }
-
-        // Check if review exists
-        var review = await _context.Reviews.FirstOrDefaultAsync(r => r.UserID == userId && r.ID == id);
-        if (review == null)
-            return NotFound(new { error = "Review not found." });
-
-        // Delete review if exists
-        _context.Reviews.Remove(review);
-        await _context.SaveChangesAsync();
-        return NoContent();
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
     }
 
     [HttpGet("check")]
     [Authorize]
     public async Task<IActionResult> CheckIfUserReviewedMedia([FromQuery] string externalApiId, [FromQuery] MediaType mediaType)
     {
-        // Identify the User and get userId
-        var userId = GetSecureUserId();
-        if (userId == null)
+        try
         {
-            return Unauthorized(new { error = "Invalid user token." });
+            var (HasReviewed, Review) = await _reviewService.CheckIfUserReviewedMediaAsync(_userAuthHelper.GetSecureUserID(), mediaType, externalApiId);
+            return Ok(new { hasReviewed = HasReviewed, reviewData = Review });
         }
-
-        // Check if media exists, if not there can be no review
-        var media = await _context.Media.FirstOrDefaultAsync(m => m.ExternalApiID == externalApiId && m.MediaType == mediaType);
-        if (media == null)
+        catch (UnauthorizedAccessException ex)
         {
-            return Ok(new { hasReviewed = false });
+            return Unauthorized(new { error = ex.Message });
         }
-
-        // Check if user has reviewed this media already
-        var review = await _context.Reviews.FirstOrDefaultAsync(r => r.UserID == userId && r.MediaID == media.ID);
-        if (review == null)
-        {
-            return Ok(new { hasReviewed = false });
-        }
-
-        // Return review data if user has reviewed
-        var reviewDto = new ReviewDto
-        {
-            Score = review.Score,
-            ReviewText = review.ReviewText,
-            Pros = review.Pros,
-            Cons = review.Cons,
-            VisibilityLevel = review.VisibilityLevel
-        };
-
-        return Ok(new { hasReviewed = true, reviewData = reviewDto });
-    }
-
-    /* Helper methods */
-
-    // Helper method to extract user ID from JWT claims
-    private int? GetSecureUserId()
-    {
-        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == "id");
-        if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
-        {
-            return userId;
-        }
-
-        return null;
     }
 }
