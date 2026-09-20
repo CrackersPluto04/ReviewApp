@@ -1,8 +1,8 @@
 class AuthService {
     private readonly baseUrl = 'https://localhost:7140/api/Auth';
 
-    async register(username: string, email: string, password: string) {
-        const validationMessage = this.checkRegisterDatas(username, email, password);
+    async register(username: string, email: string, password: string, confirmPassword: string) {
+        const validationMessage = this.checkRegisterDatas(username, email, password, confirmPassword);
         if (validationMessage) {
             return { success: false, message: validationMessage };
         }
@@ -95,8 +95,8 @@ class AuthService {
      */
 
     // Validates registration datas
-    private checkRegisterDatas(username: string, email: string, password: string): string {
-        if (!username || !email || !password)
+    private checkRegisterDatas(username: string, email: string, password: string, confirmPassword: string): string {
+        if (!username || !email || !password || !confirmPassword)
             return "Please fill all the required fields.";
 
         if (username.length < 3 || username.length > 20)
@@ -107,6 +107,9 @@ class AuthService {
 
         if (password.length < 8)
             return "Password must be at least 8 characters long.";
+
+        if (password !== confirmPassword)
+            return "Passwords do not match.";
 
         return "";
     }
