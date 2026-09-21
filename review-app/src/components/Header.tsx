@@ -85,12 +85,12 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
                                 transformOrigin={{ horizontal: 'right', vertical: 'top' }}
                                 anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
                             >
-                                <MenuItem onClick={() => handleNavigate(`/profile/${user?.username}/overview`)}>My Profile</MenuItem>
+                                <MenuItem onClick={() => handleNavigate(`/profile/${encodeURIComponent(user?.username ?? '')}/overview`)}>My Profile</MenuItem>
 
                                 <Divider />
 
-                                <MenuItem onClick={() => handleNavigate(`/profile/${user?.username}/reviews`)}>Reviews</MenuItem>
-                                <MenuItem onClick={() => handleNavigate(`/profile/${user?.username}/collections`)}>Collections</MenuItem>
+                                <MenuItem onClick={() => handleNavigate(`/profile/${encodeURIComponent(user?.username ?? '')}/reviews`)}>Reviews</MenuItem>
+                                <MenuItem onClick={() => handleNavigate(`/profile/${encodeURIComponent(user?.username ?? '')}/collections`)}>Collections</MenuItem>
 
                                 <Divider />
 

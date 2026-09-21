@@ -1,4 +1,4 @@
-import { Box, Avatar, Typography, Paper, Tabs, Tab, CircularProgress, Button, IconButton, TextField, Badge } from "@mui/material";
+import { Box, Avatar, Typography, Paper, Tabs, Tab, CircularProgress, Button, IconButton, TextField, Badge, Tooltip } from "@mui/material";
 import EditIcon from '@mui/icons-material/Edit';
 import { useEffect, useState } from "preact/hooks";
 import { Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
@@ -8,6 +8,7 @@ import { userService } from "../services/UserService";
 import { followerService } from "../services/FollowerService";
 import { FollowerListDialog } from "../components/FollowerListDialog";
 import { EditAvatarDialog } from "../components/EditAvatarDialog";
+import { ChangeUsernameDialog } from "../components/ChangeUsernameDialog";
 
 export function ProfileLayout() {
     const { user, setUser, isLoggedIn } = useAuth();
@@ -23,6 +24,7 @@ export function ProfileLayout() {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [dialogType, setDialogType] = useState<'followers' | 'following'>('followers');
     const [editAvatarDialogOpen, setEditAvatarDialogOpen] = useState(false);
+    const [changeUsernameDialogOpen, setChangeUsernameDialogOpen] = useState(false);
     const [isEditingBio, setIsEditingBio] = useState(false);
     const [draftBio, setDraftBio] = useState(profileData?.bio || '');
 
@@ -51,7 +53,7 @@ export function ProfileLayout() {
 
     // -- Handlers --
     const handleTabChange = (_event: any, newValue: string) => {
-        navigate(`/profile/${username}/${newValue}`);
+        navigate(`/profile/${encodeURIComponent(username!)}/${newValue}`);
     };
 
     const handleOpenDialog = (type: 'followers' | 'following') => {
@@ -113,6 +115,20 @@ export function ProfileLayout() {
         }
     };
 
+    const handleChangeUsername = async (newUsername: string) => {
+        // Errors are returned to the dialog (setErrorMessage would replace the whole page)
+        const result = await userService.changeUsername(newUsername);
+        if (!result.success)
+            return { success: false, message: result.message };
+
+        setChangeUsernameDialogOpen(false);
+        if (user)
+            setUser({ ...user, username: newUsername });
+        navigate(`/profile/${encodeURIComponent(newUsername)}/${currentTab}`, { replace: true });
+
+        return { success: true };
+    };
+
     if (loading)
         return <Box p={5} display="flex" justifyContent="center"><CircularProgress /></Box>;
 
@@ -154,6 +170,13 @@ export function ProfileLayout() {
                         <Typography variant="h5" fontWeight="bold">
                             {username}
                         </Typography>
+                        {isOwner && (
+                            <Tooltip title="Change username">
+                                <IconButton size="small" onClick={() => setChangeUsernameDialogOpen(true)}>
+                                    <EditIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                        )}
                         <Typography variant='body2' color="text.secondary">
                             •
                         </Typography>
@@ -281,6 +304,14 @@ export function ProfileLayout() {
             onClose={() => setEditAvatarDialogOpen(false)}
             currentAvatarUrl={profileData.profilePictureUrl || ''}
             onSave={handleSaveAvatar}
+        />
+
+        {/* CHANGE USERNAME DIALOG */}
+        <ChangeUsernameDialog
+            open={changeUsernameDialogOpen}
+            onClose={() => setChangeUsernameDialogOpen(false)}
+            currentUsername={username!}
+            onSave={handleChangeUsername}
         />
     </Box >
 }

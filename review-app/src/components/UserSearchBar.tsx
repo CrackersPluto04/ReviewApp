@@ -47,7 +47,7 @@ export function UserSearchBar() {
         // Click on user in dropdown -> navigate to their profile
         onChange={(_, selectedUser) => {
             if (selectedUser) {
-                navigate(`/profile/${selectedUser.username}/overview`);
+                navigate(`/profile/${encodeURIComponent(selectedUser.username)}/overview`);
                 setInputValue('');
                 setOpen(false);
             }

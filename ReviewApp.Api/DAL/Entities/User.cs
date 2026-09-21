@@ -8,7 +8,7 @@ public class User
 
     [Required, MaxLength(20)]
     public string Username { get; set; } = string.Empty;
-    [Required]
+    [Required, MaxLength(254)]
     public string Email { get; set; } = string.Empty;
     [Required]
     public string PasswordHash { get; set; } = string.Empty;

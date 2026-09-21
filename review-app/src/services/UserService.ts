@@ -21,7 +21,7 @@ class UserService {
 
     async getUserProfile(username: string) {
         try {
-            const response = await fetch(`${this.baseUrl}/${username}`, this.getFetchOptions());
+            const response = await fetch(`${this.baseUrl}/${encodeURIComponent(username)}`,this.getFetchOptions());
 
             if (response.ok) {
                 const data = await response.json();
@@ -53,9 +53,27 @@ class UserService {
         }
     }
 
+    async changeUsername(username: string) {
+        try {
+            const response = await fetch(`${this.baseUrl}/me`, this.getFetchOptions('PATCH', { username }));
+
+            if (response.ok) {
+                const data = await response.json();
+                return { success: true, message: data.message };
+            } else {
+                const errorData = await response.json();
+                // DataAnnotations failures come back as ProblemDetails (no `error` field)
+                return { success: false, message: errorData.error || errorData.errors?.Username?.[0] || 'Something went wrong while changing username.' }
+            }
+        } catch (error) {
+            console.error('ChangeUsername error:', error);
+            return { success: false, message: 'Network error while changing username.' }
+        }
+    }
+
     async getUserCollections(username: string, sortBy: string = 'createdAt_desc') {
         try {
-            const response = await fetch(`${this.baseUrl}/${username}/collections?sortBy=${sortBy}`, this.getFetchOptions());
+            const response = await fetch(`${this.baseUrl}/${encodeURIComponent(username)}/collections?sortBy=${encodeURIComponent(sortBy)}`, this.getFetchOptions());
 
             if (response.ok) {
                 const data = await response.json();
@@ -80,7 +98,7 @@ class UserService {
             if (params.maxScore !== undefined) query.append('maxScore', params.maxScore.toString());
             if (params.hasWrittenText) query.append('hasWrittenText', 'true');
 
-            const response = await fetch(`${this.baseUrl}/${username}/reviews?${query.toString()}`, this.getFetchOptions());
+            const response = await fetch(`${this.baseUrl}/${encodeURIComponent(username)}/reviews?${query.toString()}`, this.getFetchOptions());
 
             if (response.ok) {
                 const data = await response.json();
@@ -97,7 +115,7 @@ class UserService {
 
     async getUserFollowers(username: string) {
         try {
-            const response = await fetch(`${this.baseUrl}/${username}/followers`, this.getFetchOptions());
+            const response = await fetch(`${this.baseUrl}/${encodeURIComponent(username)}/followers`, this.getFetchOptions());
 
             if (response.ok) {
                 const data = await response.json();
@@ -114,7 +132,7 @@ class UserService {
 
     async getUserFollowing(username: string) {
         try {
-            const response = await fetch(`${this.baseUrl}/${username}/following`, this.getFetchOptions());
+            const response = await fetch(`${this.baseUrl}/${encodeURIComponent(username)}/following`, this.getFetchOptions());
 
             if (response.ok) {
                 const data = await response.json();

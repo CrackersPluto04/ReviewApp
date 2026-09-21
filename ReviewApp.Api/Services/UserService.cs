@@ -68,10 +68,33 @@ public class UserService : IUserService
         if (user == null)
             return (false, "User not found.");
 
+        if (userUpdateDto.Username != null)
+        {
+            var newUsername = userUpdateDto.Username.Trim();
+            if (newUsername.Length < 3 || newUsername.Length > 20)
+                return (false, "Username must be between 3 and 20 characters.");
+
+            // Exclude the user's own row so a case-only change (ben -> Ben) is allowed
+            if (newUsername != user.Username &&
+                await _context.Users.AnyAsync(u => u.Username == newUsername && u.ID != userId))
+                return (false, "Username already taken.");
+
+            user.Username = newUsername;
+        }
+
         user.Bio = userUpdateDto.Bio ?? user.Bio;
         user.ProfilePictureUrl = userUpdateDto.ProfilePictureUrl ?? user.ProfilePictureUrl;
 
-        await _context.SaveChangesAsync();
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException) when (userUpdateDto.Username != null)
+        {
+            // Unique index violation from a concurrent request taking the same name
+            return (false, "Username already taken.");
+        }
+
         return (true, "Profile updated successfully.");
     }
 

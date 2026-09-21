@@ -30,12 +30,20 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] UserRegisterDto request)
     {
-        if (await _context.Users.AnyAsync(u => u.Username == request.Username))
+        var username = request.Username.Trim();
+        var email = request.Email.Trim();
+
+        if (username.Length < 3 || username.Length > 20)
+        {
+            return BadRequest(new { error = "Username must be between 3 and 20 characters." });
+        }
+
+        if (await _context.Users.AnyAsync(u => u.Username == username))
         {
             return BadRequest(new { error = "Username already exists." });
         }
 
-        if (await _context.Users.AnyAsync(u => u.Email == request.Email))
+        if (await _context.Users.AnyAsync(u => u.Email == email))
         {
             return BadRequest(new { error = "User with this email already exists." });
         }
@@ -44,13 +52,28 @@ public class AuthController : ControllerBase
 
         var newUser = new User
         {
-            Username = request.Username,
-            Email = request.Email,
+            Username = username,
+            Email = email,
             PasswordHash = passwordHash
         };
 
         _context.Users.Add(newUser);
-        await _context.SaveChangesAsync();
+
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            // Unique index violation from a concurrent registration with the same username / email
+            if (await _context.Users.AnyAsync(u => u.Username == username))
+                return BadRequest(new { error = "Username already exists." });
+
+            if (await _context.Users.AnyAsync(u => u.Email == email))
+                return BadRequest(new { error = "User with this email already exists." });
+
+            throw;
+        }
 
         return Ok(new { message = "Registration successfull! You can login now." });
     }
@@ -58,7 +81,9 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] UserLoginDto request)
     {
-        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+        var email = request.Email.Trim();
+        
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
         if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
         {
             return Unauthorized(new { error = "Invalid email or password." });

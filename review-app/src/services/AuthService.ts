@@ -2,6 +2,9 @@ class AuthService {
     private readonly baseUrl = 'https://localhost:7140/api/Auth';
 
     async register(username: string, email: string, password: string, confirmPassword: string) {
+        username = username.trim();
+        email = email.trim();
+
         const validationMessage = this.checkRegisterDatas(username, email, password, confirmPassword);
         if (validationMessage) {
             return { success: false, message: validationMessage };
@@ -29,6 +32,8 @@ class AuthService {
     }
 
     async login(email: string, password: string) {
+        email = email.trim();
+
         const validationMessage = this.checkLoginDatas(email, password);
         if (validationMessage) {
             return { success: false, message: validationMessage };
@@ -127,8 +132,9 @@ class AuthService {
 
     // Simple email format validation
     private checkEmail(email: string): boolean {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
+        // local@domain.tld - no whitespace, and no empty domain labels (a@b..c, a@.b, a@b.)
+        const emailRegex = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
+        return email.length <= 254 && emailRegex.test(email);
     }
 }
 
