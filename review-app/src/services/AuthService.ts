@@ -1,3 +1,5 @@
+import { isValidEmail, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "../utils/validation";
+
 class AuthService {
     private readonly baseUrl = 'https://localhost:7140/api/Auth';
 
@@ -107,11 +109,11 @@ class AuthService {
         if (username.length < 3 || username.length > 20)
             return "Username must be between 3 and 20 characters.";
 
-        if (!this.checkEmail(email))
+        if (!isValidEmail(email))
             return "Please enter a valid email address.";
 
-        if (password.length < 8)
-            return "Password must be at least 8 characters long.";
+        if (password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH)
+            return `Password must be between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters long.`;
 
         if (password !== confirmPassword)
             return "Passwords do not match.";
@@ -124,18 +126,15 @@ class AuthService {
         if (!email || !password)
             return "Please fill all the required fields.";
 
-        if (!this.checkEmail(email))
+        if (!isValidEmail(email))
             return "Please enter a valid email address.";
+
+        if (password.length > MAX_PASSWORD_LENGTH)
+            return `Password can be at most ${MAX_PASSWORD_LENGTH} characters long.`;
 
         return "";
     }
 
-    // Simple email format validation
-    private checkEmail(email: string): boolean {
-        // local@domain.tld - no whitespace, and no empty domain labels (a@b..c, a@.b, a@b.)
-        const emailRegex = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
-        return email.length <= 254 && emailRegex.test(email);
-    }
 }
 
 export const authService = new AuthService();

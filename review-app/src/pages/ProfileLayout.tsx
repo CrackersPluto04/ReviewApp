@@ -1,4 +1,4 @@
-import { Box, Avatar, Typography, Paper, Tabs, Tab, CircularProgress, Button, IconButton, TextField, Badge, Tooltip } from "@mui/material";
+import { Box, Avatar, Typography, Paper, Tabs, Tab, CircularProgress, Button, IconButton, TextField, Badge } from "@mui/material";
 import EditIcon from '@mui/icons-material/Edit';
 import { useEffect, useState } from "preact/hooks";
 import { Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
@@ -8,7 +8,7 @@ import { userService } from "../services/UserService";
 import { followerService } from "../services/FollowerService";
 import { FollowerListDialog } from "../components/FollowerListDialog";
 import { EditAvatarDialog } from "../components/EditAvatarDialog";
-import { ChangeUsernameDialog } from "../components/ChangeUsernameDialog";
+import { AccountSettingsMenu } from "../components/AccountSettingsMenu";
 
 export function ProfileLayout() {
     const { user, setUser, isLoggedIn } = useAuth();
@@ -24,7 +24,6 @@ export function ProfileLayout() {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [dialogType, setDialogType] = useState<'followers' | 'following'>('followers');
     const [editAvatarDialogOpen, setEditAvatarDialogOpen] = useState(false);
-    const [changeUsernameDialogOpen, setChangeUsernameDialogOpen] = useState(false);
     const [isEditingBio, setIsEditingBio] = useState(false);
     const [draftBio, setDraftBio] = useState(profileData?.bio || '');
 
@@ -121,7 +120,6 @@ export function ProfileLayout() {
         if (!result.success)
             return { success: false, message: result.message };
 
-        setChangeUsernameDialogOpen(false);
         if (user)
             setUser({ ...user, username: newUsername });
         navigate(`/profile/${encodeURIComponent(newUsername)}/${currentTab}`, { replace: true });
@@ -171,11 +169,7 @@ export function ProfileLayout() {
                             {username}
                         </Typography>
                         {isOwner && (
-                            <Tooltip title="Change username">
-                                <IconButton size="small" onClick={() => setChangeUsernameDialogOpen(true)}>
-                                    <EditIcon fontSize="small" />
-                                </IconButton>
-                            </Tooltip>
+                            <AccountSettingsMenu username={username!} onChangeUsername={handleChangeUsername} />
                         )}
                         <Typography variant='body2' color="text.secondary">
                             •
@@ -304,14 +298,6 @@ export function ProfileLayout() {
             onClose={() => setEditAvatarDialogOpen(false)}
             currentAvatarUrl={profileData.profilePictureUrl || ''}
             onSave={handleSaveAvatar}
-        />
-
-        {/* CHANGE USERNAME DIALOG */}
-        <ChangeUsernameDialog
-            open={changeUsernameDialogOpen}
-            onClose={() => setChangeUsernameDialogOpen(false)}
-            currentUsername={username!}
-            onSave={handleChangeUsername}
         />
     </Box >
 }

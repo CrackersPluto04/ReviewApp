@@ -61,13 +61,45 @@ class UserService {
                 const data = await response.json();
                 return { success: true, message: data.message };
             } else {
-                const errorData = await response.json();
-                // DataAnnotations failures come back as ProblemDetails (no `error` field)
-                return { success: false, message: errorData.error || errorData.errors?.Username?.[0] || 'Something went wrong while changing username.' }
+                return { success: false, message: await this.getErrorMessage(response, 'Something went wrong while changing username.') }
             }
         } catch (error) {
             console.error('ChangeUsername error:', error);
             return { success: false, message: 'Network error while changing username.' }
+        }
+    }
+
+    async changeEmail(newEmail: string, currentPassword: string) {
+        try {
+            const response = await fetch(`${this.baseUrl}/me/email`, this.getFetchOptions('PUT', { newEmail, currentPassword }));
+
+            if (response.ok) {
+                const data = await response.json();
+                return { success: true, message: data.message };
+            } else {
+                return { success: false, message: await this.getErrorMessage(response, 'Something went wrong while changing email.') }
+            }
+        } catch (error) {
+            // Never log the request body here - it contains the password
+            console.error('ChangeEmail error:', error);
+            return { success: false, message: 'Network error while changing email.' }
+        }
+    }
+
+    async changePassword(currentPassword: string, newPassword: string) {
+        try {
+            const response = await fetch(`${this.baseUrl}/me/password`, this.getFetchOptions('PUT', { currentPassword, newPassword }));
+
+            if (response.ok) {
+                const data = await response.json();
+                return { success: true, message: data.message };
+            } else {
+                return { success: false, message: await this.getErrorMessage(response, 'Something went wrong while changing password.') }
+            }
+        } catch (error) {
+            // Never log the request body here - it contains the passwords
+            console.error('ChangePassword error:', error);
+            return { success: false, message: 'Network error while changing password.' }
         }
     }
 
@@ -148,6 +180,23 @@ class UserService {
     }
 
     /* Helper methods */
+
+    // Our endpoints return { error }, DataAnnotations failures come back as ProblemDetails ({ errors: { Field: [messages] } })
+    // and a revoked / expired token gives a 401 with an empty body
+    private async getErrorMessage(response: Response, fallback: string): Promise<string> {
+        if (response.status === 401)
+            return 'Your session has expired. Please log in again.';
+
+        const errorData = await response.json().catch(() => null);
+        if (errorData?.error)
+            return errorData.error;
+
+        const firstValidationError = Object.values(errorData?.errors ?? {})[0];
+        if (Array.isArray(firstValidationError) && firstValidationError.length > 0)
+            return firstValidationError[0];
+
+        return fallback;
+    }
 
     // Create fetch options for different HTTP methods and request bodies
     private getFetchOptions(method: string = 'GET', body?: any): RequestInit {

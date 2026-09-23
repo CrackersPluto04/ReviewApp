@@ -12,6 +12,8 @@ public class User
     public string Email { get; set; } = string.Empty;
     [Required]
     public string PasswordHash { get; set; } = string.Empty;
+    // Included in the JWT; bumping it invalidates all previously issued tokens
+    public int TokenVersion { get; set; }
 
     [MaxLength(150)]
     public string? Bio { get; set; }

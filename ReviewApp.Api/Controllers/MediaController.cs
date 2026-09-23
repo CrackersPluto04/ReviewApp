@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using ReviewApp.Api.DTOs;
 using ReviewApp.Api.Enums;
 using ReviewApp.Api.Services.Interfaces;
@@ -7,6 +8,7 @@ namespace ReviewApp.Api.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[EnableRateLimiting("external-api")]
 public class MediaController : ControllerBase
 {
     private readonly ITmdbService _tmdbService;
