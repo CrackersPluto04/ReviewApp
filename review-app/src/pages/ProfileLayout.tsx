@@ -8,6 +8,7 @@ import { userService } from "../services/UserService";
 import { followerService } from "../services/FollowerService";
 import { FollowerListDialog } from "../components/FollowerListDialog";
 import { EditAvatarDialog } from "../components/EditAvatarDialog";
+import { AccountSettingsMenu } from "../components/AccountSettingsMenu";
 
 export function ProfileLayout() {
     const { user, setUser, isLoggedIn } = useAuth();
@@ -51,7 +52,7 @@ export function ProfileLayout() {
 
     // -- Handlers --
     const handleTabChange = (_event: any, newValue: string) => {
-        navigate(`/profile/${username}/${newValue}`);
+        navigate(`/profile/${encodeURIComponent(username!)}/${newValue}`);
     };
 
     const handleOpenDialog = (type: 'followers' | 'following') => {
@@ -113,6 +114,19 @@ export function ProfileLayout() {
         }
     };
 
+    const handleChangeUsername = async (newUsername: string) => {
+        // Errors are returned to the dialog (setErrorMessage would replace the whole page)
+        const result = await userService.changeUsername(newUsername);
+        if (!result.success)
+            return { success: false, message: result.message };
+
+        if (user)
+            setUser({ ...user, username: newUsername });
+        navigate(`/profile/${encodeURIComponent(newUsername)}/${currentTab}`, { replace: true });
+
+        return { success: true };
+    };
+
     if (loading)
         return <Box p={5} display="flex" justifyContent="center"><CircularProgress /></Box>;
 
@@ -154,6 +168,9 @@ export function ProfileLayout() {
                         <Typography variant="h5" fontWeight="bold">
                             {username}
                         </Typography>
+                        {isOwner && (
+                            <AccountSettingsMenu username={username!} onChangeUsername={handleChangeUsername} />
+                        )}
                         <Typography variant='body2' color="text.secondary">
                             •
                         </Typography>

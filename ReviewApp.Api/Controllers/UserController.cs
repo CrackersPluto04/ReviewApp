@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using ReviewApp.Api.DTOs;
 using ReviewApp.Api.Services.Interfaces;
 
@@ -13,13 +14,15 @@ public class UserController : ControllerBase
     private readonly ICollectionService _collectionService;
     private readonly IReviewService _reviewService;
     private readonly IUserAuthHelper _userAuthHelper;
+    private readonly ITokenService _tokenService;
 
-    public UserController(IUserService userService, ICollectionService collectionService, IReviewService reviewService, IUserAuthHelper userAuthHelper)
+    public UserController(IUserService userService, ICollectionService collectionService, IReviewService reviewService, IUserAuthHelper userAuthHelper, ITokenService tokenService)
     {
         _userService = userService;
         _collectionService = collectionService;
         _reviewService = reviewService;
         _userAuthHelper = userAuthHelper;
+        _tokenService = tokenService;
     }
 
     [HttpGet("search")]
@@ -48,6 +51,47 @@ public class UserController : ControllerBase
             var (Success, Message) = await _userService.UpdateUserProfileAsync(_userAuthHelper.GetSecureUserID(), dto);
             if (!Success)
                 return BadRequest(new { error = Message });
+
+            return Ok(new { message = Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+    }
+
+    [HttpPut("me/email")]
+    [Authorize]
+    [EnableRateLimiting("credential-change")]
+    public async Task<IActionResult> ChangeMyEmail([FromBody] ChangeEmailDto dto)
+    {
+        try
+        {
+            var (Success, Message) = await _userService.ChangeEmailAsync(_userAuthHelper.GetSecureUserID(), dto);
+            if (!Success)
+                return BadRequest(new { error = Message });
+
+            return Ok(new { message = Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+    }
+
+    [HttpPut("me/password")]
+    [Authorize]
+    [EnableRateLimiting("credential-change")]
+    public async Task<IActionResult> ChangeMyPassword([FromBody] ChangePasswordDto dto)
+    {
+        try
+        {
+            var (Success, Message, updatedUser) = await _userService.ChangePasswordAsync(_userAuthHelper.GetSecureUserID(), dto);
+            if (!Success)
+                return BadRequest(new { error = Message });
+
+            // All older tokens are now revoked - give this browser a fresh one so the user stays logged in
+            _tokenService.IssueAuthCookie(updatedUser!);
 
             return Ok(new { message = Message });
         }

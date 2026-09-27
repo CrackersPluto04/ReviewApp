@@ -37,6 +37,15 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>()
             .ToTable(tb => tb.HasTrigger("AddDefaultCollection"));
 
+        // Configure unique username and email
+        modelBuilder.Entity<User>()
+            .HasIndex(u => u.Username)
+            .IsUnique();
+
+        modelBuilder.Entity<User>()
+            .HasIndex(u => u.Email)
+            .IsUnique();
+
         // Configure Collection unique name per user
         modelBuilder.Entity<Collection>()
             .HasIndex(c => new { c.UserID, c.Name })

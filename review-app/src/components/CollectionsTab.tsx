@@ -78,9 +78,8 @@ export function CollectionsTab() {
                 {collections[0]?.isOwner && (
                     <IconButton
                         color="primary"
-                        size="medium"
+                        size="large"
                         onClick={() => setIsCreateDialogOpen(true)}
-                        sx={{ border: '1px solid', borderColor: 'primary.main' }}
                     >
                         <AddIcon fontSize="small" />
                     </IconButton>

@@ -14,6 +14,7 @@ export function LoginPage() {
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
 
     const [register, setRegister] = useState(false);
     const [message, setMessage] = useState('');
@@ -23,7 +24,7 @@ export function LoginPage() {
         e.preventDefault();
 
         if (register) {
-            const result = await authService.register(username, email, password);
+            const result = await authService.register(username, email, password, confirmPassword);
 
             setSuccess(result.success);
             setMessage(result.message || '');
@@ -56,7 +57,8 @@ export function LoginPage() {
 
         {register &&
             <TextField required label="Username" variant="outlined"
-                value={username} onChange={(e) => setUsername(e.currentTarget.value)} />}
+                value={username} onChange={(e) => setUsername(e.currentTarget.value)}
+            />}
 
         <TextField required type='email' label="Email" variant="outlined"
             value={email} onChange={(e) => setEmail(e.currentTarget.value)}
@@ -66,13 +68,20 @@ export function LoginPage() {
             value={password} onChange={(e) => setPassword(e.currentTarget.value)}
         />
 
+        {register &&
+            <TextField required type='password' label="Confirm Password" variant="outlined"
+                value={confirmPassword} onChange={(e) => setConfirmPassword(e.currentTarget.value)}
+                error={confirmPassword !== '' && confirmPassword !== password}
+                helperText={confirmPassword !== '' && confirmPassword !== password ? "Passwords do not match." : ''}
+            />}
+
         <Button type="submit" variant="contained" startIcon={register ? <HowToRegIcon /> : <LoginIcon />} >
             {register ? "Register" : "Login"}
         </Button>
 
         <Typography>
             {register ? "Already have an account? " : "Don't have an account? "}
-            <Link component="button" type="button" onClick={() => { setRegister(!register); setMessage(''); }}>
+            <Link component="button" type="button" onClick={() => { setRegister(!register); setMessage(''); setConfirmPassword(''); }}>
                 {register ? "Login here" : "Register here"}
             </Link>
         </Typography>

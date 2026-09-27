@@ -1,9 +1,11 @@
+import { apiFetch } from "./apiClient";
+
 class FollowerService {
     private readonly baseUrl = 'https://localhost:7140/api/Follower';
 
     async follow(targetUserId: number) {
         try {
-            const response = await fetch(`${this.baseUrl}/${targetUserId}/follow`, this.getFetchOptions('POST'));
+            const response = await apiFetch(`${this.baseUrl}/${targetUserId}/follow`, this.getFetchOptions('POST'));
 
             if (response.ok) {
                 const data = await response.json();
@@ -20,7 +22,7 @@ class FollowerService {
 
     async unfollow(targetUserId: number) {
         try {
-            const response = await fetch(`${this.baseUrl}/${targetUserId}/unfollow`, this.getFetchOptions('DELETE'));
+            const response = await apiFetch(`${this.baseUrl}/${targetUserId}/unfollow`, this.getFetchOptions('DELETE'));
 
             if (response.ok) {
                 const data = await response.json();
@@ -37,7 +39,7 @@ class FollowerService {
 
     async remove(followerToRemoveId: number) {
         try {
-            const response = await fetch(`${this.baseUrl}/${followerToRemoveId}/remove`, this.getFetchOptions('DELETE'));
+            const response = await apiFetch(`${this.baseUrl}/${followerToRemoveId}/remove`, this.getFetchOptions('DELETE'));
 
             if (response.ok) {
                 const data = await response.json();

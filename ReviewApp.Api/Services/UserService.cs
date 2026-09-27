@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using ReviewApp.Api.DAL;
+using ReviewApp.Api.DAL.Entities;
 using ReviewApp.Api.DTOs;
 using ReviewApp.Api.Services.Interfaces;
 
@@ -68,11 +69,87 @@ public class UserService : IUserService
         if (user == null)
             return (false, "User not found.");
 
+        if (userUpdateDto.Username != null)
+        {
+            var newUsername = userUpdateDto.Username.Trim();
+            if (newUsername.Length < 3 || newUsername.Length > 20)
+                return (false, "Username must be between 3 and 20 characters.");
+
+            // Exclude the user's own row so a case-only change (ben -> Ben) is allowed
+            if (newUsername != user.Username &&
+                await _context.Users.AnyAsync(u => u.Username == newUsername && u.ID != userId))
+                return (false, "Username already taken.");
+
+            user.Username = newUsername;
+        }
+
         user.Bio = userUpdateDto.Bio ?? user.Bio;
         user.ProfilePictureUrl = userUpdateDto.ProfilePictureUrl ?? user.ProfilePictureUrl;
 
-        await _context.SaveChangesAsync();
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException) when (userUpdateDto.Username != null)
+        {
+            // Unique index violation from a concurrent request taking the same name
+            return (false, "Username already taken.");
+        }
+
         return (true, "Profile updated successfully.");
+    }
+
+    public async Task<(bool Success, string Message)> ChangeEmailAsync(int userId, ChangeEmailDto dto)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null)
+            return (false, "User not found.");
+
+        // Password is verified before anything else so this can't be used to probe which emails are registered
+        if (!BCrypt.Net.BCrypt.Verify(dto.CurrentPassword, user.PasswordHash))
+            return (false, "Incorrect password.");
+
+        var newEmail = dto.NewEmail.Trim();
+        if (newEmail == user.Email)
+            return (false, "This is already your email address.");
+
+        // Exclude the user's own row so a case-only change is allowed
+        if (await _context.Users.AnyAsync(u => u.Email == newEmail && u.ID != userId))
+            return (false, "Email already in use.");
+
+        user.Email = newEmail;
+
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            // Unique index violation from a concurrent request taking the same email
+            return (false, "Email already in use.");
+        }
+
+        return (true, "Email changed successfully.");
+    }
+
+    public async Task<(bool Success, string Message, User? User)> ChangePasswordAsync(int userId, ChangePasswordDto dto)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null)
+            return (false, "User not found.", null);
+
+        if (!BCrypt.Net.BCrypt.Verify(dto.CurrentPassword, user.PasswordHash))
+            return (false, "Incorrect password.", null);
+
+        if (dto.NewPassword == dto.CurrentPassword)
+            return (false, "New password must be different from the current one.", null);
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+        // Invalidates every token issued so far - the caller must issue a fresh one for the current session
+        user.TokenVersion++;
+
+        await _context.SaveChangesAsync();
+        return (true, "Password changed successfully.", user);
     }
 
     public async Task<List<UserCompactDto>> GetUserFollowersAsync(string username, int? currentUserId)

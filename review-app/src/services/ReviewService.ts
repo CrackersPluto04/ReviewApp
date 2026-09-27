@@ -1,3 +1,4 @@
+import { apiFetch } from "./apiClient";
 import { ReviewFilterParams, ReviewMediaDto } from "../types/types";
 
 class ReviewService {
@@ -13,7 +14,7 @@ class ReviewService {
             if (params.maxScore !== undefined) query.append('maxScore', params.maxScore.toString());
             if (params.hasWrittenText) query.append('hasWrittenText', 'true');
 
-            const response = await fetch(`${this.baseUrl}/media/${params.mediaType}/${params.externalApiId}?${query.toString()}`);
+            const response = await apiFetch(`${this.baseUrl}/media/${params.mediaType}/${params.externalApiId}?${query.toString()}`);
 
             if (response.ok) {
                 const data = await response.json();
@@ -30,7 +31,7 @@ class ReviewService {
 
     async getAverageScore(externalApiId: string, mediaType: number) {
         try {
-            const response = await fetch(`${this.baseUrl}/stats/average-score?externalApiId=${externalApiId}&mediaType=${mediaType}`);
+            const response = await apiFetch(`${this.baseUrl}/stats/average-score?externalApiId=${externalApiId}&mediaType=${mediaType}`);
 
             if (response.ok) {
                 const data = await response.json();
@@ -47,7 +48,7 @@ class ReviewService {
 
     async checkIfUserReviewedMedia(externalApiId: string, mediaType: number) {
         try {
-            const response = await fetch(`${this.baseUrl}/check?externalApiId=${externalApiId}&mediaType=${mediaType}`, {
+            const response = await apiFetch(`${this.baseUrl}/check?externalApiId=${externalApiId}&mediaType=${mediaType}`, {
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'
             });
@@ -67,7 +68,7 @@ class ReviewService {
 
     async createReview(data: ReviewMediaDto) {
         try {
-            const response = await fetch(this.baseUrl, {
+            const response = await apiFetch(this.baseUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -89,7 +90,7 @@ class ReviewService {
 
     async editReview(data: ReviewMediaDto) {
         try {
-            const response = await fetch(this.baseUrl, {
+            const response = await apiFetch(this.baseUrl, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -111,7 +112,7 @@ class ReviewService {
 
     async deleteReview(id: number) {
         try {
-            const response = await fetch(`${this.baseUrl}/${id}`, {
+            const response = await apiFetch(`${this.baseUrl}/${id}`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'

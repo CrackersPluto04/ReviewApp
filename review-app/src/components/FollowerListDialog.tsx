@@ -90,7 +90,7 @@ export function FollowerListDialog({ open, onClose, username, type, onFollowerRe
 
     const handleUserClick = (targetUsername: string) => {
         onClose();
-        navigate(`/profile/${targetUsername}/overview`);
+        navigate(`/profile/${encodeURIComponent(targetUsername)}/overview`);
     };
 
     return <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">

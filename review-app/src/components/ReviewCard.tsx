@@ -16,7 +16,7 @@ export function ReviewCard({ rev, mode = 'media', onDelete }: ReviewCardProps) {
     const navigate = useNavigate();
 
     const handleUserClick = () => {
-        navigate(`/profile/${rev.username}`);
+        navigate(`/profile/${encodeURIComponent(rev.username)}`);
     }
 
     const handleMediaClick = () => {

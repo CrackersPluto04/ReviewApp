@@ -1,14 +1,20 @@
+import { apiFetch } from "./apiClient";
+import { isValidEmail, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "../utils/validation";
+
 class AuthService {
     private readonly baseUrl = 'https://localhost:7140/api/Auth';
 
-    async register(username: string, email: string, password: string) {
-        const validationMessage = this.checkRegisterDatas(username, email, password);
+    async register(username: string, email: string, password: string, confirmPassword: string) {
+        username = username.trim();
+        email = email.trim();
+
+        const validationMessage = this.checkRegisterDatas(username, email, password, confirmPassword);
         if (validationMessage) {
             return { success: false, message: validationMessage };
         }
 
         try {
-            const response = await fetch(`${this.baseUrl}/register`, {
+            const response = await apiFetch(`${this.baseUrl}/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -29,13 +35,15 @@ class AuthService {
     }
 
     async login(email: string, password: string) {
+        email = email.trim();
+
         const validationMessage = this.checkLoginDatas(email, password);
         if (validationMessage) {
             return { success: false, message: validationMessage };
         }
 
         try {
-            const response = await fetch(`${this.baseUrl}/login`, {
+            const response = await apiFetch(`${this.baseUrl}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -62,7 +70,7 @@ class AuthService {
 
     async logout() {
         try {
-            await fetch(`${this.baseUrl}/logout`, {
+            await apiFetch(`${this.baseUrl}/logout`, {
                 method: 'POST',
                 credentials: 'include'
             });
@@ -71,9 +79,28 @@ class AuthService {
         }
     }
 
+    // Revokes every session of the user (all devices), including this one
+    async logoutAll() {
+        try {
+            const response = await apiFetch(`${this.baseUrl}/logout-all`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+
+            if (response.ok)
+                return { success: true };
+
+            const errorData = await response.json().catch(() => null);
+            return { success: false, message: errorData?.error || "Something went wrong while logging out of all devices." };
+        } catch (error) {
+            console.error("Logout all error:", error);
+            return { success: false, message: "Network error while logging out of all devices." };
+        }
+    }
+
     async checkAuth() {
         try {
-            const response = await fetch(`${this.baseUrl}/check-auth`, {
+            const response = await apiFetch(`${this.baseUrl}/check-auth`, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'
@@ -95,18 +122,21 @@ class AuthService {
      */
 
     // Validates registration datas
-    private checkRegisterDatas(username: string, email: string, password: string): string {
-        if (!username || !email || !password)
+    private checkRegisterDatas(username: string, email: string, password: string, confirmPassword: string): string {
+        if (!username || !email || !password || !confirmPassword)
             return "Please fill all the required fields.";
 
         if (username.length < 3 || username.length > 20)
             return "Username must be between 3 and 20 characters.";
 
-        if (!this.checkEmail(email))
+        if (!isValidEmail(email))
             return "Please enter a valid email address.";
 
-        if (password.length < 8)
-            return "Password must be at least 8 characters long.";
+        if (password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH)
+            return `Password must be between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters long.`;
+
+        if (password !== confirmPassword)
+            return "Passwords do not match.";
 
         return "";
     }
@@ -116,17 +146,15 @@ class AuthService {
         if (!email || !password)
             return "Please fill all the required fields.";
 
-        if (!this.checkEmail(email))
+        if (!isValidEmail(email))
             return "Please enter a valid email address.";
+
+        if (password.length > MAX_PASSWORD_LENGTH)
+            return `Password can be at most ${MAX_PASSWORD_LENGTH} characters long.`;
 
         return "";
     }
 
-    // Simple email format validation
-    private checkEmail(email: string): boolean {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
-    }
 }
 
 export const authService = new AuthService();
