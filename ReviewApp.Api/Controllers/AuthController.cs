@@ -13,6 +13,9 @@ namespace ReviewApp.Api.Controllers;
 [ApiController]
 public class AuthController : ControllerBase
 {
+    // Hashed once, with the same work factor as real passwords, so a failed lookup costs the same as a wrong password
+    private static readonly string DummyPasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString());
+
     private readonly AppDbContext _context;
     private readonly IUserAuthHelper _userAuthHelper;
     private readonly ITokenService _tokenService;
@@ -83,7 +86,10 @@ public class AuthController : ControllerBase
         var email = request.Email.Trim();
         
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
-        if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+
+        // Unknown emails are checked against a dummy hash too, so the response time doesn't reveal which emails are registered
+        var passwordValid = BCrypt.Net.BCrypt.Verify(request.Password, user?.PasswordHash ?? DummyPasswordHash);
+        if (user == null || !passwordValid)
         {
             return Unauthorized(new { error = "Invalid email or password." });
         }
@@ -105,8 +111,31 @@ public class AuthController : ControllerBase
     [HttpPost("logout")]
     public IActionResult Logout()
     {
-        Response.Cookies.Delete("jwt_token");
+        _tokenService.DeleteAuthCookie();
         return Ok(new { message = "Logged out successfully" });
+    }
+
+    [HttpPost("logout-all")]
+    [Authorize]
+    public async Task<IActionResult> LogoutAll()
+    {
+        try
+        {
+            var user = await _context.Users.FindAsync(_userAuthHelper.GetSecureUserID());
+            if (user == null)
+                return Unauthorized();
+
+            // Revokes every token issued so far, on every device
+            user.TokenVersion++;
+            await _context.SaveChangesAsync();
+
+            _tokenService.DeleteAuthCookie();
+            return Ok(new { message = "Logged out of all devices." });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
     }
 
     [HttpGet("check-auth")]
@@ -128,7 +157,7 @@ public class AuthController : ControllerBase
                 profilePictureUrl = user.ProfilePictureUrl
             });
         }
-        catch (Exception ex)
+        catch (UnauthorizedAccessException ex)
         {
             return Unauthorized(new { error = ex.Message });
         }

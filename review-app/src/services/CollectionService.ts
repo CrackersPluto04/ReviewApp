@@ -1,9 +1,11 @@
+import { apiFetch } from "./apiClient";
+
 class CollectionService {
     private readonly baseUrl = 'https://localhost:7140/api/Collection';
 
     async getCollectionWithMedias(collectionId: number) {
         try {
-            const response = await fetch(`${this.baseUrl}/${collectionId}`, this.getFetchOptions());
+            const response = await apiFetch(`${this.baseUrl}/${collectionId}`, this.getFetchOptions());
 
             if (response.ok) {
                 const data = await response.json();
@@ -20,7 +22,7 @@ class CollectionService {
 
     async createCollection(name: string, visibilityLevel: number = 0) {
         try {
-            const response = await fetch(this.baseUrl, this.getFetchOptions('POST', { name, visibilityLevel }));
+            const response = await apiFetch(this.baseUrl, this.getFetchOptions('POST', { name, visibilityLevel }));
 
             if (response.ok) {
                 const data = await response.json();
@@ -37,7 +39,7 @@ class CollectionService {
 
     async updateCollection(collectionID: number, name: string, visibilityLevel: number) {
         try {
-            const response = await fetch(this.baseUrl, this.getFetchOptions('PUT', { collectionID, name, visibilityLevel }));
+            const response = await apiFetch(this.baseUrl, this.getFetchOptions('PUT', { collectionID, name, visibilityLevel }));
 
             if (response.ok) {
                 const data = await response.json();
@@ -54,7 +56,7 @@ class CollectionService {
 
     async deleteCollection(collectionId: number) {
         try {
-            const response = await fetch(`${this.baseUrl}/${collectionId}`, this.getFetchOptions('DELETE'));
+            const response = await apiFetch(`${this.baseUrl}/${collectionId}`, this.getFetchOptions('DELETE'));
 
             if (response.ok) {
                 return { success: true, data: null };
@@ -70,7 +72,7 @@ class CollectionService {
 
     async addMediaToCollection(collectionId: number, type: number, externalApiID: string) {
         try {
-            const response = await fetch(`${this.baseUrl}/${collectionId}/media`, this.getFetchOptions('POST', { type, externalApiID }));
+            const response = await apiFetch(`${this.baseUrl}/${collectionId}/media`, this.getFetchOptions('POST', { type, externalApiID }));
 
             if (response.ok) {
                 const data = await response.json();
@@ -87,7 +89,7 @@ class CollectionService {
 
     async removeMediaFromCollection(collectionId: number, mediaType: number, externalApiId: string) {
         try {
-            const response = await fetch(`${this.baseUrl}/${collectionId}/media/${mediaType}-${externalApiId}`, this.getFetchOptions('DELETE'));
+            const response = await apiFetch(`${this.baseUrl}/${collectionId}/media/${mediaType}-${externalApiId}`, this.getFetchOptions('DELETE'));
 
             if (response.ok) {
                 return { success: true, data: null };
@@ -103,7 +105,7 @@ class CollectionService {
 
     async reorderMedia(collectionId: number, dbMediaID: number, newOrderIndex: number) {
         try {
-            const response = await fetch(`${this.baseUrl}/${collectionId}/reorder`, this.getFetchOptions('PUT', { dbMediaID, newOrderIndex }));
+            const response = await apiFetch(`${this.baseUrl}/${collectionId}/reorder`, this.getFetchOptions('PUT', { dbMediaID, newOrderIndex }));
 
             if (response.ok) {
                 const data = await response.json();

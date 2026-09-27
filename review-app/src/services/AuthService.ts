@@ -1,3 +1,4 @@
+import { apiFetch } from "./apiClient";
 import { isValidEmail, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "../utils/validation";
 
 class AuthService {
@@ -13,7 +14,7 @@ class AuthService {
         }
 
         try {
-            const response = await fetch(`${this.baseUrl}/register`, {
+            const response = await apiFetch(`${this.baseUrl}/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -42,7 +43,7 @@ class AuthService {
         }
 
         try {
-            const response = await fetch(`${this.baseUrl}/login`, {
+            const response = await apiFetch(`${this.baseUrl}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -69,7 +70,7 @@ class AuthService {
 
     async logout() {
         try {
-            await fetch(`${this.baseUrl}/logout`, {
+            await apiFetch(`${this.baseUrl}/logout`, {
                 method: 'POST',
                 credentials: 'include'
             });
@@ -78,9 +79,28 @@ class AuthService {
         }
     }
 
+    // Revokes every session of the user (all devices), including this one
+    async logoutAll() {
+        try {
+            const response = await apiFetch(`${this.baseUrl}/logout-all`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+
+            if (response.ok)
+                return { success: true };
+
+            const errorData = await response.json().catch(() => null);
+            return { success: false, message: errorData?.error || "Something went wrong while logging out of all devices." };
+        } catch (error) {
+            console.error("Logout all error:", error);
+            return { success: false, message: "Network error while logging out of all devices." };
+        }
+    }
+
     async checkAuth() {
         try {
-            const response = await fetch(`${this.baseUrl}/check-auth`, {
+            const response = await apiFetch(`${this.baseUrl}/check-auth`, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'

@@ -1,6 +1,7 @@
 import { createContext } from 'preact';
 import { useContext, useState, useEffect } from 'preact/hooks';
 import { authService } from '../services/AuthService';
+import { setUnauthorizedHandler } from '../services/apiClient';
 import { ReactNode } from 'preact/compat';
 
 export interface AuthUser {
@@ -42,6 +43,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         };
 
         verifyAuth();
+    }, []);
+
+    // Any 401 from the API means the session is gone (expired, logged out elsewhere or revoked by a password change)
+    useEffect(() => {
+        setUnauthorizedHandler(() => setUser(null));
+        return () => setUnauthorizedHandler(null);
     }, []);
 
     const logout = async () => {

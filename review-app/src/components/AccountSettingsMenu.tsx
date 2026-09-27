@@ -1,17 +1,19 @@
-import { Alert, IconButton, Menu, MenuItem, Snackbar, Tooltip } from "@mui/material";
+import { Alert, Divider, IconButton, Menu, MenuItem, Snackbar, Tooltip } from "@mui/material";
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import { useState } from "preact/hooks";
 import { userService } from "../services/UserService";
+import { authService } from "../services/AuthService";
 import { ChangeUsernameDialog } from "./ChangeUsernameDialog";
 import { ChangeEmailDialog } from "./ChangeEmailDialog";
 import { ChangePasswordDialog } from "./ChangePasswordDialog";
+import { LogoutAllDialog } from "./LogoutAllDialog";
 
 type AccountSettingsMenuProps = {
     username: string;
     onChangeUsername: (newUsername: string) => Promise<{ success: boolean, message?: string }>;
 };
 
-type AccountDialog = 'username' | 'email' | 'password' | null;
+type AccountDialog = 'username' | 'email' | 'password' | 'logoutAll' | null;
 
 export function AccountSettingsMenu({ username, onChangeUsername }: AccountSettingsMenuProps) {
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -51,6 +53,15 @@ export function AccountSettingsMenu({ username, onChangeUsername }: AccountSetti
         return result;
     };
 
+    const handleLogoutAll = async () => {
+        const result = await authService.logoutAll();
+        // Hard reset, same as a normal logout
+        if (result.success)
+            globalThis.location.href = '/';
+
+        return result;
+    };
+
     return <>
         <Tooltip title="Account settings">
             <IconButton size="small" onClick={(e: any) => setAnchorEl(e.currentTarget)}>
@@ -62,6 +73,8 @@ export function AccountSettingsMenu({ username, onChangeUsername }: AccountSetti
             <MenuItem onClick={() => handleOpenDialog('username')}>Change username</MenuItem>
             <MenuItem onClick={() => handleOpenDialog('email')}>Change email</MenuItem>
             <MenuItem onClick={() => handleOpenDialog('password')}>Change password</MenuItem>
+            <Divider />
+            <MenuItem onClick={() => handleOpenDialog('logoutAll')} sx={{ color: 'error.main' }}>Log out of all devices</MenuItem>
         </Menu>
 
         <ChangeUsernameDialog
@@ -81,6 +94,12 @@ export function AccountSettingsMenu({ username, onChangeUsername }: AccountSetti
             open={openDialog === 'password'}
             onClose={() => setOpenDialog(null)}
             onSave={handleChangePassword}
+        />
+
+        <LogoutAllDialog
+            open={openDialog === 'logoutAll'}
+            onClose={() => setOpenDialog(null)}
+            onConfirm={handleLogoutAll}
         />
 
         <Snackbar open={!!toastMessage} autoHideDuration={4000} onClose={() => setToastMessage('')}>

@@ -1,3 +1,4 @@
+import { apiFetch } from "./apiClient";
 import { ReviewFilterParams } from "../types/types";
 
 class UserService {
@@ -5,7 +6,7 @@ class UserService {
 
     async searchUsers(query: string) {
         try {
-            const response = await fetch(`${this.baseUrl}/search?q=${encodeURIComponent(query)}`, this.getFetchOptions());
+            const response = await apiFetch(`${this.baseUrl}/search?q=${encodeURIComponent(query)}`, this.getFetchOptions());
 
             if (response.ok) {
                 const data = await response.json();
@@ -21,7 +22,7 @@ class UserService {
 
     async getUserProfile(username: string) {
         try {
-            const response = await fetch(`${this.baseUrl}/${encodeURIComponent(username)}`,this.getFetchOptions());
+            const response = await apiFetch(`${this.baseUrl}/${encodeURIComponent(username)}`,this.getFetchOptions());
 
             if (response.ok) {
                 const data = await response.json();
@@ -38,7 +39,7 @@ class UserService {
 
     async updateMyProfile(bio?: string, profilePictureUrl?: string) {
         try {
-            const response = await fetch(`${this.baseUrl}/me`, this.getFetchOptions('PATCH', { bio, profilePictureUrl }));
+            const response = await apiFetch(`${this.baseUrl}/me`, this.getFetchOptions('PATCH', { bio, profilePictureUrl }));
 
             if (response.ok) {
                 const data = await response.json();
@@ -55,7 +56,7 @@ class UserService {
 
     async changeUsername(username: string) {
         try {
-            const response = await fetch(`${this.baseUrl}/me`, this.getFetchOptions('PATCH', { username }));
+            const response = await apiFetch(`${this.baseUrl}/me`, this.getFetchOptions('PATCH', { username }));
 
             if (response.ok) {
                 const data = await response.json();
@@ -71,7 +72,7 @@ class UserService {
 
     async changeEmail(newEmail: string, currentPassword: string) {
         try {
-            const response = await fetch(`${this.baseUrl}/me/email`, this.getFetchOptions('PUT', { newEmail, currentPassword }));
+            const response = await apiFetch(`${this.baseUrl}/me/email`, this.getFetchOptions('PUT', { newEmail, currentPassword }));
 
             if (response.ok) {
                 const data = await response.json();
@@ -88,7 +89,7 @@ class UserService {
 
     async changePassword(currentPassword: string, newPassword: string) {
         try {
-            const response = await fetch(`${this.baseUrl}/me/password`, this.getFetchOptions('PUT', { currentPassword, newPassword }));
+            const response = await apiFetch(`${this.baseUrl}/me/password`, this.getFetchOptions('PUT', { currentPassword, newPassword }));
 
             if (response.ok) {
                 const data = await response.json();
@@ -105,7 +106,7 @@ class UserService {
 
     async getUserCollections(username: string, sortBy: string = 'createdAt_desc') {
         try {
-            const response = await fetch(`${this.baseUrl}/${encodeURIComponent(username)}/collections?sortBy=${encodeURIComponent(sortBy)}`, this.getFetchOptions());
+            const response = await apiFetch(`${this.baseUrl}/${encodeURIComponent(username)}/collections?sortBy=${encodeURIComponent(sortBy)}`, this.getFetchOptions());
 
             if (response.ok) {
                 const data = await response.json();
@@ -130,7 +131,7 @@ class UserService {
             if (params.maxScore !== undefined) query.append('maxScore', params.maxScore.toString());
             if (params.hasWrittenText) query.append('hasWrittenText', 'true');
 
-            const response = await fetch(`${this.baseUrl}/${encodeURIComponent(username)}/reviews?${query.toString()}`, this.getFetchOptions());
+            const response = await apiFetch(`${this.baseUrl}/${encodeURIComponent(username)}/reviews?${query.toString()}`, this.getFetchOptions());
 
             if (response.ok) {
                 const data = await response.json();
@@ -147,7 +148,7 @@ class UserService {
 
     async getUserFollowers(username: string) {
         try {
-            const response = await fetch(`${this.baseUrl}/${encodeURIComponent(username)}/followers`, this.getFetchOptions());
+            const response = await apiFetch(`${this.baseUrl}/${encodeURIComponent(username)}/followers`, this.getFetchOptions());
 
             if (response.ok) {
                 const data = await response.json();
@@ -164,7 +165,7 @@ class UserService {
 
     async getUserFollowing(username: string) {
         try {
-            const response = await fetch(`${this.baseUrl}/${encodeURIComponent(username)}/following`, this.getFetchOptions());
+            const response = await apiFetch(`${this.baseUrl}/${encodeURIComponent(username)}/following`, this.getFetchOptions());
 
             if (response.ok) {
                 const data = await response.json();

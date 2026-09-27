@@ -1,3 +1,4 @@
+import { apiFetch } from "./apiClient";
 import { SpotifyParams, TmdbParams } from "../types/types";
 
 class MediaService {
@@ -11,7 +12,7 @@ class MediaService {
 
     async getMediaDetails(mediaType: string, externalApiId: string) {
         try {
-            const response = await fetch(`${this.baseUrl}/media/${mediaType}/${externalApiId}`);
+            const response = await apiFetch(`${this.baseUrl}/media/${mediaType}/${externalApiId}`);
 
             if (response.ok) {
                 const data = await response.json();
@@ -63,7 +64,7 @@ class MediaService {
                 // Let's use a local C# page tracker based on offset
                 const cSharpPageToRequest = (this.spotifyBuffer.currentOffset / 10) + 1;
 
-                const response = await fetch(`${this.baseUrl}/search/music?query=${encodeURIComponent(query)}&page=${cSharpPageToRequest}`);
+                const response = await apiFetch(`${this.baseUrl}/search/music?query=${encodeURIComponent(query)}&page=${cSharpPageToRequest}`);
 
                 if (!response.ok) break;
 
@@ -131,7 +132,7 @@ class MediaService {
             if (params.year) query.append('year', params.year);
             query.append('market', params.market);
 
-            const response = await fetch(`${this.baseUrl}/discover/music?${query.toString()}`);
+            const response = await apiFetch(`${this.baseUrl}/discover/music?${query.toString()}`);
 
             if (response.ok) {
                 const data = await response.json();
@@ -151,7 +152,7 @@ class MediaService {
     // Private helper to handle the actual search logic
     private async search(query: string, what: 'all' | 'movie' | 'series', page: number = 1) {
         try {
-            const response = await fetch(`${this.baseUrl}/search/${what}?query=${encodeURIComponent(query)}&page=${page}`);
+            const response = await apiFetch(`${this.baseUrl}/search/${what}?query=${encodeURIComponent(query)}&page=${page}`);
 
             if (response.ok) {
                 const data = await response.json();
@@ -178,7 +179,7 @@ class MediaService {
             if (params.minRuntime) query.append('minRuntime', params.minRuntime);
             if (params.maxRuntime) query.append('maxRuntime', params.maxRuntime);
 
-            const response = await fetch(`${this.baseUrl}/discover/${what}?${query.toString()}`);
+            const response = await apiFetch(`${this.baseUrl}/discover/${what}?${query.toString()}`);
 
             if (response.ok) {
                 const data = await response.json();

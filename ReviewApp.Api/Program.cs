@@ -25,6 +25,11 @@ builder.Services.AddCors(options =>
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Fail fast on a missing or too short signing key instead of an obscure error on the first login
+var jwtKey = builder.Configuration["Jwt:Key"];
+if (string.IsNullOrEmpty(jwtKey) || Encoding.UTF8.GetByteCount(jwtKey) < TokenService.MinKeyBytes)
+    throw new InvalidOperationException($"Jwt:Key must be configured and at least {TokenService.MinKeyBytes} bytes long.");
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -36,16 +41,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            // Only accept the algorithm we sign with
+            ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
+            // Default is 5 minutes of tolerance after expiry; the API is the only issuer, so little is needed
+            ClockSkew = TimeSpan.FromSeconds(30)
         };
 
         options.Events = new JwtBearerEvents
         {
             OnMessageReceived = context =>
             {
-                if (context.Request.Cookies.ContainsKey("jwt_token"))
+                if (context.Request.Cookies.TryGetValue(TokenService.CookieName, out var token))
                 {
-                    context.Token = context.Request.Cookies["jwt_token"];
+                    context.Token = token;
                 }
                 return Task.CompletedTask;
             },
