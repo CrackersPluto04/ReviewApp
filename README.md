@@ -5,6 +5,8 @@ A full-stack web app for rating and reviewing movies, series, and music, organiz
 ## Features
 
 - **Auth** — registration and login with JWT-based sessions delivered via an httpOnly cookie.
+- **Account settings** — change username, email and password (email/password changes require the current password), and log out of all devices. Changing the password or logging out everywhere revokes every other active session.
+- **Security hardening** — rate limiting on all endpoints (stricter on login/register, credential changes and the TMDb/Spotify-backed media endpoints), server-side session revocation, `__Host-` prefixed `Secure`/`SameSite=Strict` auth cookie, and protection against email enumeration via login timing.
 - **Media discovery** — search and browse movies, series, and music (via TMDb and Spotify), with dedicated discover pages per media type.
 - **Reviews** — write, edit, and delete reviews with ratings; view aggregate scores per title; per-review visibility (`Private` / `Public` / `FollowersOnly`).
 - **Collections** — create named collections of media, add/remove items, and reorder them by drag-and-drop; same visibility controls as reviews.
@@ -20,7 +22,7 @@ A full-stack web app for rating and reviewing movies, series, and music, organiz
 | Backend  | ASP.NET Core 8 Web API (C#), Entity Framework Core |
 | Database | SQL Server |
 | External APIs | TMDb (movies/series), Spotify (music) |
-| Auth | JWT bearer tokens in an httpOnly cookie, BCrypt password hashing |
+| Auth | JWT bearer tokens (HS256) in an httpOnly cookie, BCrypt password hashing, ASP.NET Core rate limiting |
 
 ## Project structure
 
@@ -75,6 +77,8 @@ Add your local configuration to `ReviewApp.Api/appsettings.Development.json` (gi
   }
 }
 ```
+
+`Jwt:Key` must be at least 32 bytes long, otherwise the API refuses to start. For any real deployment use a randomly generated key (e.g. `openssl rand -base64 64`) supplied through an environment variable or secret store, not a readable phrase.
 
 Then, from `ReviewApp.Api/`:
 
