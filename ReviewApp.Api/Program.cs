@@ -187,6 +187,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+else
+{
+    // Tells browsers to never talk to the API over plain HTTP (not used on localhost, it would pin the browser)
+    app.UseHsts();
+}
 
 app.UseHttpsRedirection();
 

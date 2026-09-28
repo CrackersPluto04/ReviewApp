@@ -7,6 +7,6 @@ public record ChangeEmailDto
     [Required, EmailAddress, StringLength(254)]
     public string NewEmail { get; init; } = string.Empty;
 
-    [Required, StringLength(72)]
+    [Required, StringLength(20)]
     public string CurrentPassword { get; init; } = string.Empty;
 }
