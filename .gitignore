@@ -10,3 +10,8 @@ appsettings.Development.json
 # IDEs
 .vscode/
 .vs/
+
+# Other
+.claude/
+_specs/
+_plans/
