@@ -65,3 +65,27 @@ npm run preview
 - **Services layer**: each backend controller has a matching `src/services/*.ts` file (`AuthService`, `MediaService`, `ReviewService`, `CollectionService`, `FollowerService`, `UserService`) that wraps the API calls. They use `apiFetch` from `src/services/apiClient.ts` (a thin `fetch` wrapper that reports 401s to `AuthContext`) — use `apiFetch`, not plain `fetch`. New backend endpoints should get a corresponding method here rather than calling the API directly from components/pages.
 - **Account settings**: the owner-only `AccountSettingsMenu` on the profile header (rendered by `ProfileLayout`) opens the `ChangeUsernameDialog`, `ChangeEmailDialog`, `ChangePasswordDialog` and `LogoutAllDialog`. Change email/password require the current password; client-side validation helpers (`isValidEmail`, password length limits) live in `src/utils/validation.ts`.
 - **Theming**: light/dark mode is managed in `src/index.tsx` via MUI's `ThemeProvider`/`createTheme`, persisted to `localStorage`, and toggled through `PageContainer`.
+
+## Claude Instructions
+
+## Checking Documentation
+Always check for up-to-date documentation when implementing features from libraries and frameworks, using the Context7 MCP server, to plan your work.
+
+## Testing Guidelines
+If finding it necessary, test the running application using the Playwright MCP server.
+
+## Commit Rules:
+
+- Do NOT add "Co-authored-by" lines to commits
+- Do NOT add "Generated with Claude Code" or similar attributions
+- Keep commits clean and professional
+
+### Commit Message Requirements (max 72 chars)
+
+- Imperative mood: "Add" not "Added"
+- Action verbs: Add, Update, Fix, Remove, Refactor, Implement
+- No articles (a, an, the)
+- No punctuation at end
+- No prefixes like "feat:", "fix:"
+- Single line only
+- NO co-author attributions
