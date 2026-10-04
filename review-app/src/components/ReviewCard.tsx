@@ -5,6 +5,8 @@ import GroupIcon from "@mui/icons-material/Group"
 import EditIcon from "@mui/icons-material/Edit"
 import DeleteIcon from "@mui/icons-material/Delete"
 import { useNavigate } from "react-router-dom";
+import { useState } from "preact/hooks";
+import { ReplyThread } from "./ReplyThread";
 
 type ReviewCardProps = {
     rev: any;
@@ -14,6 +16,7 @@ type ReviewCardProps = {
 
 export function ReviewCard({ rev, mode = 'media', onDelete }: ReviewCardProps) {
     const navigate = useNavigate();
+    const [replyCount, setReplyCount] = useState<number>(rev.replyCount ?? 0);
 
     const handleUserClick = () => {
         navigate(`/profile/${encodeURIComponent(rev.username)}`);
@@ -172,6 +175,16 @@ export function ReviewCard({ rev, mode = 'media', onDelete }: ReviewCardProps) {
 
                 </Grid>
             </CardContent>
+
+            {/* Replies (media list only shows public reviews, so visibilityLevel is only set in profile mode) */}
+            <Box sx={{ px: 2, pb: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+                <ReplyThread
+                    reviewId={rev.id}
+                    replyCount={replyCount}
+                    replyable={rev.visibilityLevel !== 0}
+                    onCountChange={delta => setReplyCount(prev => prev + delta)}
+                />
+            </Box>
         </Box>
 
     </Card >
