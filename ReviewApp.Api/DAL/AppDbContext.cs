@@ -17,6 +17,7 @@ public class AppDbContext : DbContext
     public DbSet<Collection> Collections { get; set; }
     public DbSet<CollectionMedia> CollectionMedias { get; set; }
     public DbSet<UserFollower> UserFollowers { get; set; }
+    public DbSet<ReviewReply> ReviewReplies { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -87,6 +88,28 @@ public class AppDbContext : DbContext
             .HasOne(uf => uf.Following)
             .WithMany(u => u.Followers)
             .HasForeignKey(uf => uf.FollowingID)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        /* Configure ReviewReply */
+        // Cascade delete if Review is deleted
+        modelBuilder.Entity<ReviewReply>()
+            .HasOne(rr => rr.Review)
+            .WithMany()
+            .HasForeignKey(rr => rr.ReviewID)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // RESTRICT delete on User to prevent multiple cascade paths
+        modelBuilder.Entity<ReviewReply>()
+            .HasOne(rr => rr.User)
+            .WithMany()
+            .HasForeignKey(rr => rr.UserID)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // RESTRICT delete on ParentReply to avoid self-referencing cycles
+        modelBuilder.Entity<ReviewReply>()
+            .HasOne(rr => rr.ParentReply)
+            .WithMany(rr => rr.ChildReplies)
+            .HasForeignKey(rr => rr.ParentReplyID)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }
