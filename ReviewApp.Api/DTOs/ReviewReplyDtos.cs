@@ -20,7 +20,7 @@ public record ReplyDto
     public string? Content { get; init; }
     public string? Username { get; init; }
     public string? ProfilePictureUrl { get; init; }
-    public DateTime CreatedAt { get; init; }
+    public string CreatedAt { get; init; } = string.Empty;
     public bool IsDeleted { get; init; }
     public bool IsOwner { get; init; }
     // Number of non-deleted direct child replies

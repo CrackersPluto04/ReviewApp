@@ -51,7 +51,7 @@ public class ReviewReplyService : IReviewReplyService
                 Content = rr.IsDeleted ? null : rr.Content,
                 Username = rr.IsDeleted ? null : rr.User.Username,
                 ProfilePictureUrl = rr.IsDeleted ? null : rr.User.ProfilePictureUrl,
-                CreatedAt = rr.CreatedAt,
+                CreatedAt = rr.CreatedAt.ToString("yyyy-MM-dd"),
                 IsDeleted = rr.IsDeleted,
                 IsOwner = !rr.IsDeleted && requestingUserId.HasValue && rr.UserID == requestingUserId.Value,
                 ChildCount = rr.ChildReplies.Count(c => !c.IsDeleted)
@@ -62,11 +62,7 @@ public class ReviewReplyService : IReviewReplyService
 
         return new ReplyPageDto
         {
-            // Stored as UTC, mark it so the client converts it to local time correctly
-            Items = replies
-                .Take(pageSize)
-                .Select(r => r with { CreatedAt = DateTime.SpecifyKind(r.CreatedAt, DateTimeKind.Utc) })
-                .ToList(),
+            Items = replies.Take(pageSize).ToList(),
             HasMore = hasMore
         };
     }
@@ -122,7 +118,7 @@ public class ReviewReplyService : IReviewReplyService
             Content = reply.Content,
             Username = author.Username,
             ProfilePictureUrl = author.ProfilePictureUrl,
-            CreatedAt = DateTime.SpecifyKind(reply.CreatedAt, DateTimeKind.Utc),
+            CreatedAt = reply.CreatedAt.ToString("yyyy-MM-dd"),
             IsDeleted = false,
             IsOwner = true,
             ChildCount = 0

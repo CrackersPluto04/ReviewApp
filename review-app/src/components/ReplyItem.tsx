@@ -97,7 +97,7 @@ export function ReplyItem({ reply, reviewId, layer, canReply, onDeleted, onEmpti
                             {reply.username}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                            {new Date(reply.createdAt).toLocaleString()}
+                            {reply.createdAt}
                         </Typography>
                     </>
                 )}

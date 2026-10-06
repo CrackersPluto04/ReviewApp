@@ -1,5 +1,5 @@
 import { useRef, useState } from "preact/hooks";
-import { Box, Button, TextField, Typography } from "@mui/material";
+import { Box, Button, Stack, TextField, Typography } from "@mui/material";
 import { reviewReplyService } from "../services/ReviewReplyService";
 import { ReplyDto } from "../types/types";
 import { MAX_REPLY_LENGTH, isValidReply } from "../utils/validation";
@@ -53,35 +53,38 @@ export function ReplyForm({ reviewId, parentReplyId, replyingTo, onCreated, onCa
     };
 
     return <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1, mb: 1 }}>
-        <TextField
-            fullWidth
-            multiline
-            minRows={2}
-            size="small"
-            autoFocus={autoFocus}
-            placeholder={replyingTo ? `Reply to ${replyingTo}...` : 'Write a reply...'}
-            value={content}
-            onChange={(e: any) => setContent(e.target.value)}
-            error={tooLong}
-            helperText={`${content.trim().length}/${MAX_REPLY_LENGTH}`}
-            disabled={submitting}
-        />
+        {/* Buttons sit next to the field, so they don't take up a separate row */}
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+            <TextField
+                fullWidth
+                multiline
+                minRows={2}
+                size="small"
+                autoFocus={autoFocus}
+                placeholder={replyingTo ? `Reply to ${replyingTo}...` : 'Write a reply...'}
+                value={content}
+                onChange={(e: any) => setContent(e.target.value)}
+                error={tooLong}
+                helperText={`${content.trim().length}/${MAX_REPLY_LENGTH}`}
+                disabled={submitting}
+            />
+
+            <Stack spacing={0.5} sx={{ flexShrink: 0 }}>
+                <Button type="submit" size="small" variant="contained" disabled={submitting || !isValidReply(content)}>
+                    {submitting ? 'Posting...' : 'Reply'}
+                </Button>
+                {onCancel && (
+                    <Button size="small" onClick={onCancel} disabled={submitting}>
+                        Cancel
+                    </Button>
+                )}
+            </Stack>
+        </Box>
 
         {errorMessage && (
             <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
                 {errorMessage}
             </Typography>
         )}
-
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 0.5 }}>
-            {onCancel && (
-                <Button size="small" onClick={onCancel} disabled={submitting}>
-                    Cancel
-                </Button>
-            )}
-            <Button type="submit" size="small" variant="contained" disabled={submitting || !isValidReply(content)}>
-                {submitting ? 'Posting...' : 'Reply'}
-            </Button>
-        </Box>
     </Box>
 }

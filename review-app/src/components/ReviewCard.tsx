@@ -93,7 +93,7 @@ export function ReviewCard({ rev, mode = 'media', onDelete }: ReviewCardProps) {
 
                             <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
                                 <Typography variant="caption" color="text.secondary">
-                                    Reviews: {rev.createdAt}
+                                    Reviewed: {rev.createdAt}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">•</Typography>
                                 <Typography variant="caption" color="text.secondary">
@@ -181,7 +181,7 @@ export function ReviewCard({ rev, mode = 'media', onDelete }: ReviewCardProps) {
 
         {/* Replies span the full card width, so expanding them doesn't stretch the left column */}
         {/* (media list only shows public reviews, so visibilityLevel is only set in profile mode) */}
-        <Box sx={{ px: 2, pb: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ px: 2, py: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
             <ReplyThread
                 reviewId={rev.id}
                 replyCount={replyCount}
