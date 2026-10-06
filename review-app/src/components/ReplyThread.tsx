@@ -1,6 +1,7 @@
 import { useState } from "preact/hooks";
 import { Box, Button, CircularProgress, Collapse, Typography } from "@mui/material";
-import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import { useAuth } from "../context/AuthContext";
 import { useReplyList } from "../hooks/useReplyList";
 import { ReplyDto } from "../types/types";
@@ -42,7 +43,8 @@ export function ReplyThread({ reviewId, replyCount, replyable, onCountChange }: 
     };
 
     return <Box>
-        <Button size="small" startIcon={<ChatBubbleOutlineIcon fontSize="small" />} onClick={handleToggle}>
+        {/* Arrow points where the thread will move: down to open, up to close */}
+        <Button size="small" startIcon={expanded ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />} onClick={handleToggle}>
             {expanded ? 'Hide replies' : `Replies (${replyCount})`}
         </Button>
 

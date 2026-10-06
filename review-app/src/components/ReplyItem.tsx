@@ -1,6 +1,8 @@
 import { useState } from "preact/hooks";
 import { Avatar, Box, Button, CircularProgress, IconButton, Stack, Tooltip, Typography } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import { useNavigate } from "react-router-dom";
 import { ReplyDto } from "../types/types";
 import { reviewReplyService } from "../services/ReviewReplyService";
@@ -129,7 +131,7 @@ export function ReplyItem({ reply, reviewId, layer, canReply, onDeleted, onEmpti
                         </Button>
                     )}
                     {childCount > 0 && (
-                        <Button size="small" onClick={handleToggleChildren}>
+                        <Button size="small" startIcon={showChildren ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />} onClick={handleToggleChildren}>
                             {showChildren ? 'Hide replies' : `View ${childCount} ${childCount === 1 ? 'reply' : 'replies'}`}
                         </Button>
                     )}
