@@ -64,7 +64,8 @@ public class ReviewService : IReviewService
                 r.User.Username,
                 r.User.ProfilePictureUrl,
                 r.CreatedAt,
-                r.UpdatedAt
+                r.UpdatedAt,
+                ReplyCount = _context.ReviewReplies.Count(rr => rr.ReviewID == r.ID && !rr.IsDeleted)
             })
             .ToListAsync();
 
@@ -257,7 +258,8 @@ public class ReviewService : IReviewService
                 CreatedAt = r.CreatedAt.ToString("yyyy-MM-dd"),
                 UpdatedAt = r.UpdatedAt.ToString("yyyy-MM-dd"),
                 r.VisibilityLevel,
-                IsOwner = isOwner
+                IsOwner = isOwner,
+                ReplyCount = _context.ReviewReplies.Count(rr => rr.ReviewID == r.ID && !rr.IsDeleted)
             })
             .ToListAsync();
 
