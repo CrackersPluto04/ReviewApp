@@ -1,5 +1,5 @@
 import { useRef, useState } from "preact/hooks";
-import { Box, Button, Stack, TextField, Typography } from "@mui/material";
+import { Box, Button, FormHelperText, Stack, TextField, Typography } from "@mui/material";
 import { reviewReplyService } from "../services/ReviewReplyService";
 import { ReplyDto } from "../types/types";
 import { MAX_REPLY_LENGTH, isValidReply } from "../utils/validation";
@@ -54,7 +54,7 @@ export function ReplyForm({ reviewId, parentReplyId, replyingTo, onCreated, onCa
 
     return <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1, mb: 1 }}>
         {/* Buttons sit next to the field, so they don't take up a separate row */}
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1 }}>
             <TextField
                 fullWidth
                 multiline
@@ -65,7 +65,6 @@ export function ReplyForm({ reviewId, parentReplyId, replyingTo, onCreated, onCa
                 value={content}
                 onChange={(e: any) => setContent(e.target.value)}
                 error={tooLong}
-                helperText={`${content.trim().length}/${MAX_REPLY_LENGTH}`}
                 disabled={submitting}
             />
 
@@ -80,6 +79,11 @@ export function ReplyForm({ reviewId, parentReplyId, replyingTo, onCreated, onCa
                 )}
             </Stack>
         </Box>
+
+        {/* Counter is kept outside the TextField (not helperText), so the buttons line up with the field's bottom edge */}
+        <FormHelperText error={tooLong} sx={{ mx: 1.75 }}>
+            {content.trim().length}/{MAX_REPLY_LENGTH}
+        </FormHelperText>
 
         {errorMessage && (
             <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>

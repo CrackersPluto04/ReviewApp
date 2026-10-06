@@ -102,8 +102,6 @@ export function ReplyItem({ reply, reviewId, layer, canReply, onDeleted, onEmpti
                     </>
                 )}
 
-                <Box sx={{ flexGrow: 1 }} />
-
                 {reply.isOwner && (
                     <Tooltip title="Delete Reply">
                         <span>
