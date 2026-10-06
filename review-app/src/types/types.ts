@@ -42,6 +42,30 @@ export interface ReviewMediaDto {
     reviewDto: ReviewDto;
 }
 
+// Review reply related DTOs
+export interface ReplyDto {
+    id: number;
+    parentReplyID?: number | null;
+    content?: string | null; // null for deleted replies
+    username?: string | null; // null for deleted replies
+    profilePictureUrl?: string | null;
+    createdAt: string;
+    isDeleted: boolean;
+    isOwner: boolean;
+    childCount: number; // non-deleted direct children
+}
+
+export interface CreateReplyDto {
+    reviewID: number;
+    parentReplyID?: number | null;
+    content: string;
+}
+
+export interface ReplyPage {
+    items: ReplyDto[];
+    hasMore: boolean;
+}
+
 // Collection related DTOs
 export interface CollectionDto {
     id: number;
