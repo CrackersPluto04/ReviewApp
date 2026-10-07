@@ -11,11 +11,13 @@ public class CollectionService : ICollectionService
 {
     private readonly AppDbContext _context;
     private readonly IMediaService _mediaService;
+    private readonly IAchievementService _achievementService;
 
-    public CollectionService(AppDbContext context, IMediaService mediaService)
+    public CollectionService(AppDbContext context, IMediaService mediaService, IAchievementService achievementService)
     {
         _context = context;
         _mediaService = mediaService;
+        _achievementService = achievementService;
     }
 
     public async Task<CollectionDto?> CreateCollectionAsync(int userId, CreateCollectionDto dto)
@@ -36,6 +38,8 @@ public class CollectionService : ICollectionService
 
         _context.Collections.Add(collection);
         await _context.SaveChangesAsync();
+
+        await _achievementService.EvaluateAsync(userId, AchievementMetric.CollectionsCreated);
 
         return new CollectionDto
         {
@@ -70,6 +74,9 @@ public class CollectionService : ICollectionService
 
         await _context.SaveChangesAsync();
 
+        // Renaming to or from "Favourites" changes which collections count
+        await _achievementService.EvaluateAsync(userId, AchievementMetric.CollectionsCreated);
+
         return new CollectionDto
         {
             ID = collection.ID,
@@ -90,6 +97,8 @@ public class CollectionService : ICollectionService
 
         _context.Collections.Remove(collection);
         await _context.SaveChangesAsync();
+
+        await _achievementService.EvaluateAsync(userId, AchievementMetric.CollectionsCreated);
 
         return true;
     }

@@ -14,6 +14,8 @@ import { DiscoverMusicPage } from './pages/DiscoverMusicPage';
 import { ProfileLayout } from './pages/ProfileLayout';
 import { CollectionsTab } from './components/CollectionsTab';
 import { ReviewsTab } from './components/ReviewsTab';
+import { AchievementsTab } from './components/AchievementsTab';
+import { AchievementToastProvider } from './context/AchievementToastContext';
 
 function App() {
 	const [mode, setMode] = useState<"light" | "dark">(() => {
@@ -36,62 +38,65 @@ function App() {
 		<CssBaseline />
 
 		<AuthProvider>
-			<BrowserRouter>
-				<ScrollToTop />
+			<AchievementToastProvider>
+				<BrowserRouter>
+					<ScrollToTop />
 
-				<Routes>
-					<Route path="/login" element={
-						<PageContainer mode={mode} toggleTheme={toggleTheme}>
-							<LoginPage />
-						</PageContainer>
-					} />
+					<Routes>
+						<Route path="/login" element={
+							<PageContainer mode={mode} toggleTheme={toggleTheme}>
+								<LoginPage />
+							</PageContainer>
+						} />
 
-					<Route path="/home" element={
-						<PageContainer mode={mode} toggleTheme={toggleTheme}>
-							<HomePage />
-						</PageContainer>
-					} />
+						<Route path="/home" element={
+							<PageContainer mode={mode} toggleTheme={toggleTheme}>
+								<HomePage />
+							</PageContainer>
+						} />
 
-					<Route path="/search" element={
-						<PageContainer mode={mode} toggleTheme={toggleTheme}>
-							<SearchPage />
-						</PageContainer>
-					} />
+						<Route path="/search" element={
+							<PageContainer mode={mode} toggleTheme={toggleTheme}>
+								<SearchPage />
+							</PageContainer>
+						} />
 
-					<Route path="/discover" element={
-						<PageContainer mode={mode} toggleTheme={toggleTheme}>
-							<DiscoverPage />
-						</PageContainer>
-					} />
+						<Route path="/discover" element={
+							<PageContainer mode={mode} toggleTheme={toggleTheme}>
+								<DiscoverPage />
+							</PageContainer>
+						} />
 
-					<Route path="/discover/music" element={
-						<PageContainer mode={mode} toggleTheme={toggleTheme}>
-							<DiscoverMusicPage />
-						</PageContainer>
-					} />
+						<Route path="/discover/music" element={
+							<PageContainer mode={mode} toggleTheme={toggleTheme}>
+								<DiscoverMusicPage />
+							</PageContainer>
+						} />
 
-					<Route path="/media/:mediaType/:externalApiId" element={
-						<PageContainer mode={mode} toggleTheme={toggleTheme}>
-							<MediaReviewPage />
-						</PageContainer>
-					} />
+						<Route path="/media/:mediaType/:externalApiId" element={
+							<PageContainer mode={mode} toggleTheme={toggleTheme}>
+								<MediaReviewPage />
+							</PageContainer>
+						} />
 
-					<Route path="/profile/:username" element={
-						<PageContainer mode={mode} toggleTheme={toggleTheme}>
-							<ProfileLayout />
-						</PageContainer>
-					}>
-						{/* Nested routes for the profile layout */}
-						<Route index element={<Navigate to="overview" replace />} />
+						<Route path="/profile/:username" element={
+							<PageContainer mode={mode} toggleTheme={toggleTheme}>
+								<ProfileLayout />
+							</PageContainer>
+						}>
+							{/* Nested routes for the profile layout */}
+							<Route index element={<Navigate to="overview" replace />} />
 
-						<Route path="overview" element={<div>Overview Tab (Coming Soon)</div>} />
-						<Route path="reviews" element={<ReviewsTab />} />
-						<Route path="collections" element={<CollectionsTab />} />
-					</Route>
+							<Route path="overview" element={<div>Overview Tab (Coming Soon)</div>} />
+							<Route path="reviews" element={<ReviewsTab />} />
+							<Route path="collections" element={<CollectionsTab />} />
+							<Route path="achievements" element={<AchievementsTab />} />
+						</Route>
 
-					<Route path="*" element={<Navigate to="/home" replace />} />
-				</Routes>
-			</BrowserRouter>
+						<Route path="*" element={<Navigate to="/home" replace />} />
+					</Routes>
+				</BrowserRouter>
+			</AchievementToastProvider>
 		</AuthProvider>
 	</ThemeProvider>
 }
