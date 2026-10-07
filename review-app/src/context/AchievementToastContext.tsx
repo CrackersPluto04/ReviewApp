@@ -15,6 +15,8 @@ type AchievementToastProviderProps = {
 export function AchievementToastProvider({ children }: AchievementToastProviderProps) {
     // One action can unlock several tiers, they are shown one after the other
     const [queue, setQueue] = useState<UnlockedAchievementDto[]>([]);
+    // The toast on screen, kept until its exit animation ends (not just until it starts closing)
+    const [current, setCurrent] = useState<UnlockedAchievementDto>();
     const [open, setOpen] = useState(false);
 
     useEffect(() => {
@@ -22,13 +24,14 @@ export function AchievementToastProvider({ children }: AchievementToastProviderP
         return () => setUnlockHandler(null);
     }, []);
 
-    const current = queue[0];
-
-    // Open the next toast once the previous one has closed
+    // Take the next one from the queue only when nothing is shown
     useEffect(() => {
-        if (current && !open)
+        if (!current && queue.length > 0) {
+            setCurrent(queue[0]);
+            setQueue(prev => prev.slice(1));
             setOpen(true);
-    }, [current, open]);
+        }
+    }, [queue, current]);
 
     const handleClose = (_event?: unknown, reason?: string) => {
         if (reason === 'clickaway') return;
@@ -40,12 +43,12 @@ export function AchievementToastProvider({ children }: AchievementToastProviderP
 
         <Snackbar
             key={current ? `${current.groupCode}-${current.tier}` : undefined}
-            open={open && !!current}
+            open={open}
             autoHideDuration={5000}
             onClose={handleClose}
             anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
             sx={{ mt: 7 }}
-            slotProps={{ transition: { onExited: () => setQueue(prev => prev.slice(1)) } }}
+            slotProps={{ transition: { onExited: () => setCurrent(undefined) } }}
         >
             {current && (
                 <Alert

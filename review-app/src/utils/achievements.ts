@@ -19,7 +19,7 @@ export const STATUS_OPTIONS: { value: AchievementStatus; label: string }[] = [
 export const CATEGORY_OPTIONS = ['Movie', 'Series', 'Music', 'Review', 'Reply', 'Collection'];
 
 export const SORT_OPTIONS: { value: AchievementSort; label: string }[] = [
-    { value: 'default', label: 'Default' },
+    { value: 'default', label: 'Unlocked first' },
     { value: 'progress', label: 'Most progress' },
     { value: 'title', label: 'Title (A-Z)' }
 ];
@@ -72,6 +72,7 @@ export function filterAndSortAchievements(achievements: AchievementDto[], status
     switch (sort) {
         case 'progress': return [...filtered].sort((a, b) => completionRatio(b) - completionRatio(a));
         case 'title': return [...filtered].sort((a, b) => a.title.localeCompare(b.title));
-        default: return filtered;
+        // Achievements with any earned tier first, the sort is stable so both groups keep the seed order
+        default: return [...filtered].sort((a, b) => Number(unlockedTierCount(b) > 0) - Number(unlockedTierCount(a) > 0));
     }
 }
