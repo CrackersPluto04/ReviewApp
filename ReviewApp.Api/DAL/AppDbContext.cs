@@ -18,6 +18,8 @@ public class AppDbContext : DbContext
     public DbSet<CollectionMedia> CollectionMedias { get; set; }
     public DbSet<UserFollower> UserFollowers { get; set; }
     public DbSet<ReviewReply> ReviewReplies { get; set; }
+    public DbSet<Achievement> Achievements { get; set; }
+    public DbSet<UserAchievement> UserAchievements { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -111,5 +113,14 @@ public class AppDbContext : DbContext
             .WithMany(rr => rr.ChildReplies)
             .HasForeignKey(rr => rr.ParentReplyID)
             .OnDelete(DeleteBehavior.Restrict);
+
+        /* Configure Achievements */
+        // Composite key
+        modelBuilder.Entity<UserAchievement>()
+            .HasKey(ua => new { ua.UserID, ua.AchievementID });
+
+        modelBuilder.Entity<Achievement>()
+            .HasIndex(a => a.Code)
+            .IsUnique();
     }
 }
