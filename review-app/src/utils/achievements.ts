@@ -2,7 +2,7 @@ import { AchievementDto, AchievementTierDto, AchievementTierName } from "../type
 
 export const TIER_COLORS: Record<AchievementTierName, string> = {
     Bronze: '#CD7F32',
-    Silver: '#A8A9AD',
+    Silver: '#7A90AE',
     Gold: '#D4AF37'
 };
 

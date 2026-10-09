@@ -5,7 +5,7 @@ namespace ReviewApp.Api.Services.Interfaces;
 
 public interface IAchievementService
 {
-    // Recalculates the user's progress for the given metrics and returns the newly unlocked tiers.
+    // Raises the user's progress for the given metrics to the current counts (it never goes down) and returns the newly unlocked tiers.
     // Never throws: a failure is logged and returns an empty list, so the calling action still succeeds.
     Task<IReadOnlyList<UnlockedAchievementDto>> EvaluateAsync(int userId, params AchievementMetric[] metrics);
 

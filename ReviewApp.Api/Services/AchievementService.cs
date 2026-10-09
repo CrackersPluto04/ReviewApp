@@ -9,8 +9,6 @@ namespace ReviewApp.Api.Services;
 
 public class AchievementService : IAchievementService
 {
-    // Created by the AddDefaultCollection trigger, doesn't count as a collection made by the user
-    private const string DefaultCollectionName = "Favourites";
     private const decimal LowScoreLimit = 5.0m;
 
     private readonly AppDbContext _context;
@@ -133,10 +131,11 @@ public class AchievementService : IAchievementService
                 _context.UserAchievements.Add(row);
             }
 
-            row.CurrentProgress = count;
+            // Progress is the highest count reached, so deleting content never takes it back.
+            // Deleting and recreating the same content doesn't raise it either, the count has to beat the old peak.
+            row.CurrentProgress = Math.Max(row.CurrentProgress, count);
 
-            // Unlocks are permanent, deleting content later only lowers the progress
-            if (!row.IsUnlocked && count >= definition.TargetValue)
+            if (!row.IsUnlocked && row.CurrentProgress >= definition.TargetValue)
             {
                 row.IsUnlocked = true;
                 unlocked.Add(new UnlockedAchievementDto
@@ -161,7 +160,7 @@ public class AchievementService : IAchievementService
         AchievementMetric.TotalReviews => _context.Reviews.CountAsync(r => r.UserID == userId),
         AchievementMetric.Replies => _context.ReviewReplies.CountAsync(rr => rr.UserID == userId && !rr.IsDeleted),
         AchievementMetric.LowScoreReviews => _context.Reviews.CountAsync(r => r.UserID == userId && r.Score <= LowScoreLimit),
-        AchievementMetric.CollectionsCreated => _context.Collections.CountAsync(c => c.UserID == userId && c.Name != DefaultCollectionName),
+        AchievementMetric.CollectionsCreated => _context.Collections.CountAsync(c => c.UserID == userId && c.Name != Collection.DefaultName),
         _ => Task.FromResult(0)
     };
 

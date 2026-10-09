@@ -74,6 +74,7 @@ export interface CollectionDto {
     createdAt: string;
     mediaCount: number;
     isOwner: boolean;
+    isDefault: boolean; // the permanent Favourites collection, can't be edited or deleted
 }
 
 export interface CollectionMediaDto {

@@ -16,7 +16,9 @@ export function TierMedals({ tiers }: TierMedalsProps) {
                     aria-label={`${t.tier} ${t.isUnlocked ? 'earned' : 'not earned'}`}
                     sx={{
                         fontSize: 30,
-                        color: t.isUnlocked ? TIER_COLORS[t.tier] : 'action.disabled'
+                        color: t.isUnlocked ? TIER_COLORS[t.tier] : 'action.disabled',
+                        // A slight shadow lifts earned medals off the background, so they don't blend into the greyed-out ones
+                        filter: t.isUnlocked ? 'drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4))' : 'none'
                     }}
                 />
             </Tooltip>

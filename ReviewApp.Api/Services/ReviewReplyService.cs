@@ -142,8 +142,6 @@ public class ReviewReplyService : IReviewReplyService
         reply.IsDeleted = true;
         await _context.SaveChangesAsync();
 
-        await _achievementService.EvaluateAsync(userId, AchievementMetric.Replies);
-
         return true;
     }
 

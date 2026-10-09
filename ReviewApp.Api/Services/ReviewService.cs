@@ -9,15 +9,6 @@ namespace ReviewApp.Api.Services;
 
 public class ReviewService : IReviewService
 {
-    private static readonly AchievementMetric[] ReviewMetrics =
-    [
-        AchievementMetric.MovieReviews,
-        AchievementMetric.SeriesReviews,
-        AchievementMetric.MusicReviews,
-        AchievementMetric.TotalReviews,
-        AchievementMetric.LowScoreReviews
-    ];
-
     private readonly AppDbContext _context;
     private readonly IMediaService _mediaService;
     private readonly IAchievementService _achievementService;
@@ -174,20 +165,9 @@ public class ReviewService : IReviewService
         if (review == null)
             return (false, "Review not found.");
 
-        // Replies are cascade deleted with the review, so their authors' reply counts change too
-        var replyAuthorIds = await _context.ReviewReplies
-            .Where(rr => rr.ReviewID == reviewId && !rr.IsDeleted)
-            .Select(rr => rr.UserID)
-            .Distinct()
-            .ToListAsync();
-
         // Delete review if exists
         _context.Reviews.Remove(review);
         await _context.SaveChangesAsync();
-
-        await _achievementService.EvaluateAsync(userId, ReviewMetrics);
-        foreach (var replyAuthorId in replyAuthorIds)
-            await _achievementService.EvaluateAsync(replyAuthorId, AchievementMetric.Replies);
 
         return (true, "Review deleted successfully!");
     }
