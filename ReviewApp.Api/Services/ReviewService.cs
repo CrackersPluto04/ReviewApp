@@ -11,11 +11,13 @@ public class ReviewService : IReviewService
 {
     private readonly AppDbContext _context;
     private readonly IMediaService _mediaService;
+    private readonly IAchievementService _achievementService;
 
-    public ReviewService(AppDbContext context, IMediaService mediaService)
+    public ReviewService(AppDbContext context, IMediaService mediaService, IAchievementService achievementService)
     {
         _context = context;
         _mediaService = mediaService;
+        _achievementService = achievementService;
     }
 
     public async Task<PagedResponse<object>> GetMediaReviewsAsync(MediaType mediaType, string externalApiId, ReviewFilterParams p)
@@ -119,6 +121,9 @@ public class ReviewService : IReviewService
         _context.Reviews.Add(review);
         await _context.SaveChangesAsync();
 
+        await _achievementService.EvaluateAsync(userId, MediaReviewMetric(dto.MediaDto.MediaType),
+            AchievementMetric.TotalReviews, AchievementMetric.LowScoreReviews);
+
         return (true, "Review created successfully!");
     }
 
@@ -147,6 +152,9 @@ public class ReviewService : IReviewService
 
         await _context.SaveChangesAsync();
 
+        // The score may have crossed the low score limit
+        await _achievementService.EvaluateAsync(userId, AchievementMetric.LowScoreReviews);
+
         return (true, "Review edited successfully!");
     }
 
@@ -160,8 +168,16 @@ public class ReviewService : IReviewService
         // Delete review if exists
         _context.Reviews.Remove(review);
         await _context.SaveChangesAsync();
+
         return (true, "Review deleted successfully!");
     }
+
+    private static AchievementMetric MediaReviewMetric(MediaType mediaType) => mediaType switch
+    {
+        MediaType.Movie => AchievementMetric.MovieReviews,
+        MediaType.Series => AchievementMetric.SeriesReviews,
+        _ => AchievementMetric.MusicReviews
+    };
 
     public async Task<(bool HasReviewed, ReviewDto? Review)> CheckIfUserReviewedMediaAsync(int userId, MediaType mediaType, string externalApiId)
     {

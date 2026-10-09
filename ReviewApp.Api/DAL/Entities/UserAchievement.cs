@@ -1,4 +1,4 @@
-﻿namespace ReviewApp.Api.DAL.Entities;
+namespace ReviewApp.Api.DAL.Entities;
 
 public class UserAchievement
 {
@@ -8,7 +8,8 @@ public class UserAchievement
     public int AchievementID { get; set; }
     public Achievement Achievement { get; set; } = null!;
 
+    // Recalculated from the real counts, can go down when content is deleted
     public int CurrentProgress { get; set; }
+    // Permanent once set, never flips back
     public bool IsUnlocked { get; set; }
-    public DateTime? UnlockedAt { get; set; }
 }

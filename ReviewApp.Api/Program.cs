@@ -18,7 +18,9 @@ builder.Services.AddCors(options =>
         policy.WithOrigins("https://localhost:5173")
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials();
+              .AllowCredentials()
+              // Cross-origin JS can only read exposed headers (the achievement unlock toast uses it)
+              .WithExposedHeaders(ResponseHeaderUnlockHandler.HeaderName);
     });
 });
 
@@ -179,6 +181,8 @@ builder.Services.AddScoped<IFollowerService, FollowerService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IUserAuthHelper, UserAuthHelper>();
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IAchievementService, AchievementService>();
+builder.Services.AddScoped<IAchievementUnlockHandler, ResponseHeaderUnlockHandler>();
 
 var app = builder.Build();
 

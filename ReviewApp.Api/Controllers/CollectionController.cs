@@ -52,9 +52,12 @@ public class CollectionController : ControllerBase
         try
         {
             var result = await _collectionService.UpdateCollectionAsync(_userAuthHelper.GetSecureUserID(), dto);
-            if (result == null) return BadRequest(new { error = "Update failed. Name might be taken, or collection not found." });
-
-            return Ok(result);
+            if (result.Success)
+                return Ok(result.Collection);
+            else if (result.NotFound)
+                return NotFound(new { error = result.Message });
+            else
+                return BadRequest(new { error = result.Message });
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -68,10 +71,13 @@ public class CollectionController : ControllerBase
     {
         try
         {
-            var success = await _collectionService.DeleteCollectionAsync(_userAuthHelper.GetSecureUserID(), id);
-            if (!success) return NotFound(new { error = "Collection not found." });
-
-            return NoContent();
+            var result = await _collectionService.DeleteCollectionAsync(_userAuthHelper.GetSecureUserID(), id);
+            if (result.Success)
+                return NoContent();
+            else if (result.NotFound)
+                return NotFound(new { error = result.Message });
+            else
+                return BadRequest(new { error = result.Message });
         }
         catch (UnauthorizedAccessException ex)
         {

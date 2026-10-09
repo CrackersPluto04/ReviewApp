@@ -1,4 +1,4 @@
-import { Box, Avatar, Typography, Paper, Tabs, Tab, CircularProgress, Button, IconButton, TextField, Badge } from "@mui/material";
+import { Box, Avatar, Typography, Paper, Tabs, Tab, CircularProgress, Button, IconButton, TextField, Badge, useMediaQuery, useTheme } from "@mui/material";
 import EditIcon from '@mui/icons-material/Edit';
 import { useEffect, useState } from "preact/hooks";
 import { Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
@@ -28,6 +28,9 @@ export function ProfileLayout() {
     const [draftBio, setDraftBio] = useState(profileData?.bio || '');
 
     const currentTab = location.pathname.split('/').pop() || 'collections';
+    // Centered tabs get cut off when they don't fit, so small screens scroll them instead
+    const theme = useTheme();
+    const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
     const isBioOver = draftBio.length > 150;
 
     // Fetch user profile informations on load
@@ -259,12 +262,16 @@ export function ProfileLayout() {
         < Tabs
             value={currentTab}
             onChange={handleTabChange}
-            variant='standard' centered
+            variant={isSmallScreen ? 'scrollable' : 'standard'}
+            centered={!isSmallScreen}
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             sx={{ borderBottom: 1, borderTop: 1, borderColor: 'divider', mb: 3 }}
         >
             <Tab label="Overview" value="overview" />
             <Tab label="Reviews" value="reviews" />
             <Tab label="Collections" value="collections" />
+            <Tab label="Achievements" value="achievements" />
         </Tabs>
 
         {/* NESTED ROUTE RENDERER */}

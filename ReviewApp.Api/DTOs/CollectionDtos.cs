@@ -50,6 +50,7 @@ public record CollectionDto
     public string? CreatedAt { get; init; }
     public int MediaCount { get; init; }
     public bool IsOwner { get; init; }
+    public bool IsDefault { get; init; }
 }
 
 public record CollectionMediaDto

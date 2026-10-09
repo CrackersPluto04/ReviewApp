@@ -119,8 +119,28 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<UserAchievement>()
             .HasKey(ua => new { ua.UserID, ua.AchievementID });
 
+        // Progress rows are removed together with the user or the achievement definition
+        modelBuilder.Entity<UserAchievement>()
+            .HasOne(ua => ua.User)
+            .WithMany()
+            .HasForeignKey(ua => ua.UserID)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<UserAchievement>()
+            .HasOne(ua => ua.Achievement)
+            .WithMany()
+            .HasForeignKey(ua => ua.AchievementID)
+            .OnDelete(DeleteBehavior.Cascade);
+
         modelBuilder.Entity<Achievement>()
             .HasIndex(a => a.Code)
             .IsUnique();
+
+        // Tiers of one achievement card share a GroupCode
+        modelBuilder.Entity<Achievement>()
+            .HasIndex(a => a.GroupCode);
+
+        modelBuilder.Entity<Achievement>()
+            .HasData(AchievementSeed.Achievements);
     }
 }

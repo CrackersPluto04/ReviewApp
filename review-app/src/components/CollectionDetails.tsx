@@ -147,8 +147,8 @@ export function CollectionDetails({ collectionId, onCollectionEdited, onCollecti
                 </Typography>
             </Box>
 
-            {/* Owner action buttons */}
-            {isOwner && (
+            {/* Owner action buttons, Favourites is permanent */}
+            {isOwner && !collection.isDefault && (
                 <Box>
                     <IconButton color="primary" onClick={() => setIsEditDialogOpen(true)}>
                         <EditIcon />

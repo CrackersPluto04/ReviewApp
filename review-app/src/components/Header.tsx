@@ -91,6 +91,7 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
 
                                 <MenuItem onClick={() => handleNavigate(`/profile/${encodeURIComponent(user?.username ?? '')}/reviews`)}>Reviews</MenuItem>
                                 <MenuItem onClick={() => handleNavigate(`/profile/${encodeURIComponent(user?.username ?? '')}/collections`)}>Collections</MenuItem>
+                                <MenuItem onClick={() => handleNavigate(`/profile/${encodeURIComponent(user?.username ?? '')}/achievements`)}>Achievements</MenuItem>
 
                                 <Divider />
 
