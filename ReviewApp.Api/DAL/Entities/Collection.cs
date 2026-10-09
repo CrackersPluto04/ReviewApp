@@ -5,6 +5,10 @@ namespace ReviewApp.Api.DAL.Entities;
 
 public class Collection
 {
+    // Created for every user by the AddDefaultCollection trigger. It can't be renamed or deleted,
+    // so this name always identifies it (and no other collection can take it, names are unique per user).
+    public const string DefaultName = "Favourites";
+
     public int ID { get; set; }
 
     [Required]

@@ -18,6 +18,8 @@ public class AppDbContext : DbContext
     public DbSet<CollectionMedia> CollectionMedias { get; set; }
     public DbSet<UserFollower> UserFollowers { get; set; }
     public DbSet<ReviewReply> ReviewReplies { get; set; }
+    public DbSet<Achievement> Achievements { get; set; }
+    public DbSet<UserAchievement> UserAchievements { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -111,5 +113,34 @@ public class AppDbContext : DbContext
             .WithMany(rr => rr.ChildReplies)
             .HasForeignKey(rr => rr.ParentReplyID)
             .OnDelete(DeleteBehavior.Restrict);
+
+        /* Configure Achievements */
+        // Composite key
+        modelBuilder.Entity<UserAchievement>()
+            .HasKey(ua => new { ua.UserID, ua.AchievementID });
+
+        // Progress rows are removed together with the user or the achievement definition
+        modelBuilder.Entity<UserAchievement>()
+            .HasOne(ua => ua.User)
+            .WithMany()
+            .HasForeignKey(ua => ua.UserID)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<UserAchievement>()
+            .HasOne(ua => ua.Achievement)
+            .WithMany()
+            .HasForeignKey(ua => ua.AchievementID)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Achievement>()
+            .HasIndex(a => a.Code)
+            .IsUnique();
+
+        // Tiers of one achievement card share a GroupCode
+        modelBuilder.Entity<Achievement>()
+            .HasIndex(a => a.GroupCode);
+
+        modelBuilder.Entity<Achievement>()
+            .HasData(AchievementSeed.Achievements);
     }
 }

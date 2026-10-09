@@ -108,7 +108,7 @@ export function MediaCard({ media, collectionId, onRemove, isOwner }: MediaCardP
         }
 
         // Find the default "Favourites" collection
-        const favCollection = collectionsToSearch.find(c => c.name.toLowerCase() === 'favourites');
+        const favCollection = collectionsToSearch.find(c => c.isDefault);
 
         if (!favCollection) {
             showToast("Could not find your Favourites collection.", 'error');

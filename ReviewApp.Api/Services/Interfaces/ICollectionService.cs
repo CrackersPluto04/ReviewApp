@@ -6,8 +6,8 @@ namespace ReviewApp.Api.Services.Interfaces;
 public interface ICollectionService
 {
     Task<CollectionDto?> CreateCollectionAsync(int userId, CreateCollectionDto dto);
-    Task<CollectionDto?> UpdateCollectionAsync(int userId, UpdateCollectionDto dto);
-    Task<bool> DeleteCollectionAsync(int userId, int collectionId);
+    Task<(bool Success, bool NotFound, string Message, CollectionDto? Collection)> UpdateCollectionAsync(int userId, UpdateCollectionDto dto);
+    Task<(bool Success, bool NotFound, string Message)> DeleteCollectionAsync(int userId, int collectionId);
 
     Task<bool> AddMediaToCollectionAsync(int userId, int collectionId, MediaType type, string externalApiId);
     Task<bool> RemoveMediaFromCollectionAsync(int userId, int collectionId, MediaType type, string externalApiId);

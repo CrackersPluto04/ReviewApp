@@ -12,10 +12,12 @@ public class ReviewReplyService : IReviewReplyService
     private const int MaxPageSize = 50;
 
     private readonly AppDbContext _context;
+    private readonly IAchievementService _achievementService;
 
-    public ReviewReplyService(AppDbContext context)
+    public ReviewReplyService(AppDbContext context, IAchievementService achievementService)
     {
         _context = context;
+        _achievementService = achievementService;
     }
 
     public async Task<ReplyPageDto?> GetRepliesAsync(int reviewId, int? parentReplyId, int? afterId, int pageSize, int? requestingUserId)
@@ -105,6 +107,8 @@ public class ReviewReplyService : IReviewReplyService
         };
         _context.ReviewReplies.Add(reply);
         await _context.SaveChangesAsync();
+
+        await _achievementService.EvaluateAsync(userId, AchievementMetric.Replies);
 
         var author = await _context.Users
             .Where(u => u.ID == userId)

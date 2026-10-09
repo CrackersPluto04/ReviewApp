@@ -74,6 +74,7 @@ export interface CollectionDto {
     createdAt: string;
     mediaCount: number;
     isOwner: boolean;
+    isDefault: boolean; // the permanent Favourites collection, can't be edited or deleted
 }
 
 export interface CollectionMediaDto {
@@ -86,6 +87,31 @@ export interface CollectionMediaDto {
 export interface CollectionWithMediasDto {
     collection: CollectionDto;
     mediaItems: CollectionMediaDto[];
+}
+
+// Achievement related DTOs
+export type AchievementTierName = 'Bronze' | 'Silver' | 'Gold';
+
+export interface AchievementTierDto {
+    tier: AchievementTierName;
+    description: string;
+    targetValue: number;
+    isUnlocked: boolean;
+}
+
+export interface AchievementDto {
+    groupCode: string;
+    title: string;
+    iconKey: string; // icon file in public/achievements, without extension
+    categories: string[]; // Movie, Series, Music, Review, Reply, Collection
+    currentProgress: number; // shared by every tier
+    tiers: AchievementTierDto[]; // bronze -> gold
+}
+
+export interface UnlockedAchievementDto {
+    groupCode: string;
+    title: string;
+    tier: AchievementTierName;
 }
 
 // Filter & sort related parameter dtos

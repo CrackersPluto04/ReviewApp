@@ -9,13 +9,17 @@ namespace ReviewApp.Api.Services;
 
 public class CollectionService : ICollectionService
 {
+    private const string DefaultCollectionLockedMessage = "Your Favourites collection can't be renamed, edited or deleted.";
+
     private readonly AppDbContext _context;
     private readonly IMediaService _mediaService;
+    private readonly IAchievementService _achievementService;
 
-    public CollectionService(AppDbContext context, IMediaService mediaService)
+    public CollectionService(AppDbContext context, IMediaService mediaService, IAchievementService achievementService)
     {
         _context = context;
         _mediaService = mediaService;
+        _achievementService = achievementService;
     }
 
     public async Task<CollectionDto?> CreateCollectionAsync(int userId, CreateCollectionDto dto)
@@ -37,6 +41,8 @@ public class CollectionService : ICollectionService
         _context.Collections.Add(collection);
         await _context.SaveChangesAsync();
 
+        await _achievementService.EvaluateAsync(userId, AchievementMetric.CollectionsCreated);
+
         return new CollectionDto
         {
             ID = collection.ID,
@@ -48,21 +54,22 @@ public class CollectionService : ICollectionService
         };
     }
 
-    public async Task<CollectionDto?> UpdateCollectionAsync(int userId, UpdateCollectionDto dto)
+    public async Task<(bool Success, bool NotFound, string Message, CollectionDto? Collection)> UpdateCollectionAsync(int userId, UpdateCollectionDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.Name)) return null;
+        if (string.IsNullOrWhiteSpace(dto.Name)) return (false, false, "Collection name is required.", null);
 
         var collection = await _context.Collections
             .FirstOrDefaultAsync(c => c.ID == dto.CollectionID && c.UserID == userId);
 
-        if (collection == null) return null;
+        if (collection == null) return (false, true, "Collection not found.", null);
+        if (collection.Name == Collection.DefaultName) return (false, false, DefaultCollectionLockedMessage, null);
 
         if (collection.Name != dto.Name)
         {
             var nameTaken = await _context.Collections
                 .AnyAsync(c => c.UserID == userId && c.Name == dto.Name);
 
-            if (nameTaken) return null;
+            if (nameTaken) return (false, false, "You already have a collection with this name.", null);
         }
 
         collection.Name = dto.Name;
@@ -70,7 +77,7 @@ public class CollectionService : ICollectionService
 
         await _context.SaveChangesAsync();
 
-        return new CollectionDto
+        return (true, false, "Collection updated successfully!", new CollectionDto
         {
             ID = collection.ID,
             Name = collection.Name,
@@ -78,20 +85,21 @@ public class CollectionService : ICollectionService
             CreatedAt = collection.CreatedAt.ToString("yyyy-MM-dd"),
             MediaCount = collection.CollectionMedias.Count,
             IsOwner = true
-        };
+        });
     }
 
-    public async Task<bool> DeleteCollectionAsync(int userId, int collectionId)
+    public async Task<(bool Success, bool NotFound, string Message)> DeleteCollectionAsync(int userId, int collectionId)
     {
         var collection = await _context.Collections
             .FirstOrDefaultAsync(c => c.ID == collectionId && c.UserID == userId);
 
-        if (collection == null) return false;
+        if (collection == null) return (false, true, "Collection not found.");
+        if (collection.Name == Collection.DefaultName) return (false, false, DefaultCollectionLockedMessage);
 
         _context.Collections.Remove(collection);
         await _context.SaveChangesAsync();
 
-        return true;
+        return (true, false, "Collection deleted successfully!");
     }
 
     public async Task<bool> AddMediaToCollectionAsync(int userId, int collectionId, MediaType type, string externalApiId)
@@ -244,7 +252,8 @@ public class CollectionService : ICollectionService
             VisibilityLevel = c.VisibilityLevel,
             CreatedAt = c.CreatedAt.ToString("yyyy-MM-dd"),
             MediaCount = c.CollectionMedias.Count,
-            IsOwner = isOwner
+            IsOwner = isOwner,
+            IsDefault = c.Name == Collection.DefaultName
         });
 
         return await selectedQuery.ToListAsync();
@@ -315,7 +324,8 @@ public class CollectionService : ICollectionService
                 VisibilityLevel = rawCollection.VisibilityLevel,
                 CreatedAt = rawCollection.CreatedAt.ToString("yyyy-MM-dd"),
                 MediaCount = rawCollection.MediaCount,
-                IsOwner = requestingUserId.HasValue && requestingUserId.Value == rawCollection.UserID
+                IsOwner = requestingUserId.HasValue && requestingUserId.Value == rawCollection.UserID,
+                IsDefault = rawCollection.Name == Collection.DefaultName
             },
             MediaItems = rawCollection.RawMedias.Select(rm => new CollectionMediaDto
             {
