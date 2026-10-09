@@ -19,6 +19,9 @@ public class User
     public string? Bio { get; set; }
     public string? ProfilePictureUrl { get; set; }
 
+    public bool IsEmailConfirmed { get; set; } = false;
+    public bool IsTwoFactorEnabled { get; set; } = false;
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<UserFollower> Followers { get; set; } = [];

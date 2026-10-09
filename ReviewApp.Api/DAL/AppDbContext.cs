@@ -20,6 +20,8 @@ public class AppDbContext : DbContext
     public DbSet<ReviewReply> ReviewReplies { get; set; }
     public DbSet<Achievement> Achievements { get; set; }
     public DbSet<UserAchievement> UserAchievements { get; set; }
+    public DbSet<Notification> Notifications { get; set; }
+    public DbSet<SecurityToken> SecurityTokens { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -142,5 +144,18 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<Achievement>()
             .HasData(AchievementSeed.Achievements);
+
+        /* Configure SecurityTokens */
+        modelBuilder.Entity<SecurityToken>(entity =>
+        {
+            entity.HasKey(t => t.ID);
+
+            entity.HasIndex(t => new { t.UserID, t.Type, t.IsUsed });
+
+            entity.HasOne(t => t.User)
+                  .WithMany()
+                  .HasForeignKey(t => t.UserID)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
     }
 }
