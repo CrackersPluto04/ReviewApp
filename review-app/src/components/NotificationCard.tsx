@@ -66,6 +66,14 @@ export function NotificationCard({ notification, hasSource, onToggleSeen, onDele
                     </Typography>
                 </Box>
 
+                {hasSource && (
+                    <Tooltip title="Take me there">
+                        <IconButton size="small" aria-label="Take me there" onClick={() => onOpen(notification)} color="primary">
+                            <ArrowForwardIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                )}
+
                 <Tooltip title={unseen ? 'Mark as seen' : 'Mark as unseen'}>
                     <IconButton size="small" aria-label={unseen ? 'Mark as seen' : 'Mark as unseen'} onClick={() => onToggleSeen(notification)}>
                         {unseen ? <MarkEmailReadOutlinedIcon fontSize="small" /> : <MarkEmailUnreadOutlinedIcon fontSize="small" />}
@@ -82,14 +90,6 @@ export function NotificationCard({ notification, hasSource, onToggleSeen, onDele
             <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                 {notification.message}
             </Typography>
-
-            {hasSource && (
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', flexGrow: 1, mt: 0.5 }}>
-                    <Button size="small" endIcon={<ArrowForwardIcon />} onClick={() => onOpen(notification)}>
-                        Take me there
-                    </Button>
-                </Box>
-            )}
         </Box>
     </Card>
 }
