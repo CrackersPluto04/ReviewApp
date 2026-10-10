@@ -1,9 +1,10 @@
-﻿namespace ReviewApp.Api.Enums
+namespace ReviewApp.Api.Enums;
+
+public enum NotificationType
 {
-    public enum NotificationType
-    {
-        System,
-        ReviewReply,
-        AchievementUnlocked
-    }
+    System,
+    ReviewReply,         // someone replied to the recipient's review
+    ReplyReply,          // someone replied to the recipient's reply
+    AchievementUnlocked, // one notification per unlocked tier
+    NewFollower
 }

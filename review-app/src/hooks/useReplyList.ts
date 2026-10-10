@@ -15,9 +15,10 @@ function mergeReplies(current: ReplyDto[], incoming: ReplyDto[]) {
  * "Load more" list of the direct replies of a review (parentReplyId undefined) or of a reply.
  * Paging uses the last ID received from the server, not the last ID in the list,
  * so replies added locally don't make the next page skip older ones.
+ * `initial` seeds the list (a reply opened from a notification), later pages are merged around it.
  */
-export function useReplyList(reviewId: number, parentReplyId?: number) {
-    const [replies, setReplies] = useState<ReplyDto[]>([]);
+export function useReplyList(reviewId: number, parentReplyId?: number, initial?: ReplyDto[]) {
+    const [replies, setReplies] = useState<ReplyDto[]>(initial ?? []);
     const [cursor, setCursor] = useState<number | undefined>(undefined);
     const [hasMore, setHasMore] = useState(false);
     const [loaded, setLoaded] = useState(false);

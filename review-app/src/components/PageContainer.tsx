@@ -1,6 +1,7 @@
 import { Box, Container } from '@mui/material';
 import { Header, HeaderProps } from './Header';
 import { Footer } from './Footer';
+import { EmailVerificationBanner } from './EmailVerificationBanner';
 import { ReactNode } from 'preact/compat';
 
 type PageContainerProps = HeaderProps & {
@@ -13,6 +14,7 @@ export function PageContainer({ children, ...headerProps }: PageContainerProps) 
 
         <Box component="main" sx={{ flexGrow: 1, py: 4 }}>
             <Container disableGutters maxWidth="xl" sx={{ pr: 12, pl: 12 }}>
+                <EmailVerificationBanner />
                 {children}
             </Container>
         </Box>

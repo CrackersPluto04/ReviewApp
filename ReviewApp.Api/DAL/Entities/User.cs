@@ -21,6 +21,9 @@ public class User
 
     public bool IsEmailConfirmed { get; set; } = false;
     public bool IsTwoFactorEnabled { get; set; } = false;
+    // Requested new address, the Email only changes once the link sent here is confirmed
+    [MaxLength(254)]
+    public string? PendingEmail { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

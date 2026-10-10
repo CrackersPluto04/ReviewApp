@@ -6,15 +6,17 @@ import EditIcon from "@mui/icons-material/Edit"
 import DeleteIcon from "@mui/icons-material/Delete"
 import { useNavigate } from "react-router-dom";
 import { useState } from "preact/hooks";
-import { ReplyThread } from "./ReplyThread";
+import { ReplyFocus, ReplyThread } from "./ReplyThread";
 
 type ReviewCardProps = {
     rev: any;
     mode?: 'media' | 'profile';
     onDelete?: (reviewId: number) => void;
+    // Opens the reply thread at this reply (review page opened from a notification)
+    replyFocus?: ReplyFocus;
 }
 
-export function ReviewCard({ rev, mode = 'media', onDelete }: ReviewCardProps) {
+export function ReviewCard({ rev, mode = 'media', onDelete, replyFocus }: ReviewCardProps) {
     const navigate = useNavigate();
     const [replyCount, setReplyCount] = useState<number>(rev.replyCount ?? 0);
 
@@ -187,6 +189,7 @@ export function ReviewCard({ rev, mode = 'media', onDelete }: ReviewCardProps) {
                 replyCount={replyCount}
                 replyable={rev.visibilityLevel !== 0}
                 onCountChange={delta => setReplyCount(prev => prev + delta)}
+                focus={replyFocus}
             />
         </Box>
     </Card >

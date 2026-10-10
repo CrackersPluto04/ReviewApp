@@ -66,6 +66,13 @@ export interface ReplyPage {
     hasMore: boolean;
 }
 
+// A single reply with its layer 2 parent (when it's a layer 3 reply), used to open a thread at it
+export interface ReplyContextDto {
+    reviewID: number;
+    reply: ReplyDto;
+    parentReply?: ReplyDto | null;
+}
+
 // Collection related DTOs
 export interface CollectionDto {
     id: number;
@@ -112,6 +119,48 @@ export interface UnlockedAchievementDto {
     groupCode: string;
     title: string;
     tier: AchievementTierName;
+}
+
+// Notification related DTOs
+export type NotificationType = 'System' | 'ReviewReply' | 'ReplyReply' | 'AchievementUnlocked' | 'NewFollower';
+export type NotificationStatusFilter = 'all' | 'seen' | 'unseen';
+export type NotificationSort = 'newest' | 'oldest';
+
+export interface NotificationDto {
+    id: number;
+    type: NotificationType;
+    title: string;
+    message: string; // plain text, never rendered as HTML
+    isSeen: boolean;
+    createdAt: string; // ISO date, UTC
+    actorUsername?: string | null; // null for system / achievement notifications
+    actorProfilePictureUrl?: string | null;
+    // Navigation target, which ones are set depends on the type
+    reviewID?: number | null;
+    replyID?: number | null;
+    groupCode?: string | null;
+}
+
+export interface NotificationPage {
+    items: NotificationDto[];
+    hasMore: boolean;
+    totalCount: number; // matching the current filter
+    unseenCount: number;
+}
+
+export interface NotificationQueryParams {
+    status: NotificationStatusFilter;
+    sort: NotificationSort;
+    afterId?: number;
+    pageSize?: number;
+}
+
+// Account security
+export interface SecurityStatusDto {
+    email: string;
+    isEmailConfirmed: boolean;
+    isTwoFactorEnabled: boolean;
+    pendingEmail?: string | null;
 }
 
 // Filter & sort related parameter dtos

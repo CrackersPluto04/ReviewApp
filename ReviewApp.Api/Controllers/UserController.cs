@@ -15,14 +15,16 @@ public class UserController : ControllerBase
     private readonly IReviewService _reviewService;
     private readonly IUserAuthHelper _userAuthHelper;
     private readonly ITokenService _tokenService;
+    private readonly ISecurityService _securityService;
 
-    public UserController(IUserService userService, ICollectionService collectionService, IReviewService reviewService, IUserAuthHelper userAuthHelper, ITokenService tokenService)
+    public UserController(IUserService userService, ICollectionService collectionService, IReviewService reviewService, IUserAuthHelper userAuthHelper, ITokenService tokenService, ISecurityService securityService)
     {
         _userService = userService;
         _collectionService = collectionService;
         _reviewService = reviewService;
         _userAuthHelper = userAuthHelper;
         _tokenService = tokenService;
+        _securityService = securityService;
     }
 
     [HttpGet("search")]
@@ -60,6 +62,7 @@ public class UserController : ControllerBase
         }
     }
 
+    // Doesn't change the email yet: sends a confirmation link to the new address (see SecurityController)
     [HttpPut("me/email")]
     [Authorize]
     [EnableRateLimiting("credential-change")]
@@ -67,7 +70,7 @@ public class UserController : ControllerBase
     {
         try
         {
-            var (Success, Message) = await _userService.ChangeEmailAsync(_userAuthHelper.GetSecureUserID(), dto);
+            var (Success, Message) = await _securityService.RequestEmailChangeAsync(_userAuthHelper.GetSecureUserID(), dto);
             if (!Success)
                 return BadRequest(new { error = Message });
 

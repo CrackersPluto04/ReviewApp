@@ -13,5 +13,7 @@ public interface IReviewService
     Task<(bool Success, string Message)> DeleteReviewAsync(int userId, int reviewId);
 
     Task<(bool HasReviewed, ReviewDto? Review)> CheckIfUserReviewedMediaAsync(int userId, MediaType mediaType, string externalApiId);
+    // Single review with its author, null when it doesn't exist or is hidden from the requesting user
+    Task<object?> GetReviewByIdAsync(int reviewId, int? requestingUserId);
     Task<(bool Success, PagedResponse<object>? Reviews)> GetUserReviewsAsync(string username, int? requestingUserId, ReviewFilterParams p);
 }

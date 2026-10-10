@@ -10,14 +10,19 @@ namespace ReviewApp.Api.Services;
 public class ReviewReplyService : IReviewReplyService
 {
     private const int MaxPageSize = 50;
+    private const int NotificationSnippetLength = 80;
 
     private readonly AppDbContext _context;
     private readonly IAchievementService _achievementService;
+    private readonly INotificationService _notificationService;
+    private readonly ILogger<ReviewReplyService> _logger;
 
-    public ReviewReplyService(AppDbContext context, IAchievementService achievementService)
+    public ReviewReplyService(AppDbContext context, IAchievementService achievementService, INotificationService notificationService, ILogger<ReviewReplyService> logger)
     {
         _context = context;
         _achievementService = achievementService;
+        _notificationService = notificationService;
+        _logger = logger;
     }
 
     public async Task<ReplyPageDto?> GetRepliesAsync(int reviewId, int? parentReplyId, int? afterId, int pageSize, int? requestingUserId)
@@ -43,21 +48,7 @@ public class ReviewReplyService : IReviewReplyService
             query = query.Where(rr => rr.ID > afterId.Value);
 
         // Oldest first, fetch one extra to know if there are more
-        var replies = await query
-            .OrderBy(rr => rr.ID)
-            .Take(pageSize + 1)
-            .Select(rr => new ReplyDto
-            {
-                ID = rr.ID,
-                ParentReplyID = rr.ParentReplyID,
-                Content = rr.IsDeleted ? null : rr.Content,
-                Username = rr.IsDeleted ? null : rr.User.Username,
-                ProfilePictureUrl = rr.IsDeleted ? null : rr.User.ProfilePictureUrl,
-                CreatedAt = rr.CreatedAt.ToString("yyyy-MM-dd"),
-                IsDeleted = rr.IsDeleted,
-                IsOwner = !rr.IsDeleted && requestingUserId.HasValue && rr.UserID == requestingUserId.Value,
-                ChildCount = rr.ChildReplies.Count(c => !c.IsDeleted)
-            })
+        var replies = await ToReplyDtos(query.OrderBy(rr => rr.ID).Take(pageSize + 1), requestingUserId)
             .ToListAsync();
 
         var hasMore = replies.Count > pageSize;
@@ -68,6 +59,48 @@ public class ReviewReplyService : IReviewReplyService
             HasMore = hasMore
         };
     }
+
+    public async Task<ReplyContextDto?> GetReplyContextAsync(int replyId, int? requestingUserId)
+    {
+        var reply = await _context.ReviewReplies
+            .Where(rr => rr.ID == replyId)
+            .Select(rr => new { rr.ReviewID, rr.ParentReplyID, rr.IsDeleted })
+            .FirstOrDefaultAsync();
+
+        // A deleted reply can't be linked to
+        if (reply == null || reply.IsDeleted)
+            return null;
+
+        // Replies inherit the visibility of their review
+        if (await GetVisibleReviewAsync(reply.ReviewID, requestingUserId) == null)
+            return null;
+
+        var ids = reply.ParentReplyID.HasValue ? new[] { replyId, reply.ParentReplyID.Value } : [replyId];
+        var dtos = await ToReplyDtos(_context.ReviewReplies.Where(rr => ids.Contains(rr.ID)), requestingUserId)
+            .ToListAsync();
+
+        return new ReplyContextDto
+        {
+            ReviewID = reply.ReviewID,
+            Reply = dtos.First(d => d.ID == replyId),
+            ParentReply = reply.ParentReplyID.HasValue ? dtos.FirstOrDefault(d => d.ID == reply.ParentReplyID.Value) : null
+        };
+    }
+
+    // Content and author of deleted replies are never returned
+    private static IQueryable<ReplyDto> ToReplyDtos(IQueryable<ReviewReply> query, int? requestingUserId) =>
+        query.Select(rr => new ReplyDto
+        {
+            ID = rr.ID,
+            ParentReplyID = rr.ParentReplyID,
+            Content = rr.IsDeleted ? null : rr.Content,
+            Username = rr.IsDeleted ? null : rr.User.Username,
+            ProfilePictureUrl = rr.IsDeleted ? null : rr.User.ProfilePictureUrl,
+            CreatedAt = rr.CreatedAt.ToString("yyyy-MM-dd"),
+            IsDeleted = rr.IsDeleted,
+            IsOwner = !rr.IsDeleted && requestingUserId.HasValue && rr.UserID == requestingUserId.Value,
+            ChildCount = rr.ChildReplies.Count(c => !c.IsDeleted)
+        });
 
     public async Task<(bool Success, bool NotFound, string Message, ReplyDto? Reply)> CreateReplyAsync(int userId, CreateReplyDto dto)
     {
@@ -115,6 +148,8 @@ public class ReviewReplyService : IReviewReplyService
             .Select(u => new { u.Username, u.ProfilePictureUrl })
             .FirstAsync();
 
+        await NotifyReplyRecipientAsync(review, reply, author.Username);
+
         var replyDto = new ReplyDto
         {
             ID = reply.ID,
@@ -143,6 +178,62 @@ public class ReviewReplyService : IReviewReplyService
         await _context.SaveChangesAsync();
 
         return true;
+    }
+
+    // Notifies the author of what was replied to: the review (layer 2 reply) or the parent reply (layer 3 reply)
+    private async Task NotifyReplyRecipientAsync(Review review, ReviewReply reply, string actorUsername)
+    {
+        try
+        {
+            int recipientId;
+            if (reply.ParentReplyID == null)
+                recipientId = review.UserID;
+            else
+            {
+                var parent = await _context.ReviewReplies
+                    .Where(rr => rr.ID == reply.ParentReplyID.Value)
+                    .Select(rr => new { rr.UserID, rr.IsDeleted })
+                    .FirstAsync();
+
+                // A deleted reply no longer has an author to notify
+                if (parent.IsDeleted)
+                    return;
+
+                recipientId = parent.UserID;
+            }
+
+            // Never about your own actions, and only if the recipient can still see the review
+            if (recipientId == reply.UserID || await GetVisibleReviewAsync(review.ID, recipientId) == null)
+                return;
+
+            var mediaTitle = await _context.Media
+                .Where(m => m.ID == review.MediaID)
+                .Select(m => m.Title)
+                .FirstAsync();
+
+            var snippet = reply.Content.Length <= NotificationSnippetLength
+                ? reply.Content
+                : reply.Content[..NotificationSnippetLength].TrimEnd() + "…";
+
+            var isReviewReply = reply.ParentReplyID == null;
+            await _notificationService.CreateAsync(new Notification
+            {
+                RecipientUserID = recipientId,
+                ActorUserID = reply.UserID,
+                Type = isReviewReply ? NotificationType.ReviewReply : NotificationType.ReplyReply,
+                ReviewID = review.ID,
+                ReplyID = reply.ID,
+                Title = isReviewReply ? "New reply to your review" : "New reply to your reply",
+                Message = isReviewReply
+                    ? $"{actorUsername} replied to your review of {mediaTitle}: \"{snippet}\""
+                    : $"{actorUsername} replied to you under a review of {mediaTitle}: \"{snippet}\""
+            });
+        }
+        catch (Exception ex)
+        {
+            // The reply is already saved, a missing notification must not fail it
+            _logger.LogError(ex, "Creating a reply notification for reply {ReplyId} failed", reply.ID);
+        }
     }
 
     private async Task<Review?> GetVisibleReviewAsync(int reviewId, int? requestingUserId)

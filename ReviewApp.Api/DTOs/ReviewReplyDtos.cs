@@ -27,6 +27,15 @@ public record ReplyDto
     public int ChildCount { get; init; }
 }
 
+// A single reply with what's needed to show it in its thread (deep links from notifications)
+public record ReplyContextDto
+{
+    public int ReviewID { get; init; }
+    public ReplyDto Reply { get; init; } = null!;
+    // The layer 2 reply when Reply is a layer 3 reply (can be a deleted placeholder)
+    public ReplyDto? ParentReply { get; init; }
+}
+
 // Keyset ("load more") page: stays stable when replies are deleted between requests
 public record ReplyPageDto
 {

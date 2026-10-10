@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { Avatar, Box, Button, CircularProgress, IconButton, Stack, Tooltip, Typography } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
@@ -19,16 +19,30 @@ type ReplyItemProps = {
     // A deleted placeholder lost its last child and should disappear
     onEmptied?: (replyId: number) => void;
     onCountChange: (delta: number) => void;
+    // Opened from a notification: this reply is highlighted and scrolled to
+    highlighted?: boolean;
+    // ... or one of its layer 3 children is, which is shown right away
+    focusChild?: ReplyDto;
 };
 
-export function ReplyItem({ reply, reviewId, layer, canReply, onDeleted, onEmptied, onCountChange }: ReplyItemProps) {
+export function ReplyItem({ reply, reviewId, layer, canReply, onDeleted, onEmptied, onCountChange, highlighted, focusChild }: ReplyItemProps) {
     const navigate = useNavigate();
-    const children = useReplyList(reviewId, reply.id);
+    const children = useReplyList(reviewId, reply.id, focusChild ? [focusChild] : undefined);
+    const rootRef = useRef<HTMLDivElement>(null);
 
     const [childCount, setChildCount] = useState(reply.childCount);
-    const [showChildren, setShowChildren] = useState(false);
+    const [showChildren, setShowChildren] = useState(!!focusChild);
     const [showForm, setShowForm] = useState(false);
     const [deleting, setDeleting] = useState(false);
+
+    useEffect(() => {
+        if (focusChild) children.loadMore();
+
+        if (highlighted) {
+            const reduceMotion = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+            rootRef.current?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+        }
+    }, []);
 
     const handleUserClick = () => {
         if (reply.username) navigate(`/profile/${encodeURIComponent(reply.username)}`);
@@ -72,7 +86,10 @@ export function ReplyItem({ reply, reviewId, layer, canReply, onDeleted, onEmpti
         if (reply.isDeleted && remaining === 0) onEmptied?.(reply.id);
     };
 
-    return <Box sx={{ display: 'flex', gap: 1.5, py: 1 }}>
+    return <Box ref={rootRef} sx={{
+        display: 'flex', gap: 1.5, py: 1,
+        ...(highlighted && { bgcolor: 'action.selected', borderRadius: 1, px: 1, mx: -1 })
+    }}>
         {reply.isDeleted ? (
             <Avatar sx={{ width: 32, height: 32 }} />
         ) : (
@@ -159,6 +176,7 @@ export function ReplyItem({ reply, reviewId, layer, canReply, onDeleted, onEmpti
                             canReply={false}
                             onDeleted={handleChildDeleted}
                             onCountChange={onCountChange}
+                            highlighted={focusChild?.id === child.id}
                         />
                     ))}
 

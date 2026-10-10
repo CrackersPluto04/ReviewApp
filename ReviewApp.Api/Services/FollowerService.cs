@@ -9,10 +9,12 @@ namespace ReviewApp.Api.Services;
 public class FollowerService : IFollowerService
 {
     private readonly AppDbContext _context;
+    private readonly INotificationService _notificationService;
 
-    public FollowerService(AppDbContext context)
+    public FollowerService(AppDbContext context, INotificationService notificationService)
     {
         _context = context;
+        _notificationService = notificationService;
     }
 
     public async Task<(bool Success, string Message)> FollowUserAsync(int currentUserId, int targetUserId)
@@ -42,6 +44,8 @@ public class FollowerService : IFollowerService
 
         _context.UserFollowers.Add(follow);
         await _context.SaveChangesAsync();
+
+        await _notificationService.NotifyNewFollowerAsync(currentUserId, targetUserId);
 
         return (true, "Successfully followed user.");
     }

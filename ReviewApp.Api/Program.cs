@@ -10,12 +10,17 @@ using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Frontend origin: allowed by CORS and used for the links in emails
+var frontendBaseUrl = builder.Configuration["App:FrontendBaseUrl"]?.TrimEnd('/');
+if (string.IsNullOrEmpty(frontendBaseUrl))
+    throw new InvalidOperationException("App:FrontendBaseUrl must be configured.");
+
 // Add services to the container.
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
     {
-        policy.WithOrigins("https://localhost:5173")
+        policy.WithOrigins(frontendBaseUrl)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials()
@@ -121,6 +126,16 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("credential-change", httpContext =>
         RateLimitPartition.GetSlidingWindowLimiter(ClientKey(httpContext), _ => Sliding(5, TimeSpan.FromMinutes(10))));
 
+    // Opening the links from emails (verify email, confirm email change): 10 per 10 minutes per IP,
+    // separate from auth-attempt so opening links never uses up login attempts
+    options.AddPolicy("email-link", httpContext =>
+        RateLimitPartition.GetSlidingWindowLimiter(
+            $"ip:{httpContext.Connection.RemoteIpAddress}", _ => Sliding(10, TimeSpan.FromMinutes(10))));
+
+    // Endpoints that send an email on request (resend verification / codes): 5 per 10 minutes, so the API can't be used to spam an inbox
+    options.AddPolicy("email-send", httpContext =>
+        RateLimitPartition.GetSlidingWindowLimiter(ClientKey(httpContext), _ => Sliding(5, TimeSpan.FromMinutes(10))));
+
     // Endpoints that call TMDb / Spotify: 60 / minute, protects our third-party API quotas
     options.AddPolicy("external-api", httpContext =>
         RateLimitPartition.GetSlidingWindowLimiter(ClientKey(httpContext), _ => Sliding(60, TimeSpan.FromMinutes(1))));
@@ -183,6 +198,18 @@ builder.Services.AddScoped<IUserAuthHelper, UserAuthHelper>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAchievementService, AchievementService>();
 builder.Services.AddScoped<IAchievementUnlockHandler, ResponseHeaderUnlockHandler>();
+builder.Services.AddScoped<IAchievementUnlockHandler, NotificationUnlockHandler>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<ISecurityService, SecurityService>();
+
+// Emails are queued by the request and sent in the background
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
+builder.Services.AddSingleton<EmailQueue>();
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+builder.Services.AddScoped<IAccountEmailService, AccountEmailService>();
+builder.Services.AddHostedService<EmailDispatcherService>();
+
+builder.Services.AddHostedService<DataCleanupService>();
 
 var app = builder.Build();
 

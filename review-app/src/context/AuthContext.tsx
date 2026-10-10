@@ -8,6 +8,7 @@ export interface AuthUser {
     id: number;
     username: string;
     profilePictureUrl?: string;
+    isEmailConfirmed: boolean;
 }
 
 interface AuthContextType {
@@ -15,6 +16,8 @@ interface AuthContextType {
     isLoggedIn: boolean;
     isLoading: boolean;
     setUser: (user: AuthUser | null) => void;
+    // Reloads the user from the backend (e.g. after the email was verified)
+    refreshUser: () => Promise<void>;
     logout: () => Promise<void>;
 }
 
@@ -28,17 +31,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const [user, setUser] = useState<AuthUser | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    const refreshUser = async () => {
+        const result = await authService.checkAuth();
+        if (result.success)
+            setUser(result.data);
+        else
+            setUser(null);
+    };
+
     // Checks the backend for valid cookie and gets user details
     useEffect(() => {
         const verifyAuth = async () => {
             setIsLoading(true);
-
-            const result = await authService.checkAuth();
-            if (result.success)
-                setUser(result.data);
-            else
-                setUser(null);
-
+            await refreshUser();
             setIsLoading(false);
         };
 
@@ -59,7 +64,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const isLoggedIn = user !== null;
 
     return (
-        <AuthContext.Provider value={{ user, isLoggedIn, isLoading, setUser, logout }}>
+        <AuthContext.Provider value={{ user, isLoggedIn, isLoading, setUser, refreshUser, logout }}>
             {children}
         </AuthContext.Provider>
     );

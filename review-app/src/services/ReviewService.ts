@@ -29,6 +29,24 @@ class ReviewService {
         }
     }
 
+    // Single review with its author, 404 when it doesn't exist or is hidden from the current user
+    async getReview(id: number) {
+        try {
+            const response = await apiFetch(`${this.baseUrl}/${id}`, { credentials: 'include' });
+
+            if (response.ok) {
+                const data = await response.json();
+                return { success: true, data: data };
+            } else {
+                const errorData = await response.json().catch(() => null);
+                return { success: false, notFound: response.status === 404, message: errorData?.error || 'Something went wrong while getting the review.' }
+            }
+        } catch (error) {
+            console.error('GetReview error:', error);
+            return { success: false, notFound: false, message: 'Network error while reaching the review.' }
+        }
+    }
+
     async getAverageScore(externalApiId: string, mediaType: number) {
         try {
             const response = await apiFetch(`${this.baseUrl}/stats/average-score?externalApiId=${externalApiId}&mediaType=${mediaType}`);
