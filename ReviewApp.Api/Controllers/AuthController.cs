@@ -19,12 +19,14 @@ public class AuthController : ControllerBase
     private readonly AppDbContext _context;
     private readonly IUserAuthHelper _userAuthHelper;
     private readonly ITokenService _tokenService;
+    private readonly ISecurityService _securityService;
 
-    public AuthController(AppDbContext context, IUserAuthHelper userAuthHelper, ITokenService tokenService)
+    public AuthController(AppDbContext context, IUserAuthHelper userAuthHelper, ITokenService tokenService, ISecurityService securityService)
     {
         _context = context;
         _userAuthHelper = userAuthHelper;
         _tokenService = tokenService;
+        _securityService = securityService;
     }
 
     [HttpPost("register")]
@@ -76,7 +78,9 @@ public class AuthController : ControllerBase
             throw;
         }
 
-        return Ok(new { message = "Registration successfull! You can login now." });
+        await _securityService.OnRegisteredAsync(newUser);
+
+        return Ok(new { message = "Registration successful! We sent you an email to verify your address. You can log in now." });
     }
 
     [HttpPost("login")]
@@ -94,18 +98,46 @@ public class AuthController : ControllerBase
             return Unauthorized(new { error = "Invalid email or password." });
         }
 
+        // Only reached with a correct password, so the response doesn't reveal whether an account has 2FA
+        if (user.IsTwoFactorEnabled)
+        {
+            var challengeToken = await _securityService.StartTwoFactorLoginAsync(user);
+            return Ok(new
+            {
+                twoFactorRequired = true,
+                challengeToken,
+                message = "We sent a 6-digit code to your email address."
+            });
+        }
+
         _tokenService.IssueAuthCookie(user);
 
-        return Ok(new
-        {
-            message = "Logged in successfully",
-            user = new
-            {
-                id = user.ID,
-                username = user.Username,
-                profilePictureUrl = user.ProfilePictureUrl
-            }
-        });
+        return Ok(new { message = "Logged in successfully", user = ToAuthUser(user) });
+    }
+
+    // Second step of a 2FA login: the session cookie is only issued here
+    [HttpPost("login/2fa")]
+    [EnableRateLimiting("auth-attempt")]
+    public async Task<IActionResult> LoginTwoFactor([FromBody] TwoFactorLoginDto request)
+    {
+        var (Success, Message, User) = await _securityService.CompleteTwoFactorLoginAsync(request.ChallengeToken, request.Code);
+        if (!Success)
+            return Unauthorized(new { error = Message });
+
+        _tokenService.IssueAuthCookie(User!);
+
+        return Ok(new { message = Message, user = ToAuthUser(User!) });
+    }
+
+    [HttpPost("login/2fa/resend")]
+    [EnableRateLimiting("email-send")]
+    public async Task<IActionResult> ResendTwoFactorCode([FromBody] TwoFactorResendDto request)
+    {
+        var (Success, Message) = await _securityService.ResendTwoFactorLoginCodeAsync(request.ChallengeToken);
+        if (!Success)
+            return BadRequest(new { error = Message });
+
+        return Ok(new { message = Message });
     }
 
     [HttpPost("logout")]
@@ -150,16 +182,20 @@ public class AuthController : ControllerBase
             if (user == null)
                 return NotFound();
 
-            return Ok(new
-            {
-                id = user.ID,
-                username = user.Username,
-                profilePictureUrl = user.ProfilePictureUrl
-            });
+            return Ok(ToAuthUser(user));
         }
         catch (UnauthorizedAccessException ex)
         {
             return Unauthorized(new { error = ex.Message });
         }
     }
+
+    // The logged-in user as the frontend's AuthContext stores it
+    private static object ToAuthUser(User user) => new
+    {
+        id = user.ID,
+        username = user.Username,
+        profilePictureUrl = user.ProfilePictureUrl,
+        isEmailConfirmed = user.IsEmailConfirmed
+    };
 }

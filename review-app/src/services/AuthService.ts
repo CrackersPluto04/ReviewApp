@@ -68,6 +68,48 @@ class AuthService {
         }
     }
 
+    // Second step of a 2FA login: the login response gave a challengeToken instead of the session cookie
+    async loginTwoFactor(challengeToken: string, code: string) {
+        try {
+            const response = await apiFetch(`${this.baseUrl}/login/2fa`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ challengeToken, code: code.trim() })
+            });
+
+            const data = await response.json().catch(() => null);
+            if (response.ok)
+                return { success: true, data: data };
+
+            return { success: false, message: this.getErrorMessage(data) || "Something went wrong. Please try again." };
+        } catch (error) {
+            // Never log the request body here - it contains the code
+            console.error("Two-factor login error:", error);
+            return { success: false, message: "Something went wrong. Please try again." };
+        }
+    }
+
+    async resendTwoFactorCode(challengeToken: string) {
+        try {
+            const response = await apiFetch(`${this.baseUrl}/login/2fa/resend`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ challengeToken })
+            });
+
+            const data = await response.json().catch(() => null);
+            if (response.ok)
+                return { success: true, message: data?.message as string };
+
+            return { success: false, message: this.getErrorMessage(data) || "Something went wrong while sending a new code." };
+        } catch (error) {
+            console.error("Resend two-factor code error:", error);
+            return { success: false, message: "Network error while sending a new code." };
+        }
+    }
+
     async logout() {
         try {
             await apiFetch(`${this.baseUrl}/logout`, {
@@ -120,6 +162,18 @@ class AuthService {
     /**
      * Helper methods for validating input data before sending requests to the backend
      */
+
+    // Our endpoints return { error }, DataAnnotations failures come back as ProblemDetails ({ errors: { Field: [messages] } })
+    private getErrorMessage(errorData: any): string | undefined {
+        if (errorData?.error)
+            return errorData.error;
+
+        const firstValidationError = Object.values(errorData?.errors ?? {})[0];
+        if (Array.isArray(firstValidationError) && firstValidationError.length > 0)
+            return firstValidationError[0];
+
+        return undefined;
+    }
 
     // Validates registration datas
     private checkRegisterDatas(username: string, email: string, password: string, confirmPassword: string): string {

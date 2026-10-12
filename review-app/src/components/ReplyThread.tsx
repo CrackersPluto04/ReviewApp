@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { Box, Button, CircularProgress, Collapse, Typography } from "@mui/material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
@@ -9,17 +9,30 @@ import { ReplyForm } from "./ReplyForm";
 import { ReplyItem } from "./ReplyItem";
 import { PleaseLogin } from "./PleaseLogin";
 
+// A reply to open the thread at (from a notification), with its layer 2 parent when it's a layer 3 reply
+export type ReplyFocus = {
+    reply: ReplyDto;
+    parentReply?: ReplyDto | null;
+};
+
 type ReplyThreadProps = {
     reviewId: number;
     replyCount: number;
     replyable: boolean; // false for private reviews
     onCountChange: (delta: number) => void;
+    focus?: ReplyFocus;
 };
 
-export function ReplyThread({ reviewId, replyCount, replyable, onCountChange }: ReplyThreadProps) {
+export function ReplyThread({ reviewId, replyCount, replyable, onCountChange, focus }: ReplyThreadProps) {
     const { isLoggedIn } = useAuth();
-    const replies = useReplyList(reviewId);
-    const [expanded, setExpanded] = useState(false);
+    // The focused layer 2 reply is shown right away, the rest loads around it
+    const focusTop = focus ? (focus.parentReply ?? focus.reply) : undefined;
+    const replies = useReplyList(reviewId, undefined, focusTop ? [focusTop] : undefined);
+    const [expanded, setExpanded] = useState(!!focus);
+
+    useEffect(() => {
+        if (focus) replies.loadMore();
+    }, []);
 
     const canReply = isLoggedIn && replyable;
 
@@ -71,6 +84,8 @@ export function ReplyThread({ reviewId, replyCount, replyable, onCountChange }: 
                         onDeleted={handleDeleted}
                         onEmptied={replies.removeReply}
                         onCountChange={onCountChange}
+                        highlighted={focus?.reply.id === reply.id}
+                        focusChild={focus?.parentReply?.id === reply.id ? focus.reply : undefined}
                     />
                 ))}
 

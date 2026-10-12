@@ -19,6 +19,12 @@ public class User
     public string? Bio { get; set; }
     public string? ProfilePictureUrl { get; set; }
 
+    public bool IsEmailConfirmed { get; set; } = false;
+    public bool IsTwoFactorEnabled { get; set; } = false;
+    // Requested new address, the Email only changes once the link sent here is confirmed
+    [MaxLength(254)]
+    public string? PendingEmail { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<UserFollower> Followers { get; set; } = [];

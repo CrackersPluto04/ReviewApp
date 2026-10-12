@@ -444,6 +444,58 @@ namespace ReviewApp.Api.Migrations
                     b.UseTphMappingStrategy();
                 });
 
+            modelBuilder.Entity("ReviewApp.Api.DAL.Entities.Notification", b =>
+                {
+                    b.Property<int>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
+
+                    b.Property<int?>("ActorUserID")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("GroupCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsSeen")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("RecipientUserID")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ReplyID")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ReviewID")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("ActorUserID");
+
+                    b.HasIndex("RecipientUserID", "IsSeen", "ID");
+
+                    b.ToTable("Notifications");
+                });
+
             modelBuilder.Entity("ReviewApp.Api.DAL.Entities.Review", b =>
                 {
                     b.Property<int>("ID")
@@ -536,6 +588,46 @@ namespace ReviewApp.Api.Migrations
                     b.ToTable("ReviewReplies");
                 });
 
+            modelBuilder.Entity("ReviewApp.Api.DAL.Entities.SecurityToken", b =>
+                {
+                    b.Property<int>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FailedAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsUsed")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserID")
+                        .HasColumnType("int");
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("TokenHash");
+
+                    b.HasIndex("UserID", "Type", "IsUsed");
+
+                    b.ToTable("SecurityTokens");
+                });
+
             modelBuilder.Entity("ReviewApp.Api.DAL.Entities.User", b =>
                 {
                     b.Property<int>("ID")
@@ -556,9 +648,19 @@ namespace ReviewApp.Api.Migrations
                         .HasMaxLength(254)
                         .HasColumnType("nvarchar(254)");
 
+                    b.Property<bool>("IsEmailConfirmed")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsTwoFactorEnabled")
+                        .HasColumnType("bit");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PendingEmail")
+                        .HasMaxLength(254)
+                        .HasColumnType("nvarchar(254)");
 
                     b.Property<string>("ProfilePictureUrl")
                         .HasColumnType("nvarchar(max)");
@@ -677,6 +779,24 @@ namespace ReviewApp.Api.Migrations
                     b.Navigation("Media");
                 });
 
+            modelBuilder.Entity("ReviewApp.Api.DAL.Entities.Notification", b =>
+                {
+                    b.HasOne("ReviewApp.Api.DAL.Entities.User", "ActorUser")
+                        .WithMany()
+                        .HasForeignKey("ActorUserID")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ReviewApp.Api.DAL.Entities.User", "RecipientUser")
+                        .WithMany()
+                        .HasForeignKey("RecipientUserID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ActorUser");
+
+                    b.Navigation("RecipientUser");
+                });
+
             modelBuilder.Entity("ReviewApp.Api.DAL.Entities.Review", b =>
                 {
                     b.HasOne("ReviewApp.Api.DAL.Entities.Media", "Media")
@@ -718,6 +838,17 @@ namespace ReviewApp.Api.Migrations
                     b.Navigation("ParentReply");
 
                     b.Navigation("Review");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ReviewApp.Api.DAL.Entities.SecurityToken", b =>
+                {
+                    b.HasOne("ReviewApp.Api.DAL.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("User");
                 });

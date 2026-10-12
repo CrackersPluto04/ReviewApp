@@ -20,6 +20,8 @@ public class AppDbContext : DbContext
     public DbSet<ReviewReply> ReviewReplies { get; set; }
     public DbSet<Achievement> Achievements { get; set; }
     public DbSet<UserAchievement> UserAchievements { get; set; }
+    public DbSet<Notification> Notifications { get; set; }
+    public DbSet<SecurityToken> SecurityTokens { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -142,5 +144,40 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<Achievement>()
             .HasData(AchievementSeed.Achievements);
+
+        /* Configure Notifications */
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            // Removed together with the recipient
+            entity.HasOne(n => n.RecipientUser)
+                  .WithMany()
+                  .HasForeignKey(n => n.RecipientUserID)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // RESTRICT on the actor to prevent multiple cascade paths from User
+            entity.HasOne(n => n.ActorUser)
+                  .WithMany()
+                  .HasForeignKey(n => n.ActorUserID)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            // Listing (by recipient, newest first, optionally by seen state) and the unseen count
+            entity.HasIndex(n => new { n.RecipientUserID, n.IsSeen, n.ID });
+        });
+
+        /* Configure SecurityTokens */
+        modelBuilder.Entity<SecurityToken>(entity =>
+        {
+            entity.HasKey(t => t.ID);
+
+            entity.HasIndex(t => new { t.UserID, t.Type, t.IsUsed });
+
+            // Link tokens are looked up by their hash
+            entity.HasIndex(t => t.TokenHash);
+
+            entity.HasOne(t => t.User)
+                  .WithMany()
+                  .HasForeignKey(t => t.UserID)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
     }
 }

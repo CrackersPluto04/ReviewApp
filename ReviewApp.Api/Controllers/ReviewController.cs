@@ -28,6 +28,16 @@ public class ReviewController : ControllerBase
         return Ok(pagedReviews);
     }
 
+    // Shareable single review, also the target of reply notifications
+    [HttpGet("{id:int}")]
+    public async Task<IActionResult> GetReview([FromRoute] int id)
+    {
+        var review = await _reviewService.GetReviewByIdAsync(id, _userAuthHelper.GetOptionalUserID());
+        if (review == null) return NotFound(new { error = "Review not found." });
+
+        return Ok(review);
+    }
+
     [HttpGet("stats/average-score")]
     public async Task<IActionResult> GetAverageScore([FromQuery] string externalApiId, [FromQuery] MediaType mediaType)
     {

@@ -51,6 +51,7 @@ export function ChangeEmailDialog({ open, onClose, onSave }: ChangeEmailDialogPr
         <DialogContent dividers>
             <Typography variant="body2" color="text.secondary" mb={2}>
                 Enter your new email address and your current password to confirm it's you.
+                We'll send a confirmation link to the new address, your email changes once you open it.
             </Typography>
 
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}

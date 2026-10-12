@@ -1,5 +1,5 @@
 import { apiFetch } from "./apiClient";
-import { CreateReplyDto } from "../types/types";
+import { CreateReplyDto, ReplyContextDto } from "../types/types";
 
 class ReviewReplyService {
     private readonly baseUrl = 'https://localhost:7140/api/ReviewReply';
@@ -27,6 +27,24 @@ class ReviewReplyService {
         } catch (error) {
             console.error('GetReplies error:', error);
             return { success: false, message: 'Network error while reaching replies.' }
+        }
+    }
+
+    // A reply with its parent, null data when it was deleted or is hidden
+    async getReplyContext(id: number) {
+        try {
+            const response = await apiFetch(`${this.baseUrl}/${id}`, { credentials: 'include' });
+
+            if (response.ok) {
+                const data: ReplyContextDto = await response.json();
+                return { success: true, data: data };
+            } else {
+                const errorData = await response.json().catch(() => null);
+                return { success: false, message: errorData?.error || 'Something went wrong while getting the reply.' }
+            }
+        } catch (error) {
+            console.error('GetReplyContext error:', error);
+            return { success: false, message: 'Network error while reaching the reply.' }
         }
     }
 
