@@ -27,6 +27,16 @@ public class ReviewReplyController : ControllerBase
         return Ok(page);
     }
 
+    // A reply with its parent, used to open a thread at a specific reply
+    [HttpGet("{id:int}")]
+    public async Task<IActionResult> GetReplyContext([FromRoute] int id)
+    {
+        var context = await _replyService.GetReplyContextAsync(id, _userAuthHelper.GetOptionalUserID());
+        if (context == null) return NotFound(new { error = "Reply not found." });
+
+        return Ok(context);
+    }
+
     [HttpPost]
     [Authorize]
     public async Task<IActionResult> CreateReply([FromBody] CreateReplyDto dto)

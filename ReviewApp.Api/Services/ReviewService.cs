@@ -208,6 +208,52 @@ public class ReviewService : IReviewService
         return (true, reviewDto);
     }
 
+    public async Task<object?> GetReviewByIdAsync(int reviewId, int? requestingUserId)
+    {
+        var review = await _context.Reviews
+            .Where(r => r.ID == reviewId)
+            .Select(r => new { r.UserID, r.VisibilityLevel })
+            .FirstOrDefaultAsync();
+        if (review == null)
+            return null;
+
+        // Same visibility rules as the profile list, a hidden review is not found
+        var isOwner = requestingUserId.HasValue && requestingUserId.Value == review.UserID;
+        if (!isOwner && review.VisibilityLevel != VisibilityLevel.Public)
+        {
+            var isVisibleToFollower = review.VisibilityLevel == VisibilityLevel.FollowersOnly &&
+                requestingUserId.HasValue &&
+                await _context.UserFollowers.AnyAsync(uf => uf.FollowerID == requestingUserId.Value && uf.FollowingID == review.UserID);
+
+            if (!isVisibleToFollower)
+                return null;
+        }
+
+        // Profile list fields plus the author, since this is shown on its own
+        return await _context.Reviews
+            .Where(r => r.ID == reviewId)
+            .Select(r => new
+            {
+                r.ID,
+                r.User.Username,
+                r.User.ProfilePictureUrl,
+                r.Media.Title,
+                r.Media.PosterUrl,
+                r.Media.MediaType,
+                r.Media.ExternalApiID,
+                r.Score,
+                r.ReviewText,
+                r.Pros,
+                r.Cons,
+                CreatedAt = r.CreatedAt.ToString("yyyy-MM-dd"),
+                UpdatedAt = r.UpdatedAt.ToString("yyyy-MM-dd"),
+                r.VisibilityLevel,
+                IsOwner = isOwner,
+                ReplyCount = _context.ReviewReplies.Count(rr => rr.ReviewID == r.ID && !rr.IsDeleted)
+            })
+            .FirstOrDefaultAsync();
+    }
+
     public async Task<(bool Success, PagedResponse<object>? Reviews)> GetUserReviewsAsync(string username, int? requestingUserId, ReviewFilterParams p)
     {
         // Find target user by username

@@ -9,10 +9,14 @@ namespace ReviewApp.Api.Services;
 public class UserService : IUserService
 {
     private readonly AppDbContext _context;
+    private readonly IAccountEmailService _accountEmailService;
+    private readonly INotificationService _notificationService;
 
-    public UserService(AppDbContext context)
+    public UserService(AppDbContext context, IAccountEmailService accountEmailService, INotificationService notificationService)
     {
         _context = context;
+        _accountEmailService = accountEmailService;
+        _notificationService = notificationService;
     }
 
     public async Task<List<UserCompactDto>> SearchUsersAsync(string query)
@@ -99,39 +103,6 @@ public class UserService : IUserService
         return (true, "Profile updated successfully.");
     }
 
-    public async Task<(bool Success, string Message)> ChangeEmailAsync(int userId, ChangeEmailDto dto)
-    {
-        var user = await _context.Users.FindAsync(userId);
-        if (user == null)
-            return (false, "User not found.");
-
-        // Password is verified before anything else so this can't be used to probe which emails are registered
-        if (!BCrypt.Net.BCrypt.Verify(dto.CurrentPassword, user.PasswordHash))
-            return (false, "Incorrect password.");
-
-        var newEmail = dto.NewEmail.Trim();
-        if (newEmail == user.Email)
-            return (false, "This is already your email address.");
-
-        // Exclude the user's own row so a case-only change is allowed
-        if (await _context.Users.AnyAsync(u => u.Email == newEmail && u.ID != userId))
-            return (false, "Email already in use.");
-
-        user.Email = newEmail;
-
-        try
-        {
-            await _context.SaveChangesAsync();
-        }
-        catch (DbUpdateException)
-        {
-            // Unique index violation from a concurrent request taking the same email
-            return (false, "Email already in use.");
-        }
-
-        return (true, "Email changed successfully.");
-    }
-
     public async Task<(bool Success, string Message, User? User)> ChangePasswordAsync(int userId, ChangePasswordDto dto)
     {
         var user = await _context.Users.FindAsync(userId);
@@ -149,6 +120,12 @@ public class UserService : IUserService
         user.TokenVersion++;
 
         await _context.SaveChangesAsync();
+
+        // Notify-after-change: the current password was required, the notice catches a hijacked session
+        _accountEmailService.SendPasswordChanged(user.Email, user.Username);
+        await _notificationService.CreateSystemAsync(userId, "Password changed",
+            "Your password was changed and your other devices were logged out.");
+
         return (true, "Password changed successfully.", user);
     }
 

@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'preact/hooks';
 import { useAuth } from '../context/AuthContext';
 import { UserSearchBar } from './UserSearchBar';
+import { NotificationBell } from './NotificationBell';
 
 export type HeaderProps = {
     mode: 'light' | 'dark';
@@ -70,6 +71,8 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
                         <Box p={5} display="flex" justifyContent="center"><CircularProgress /></Box>
                     ) : isLoggedIn ? (
                         <>
+                            <NotificationBell />
+
                             <IconButton onClick={handleProfileClick} sx={{ p: 0, ml: 2 }}>
                                 <Avatar
                                     alt="Profile Picture"

@@ -1,4 +1,5 @@
-﻿using ReviewApp.Api.Enums;
+using ReviewApp.Api.Enums;
+using System.ComponentModel.DataAnnotations;
 
 namespace ReviewApp.Api.DAL.Entities;
 
@@ -11,7 +12,8 @@ public class SecurityToken
 
     public SecurityTokenType Type { get; set; }
 
-    // Store the SHA-256 hash of the token/OTP — NEVER the raw token
+    // SHA-256 hash (hex) of the link token / code - NEVER the raw value
+    [Required, MaxLength(64)]
     public string TokenHash { get; set; } = string.Empty;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

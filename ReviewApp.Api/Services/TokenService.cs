@@ -18,6 +18,11 @@ public class TokenService : ITokenService
 
     private static readonly TimeSpan TokenLifetime = TimeSpan.FromHours(8);
 
+    // Same lifetime as the emailed code it belongs to
+    private static readonly TimeSpan ChallengeLifetime = SecurityTokens.TwoFactorCodeLifetime;
+    private const string ChallengeAudienceSuffix = ":2fa-challenge";
+    private const string ChallengePurpose = "2fa-login";
+
     private readonly IConfiguration _configuration;
     private readonly IHttpContextAccessor _httpContextAccessor;
 
@@ -38,6 +43,56 @@ public class TokenService : ITokenService
         // Must be deleted with the same attributes it was set with, otherwise some browsers keep the original
         GetResponse().Cookies.Delete(CookieName, CreateCookieOptions(expires: null));
     }
+
+    public string CreateTwoFactorChallenge(User user)
+    {
+        var claims = new[]
+        {
+            new Claim("id", user.ID.ToString()),
+            // Ties the challenge to the current sessions: logout-all or a password change invalidates it too
+            new Claim("ver", user.TokenVersion.ToString()),
+            new Claim("purpose", ChallengePurpose)
+        };
+
+        return WriteToken(claims, ChallengeAudience, DateTime.UtcNow.Add(ChallengeLifetime));
+    }
+
+    public (int UserId, int TokenVersion)? ValidateTwoFactorChallenge(string challenge)
+    {
+        var parameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = _configuration["Jwt:Issuer"],
+            ValidAudience = ChallengeAudience,
+            IssuerSigningKey = SigningKey,
+            ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
+            ClockSkew = TimeSpan.FromSeconds(30)
+        };
+
+        try
+        {
+            var handler = new JwtSecurityTokenHandler { MapInboundClaims = false };
+            var principal = handler.ValidateToken(challenge, parameters, out _);
+
+            if (principal.FindFirst("purpose")?.Value != ChallengePurpose ||
+                !int.TryParse(principal.FindFirst("id")?.Value, out var userId) ||
+                !int.TryParse(principal.FindFirst("ver")?.Value, out var version))
+                return null;
+
+            return (userId, version);
+        }
+        catch (Exception ex) when (ex is SecurityTokenException or ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private string ChallengeAudience => _configuration["Jwt:Audience"] + ChallengeAudienceSuffix;
+
+    private SymmetricSecurityKey SigningKey => new(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
 
     private HttpResponse GetResponse() =>
         _httpContextAccessor.HttpContext?.Response
@@ -62,12 +117,16 @@ public class TokenService : ITokenService
             new Claim("ver", user.TokenVersion.ToString())
         };
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        return WriteToken(claims, _configuration["Jwt:Audience"], expires);
+    }
+
+    private string WriteToken(IEnumerable<Claim> claims, string? audience, DateTime expires)
+    {
+        var creds = new SigningCredentials(SigningKey, SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(
             issuer: _configuration["Jwt:Issuer"],
-            audience: _configuration["Jwt:Audience"],
+            audience: audience,
             claims: claims,
             notBefore: DateTime.UtcNow,
             expires: expires,

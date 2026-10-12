@@ -6,12 +6,15 @@ import { UnlockedAchievementDto } from "../types/types";
  * so the registered handler (AuthContext) can drop the logged-in state instead of the UI pretending to be logged in.
  * Any action that unlocks achievement tiers sends them in the X-Unlocked-Achievements header,
  * which is passed to the registered handler (AchievementToastContext) to show a toast.
+ * Every successful change (non-GET request) is reported to the mutation handler (NotificationContext),
+ * since the user's own actions can create notifications for them (achievements, account changes).
  */
 
 const UNLOCKED_ACHIEVEMENTS_HEADER = 'X-Unlocked-Achievements';
 
 let unauthorizedHandler: (() => void) | null = null;
 let unlockHandler: ((unlocked: UnlockedAchievementDto[]) => void) | null = null;
+let mutationHandler: (() => void) | null = null;
 
 export function setUnauthorizedHandler(handler: (() => void) | null) {
     unauthorizedHandler = handler;
@@ -19,6 +22,10 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
 
 export function setUnlockHandler(handler: ((unlocked: UnlockedAchievementDto[]) => void) | null) {
     unlockHandler = handler;
+}
+
+export function setMutationHandler(handler: (() => void) | null) {
+    mutationHandler = handler;
 }
 
 export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -30,6 +37,10 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
     const unlockedHeader = response.headers.get(UNLOCKED_ACHIEVEMENTS_HEADER);
     if (unlockedHeader)
         notifyUnlocked(unlockedHeader);
+
+    const method = init?.method?.toUpperCase() ?? 'GET';
+    if (response.ok && method !== 'GET')
+        mutationHandler?.();
 
     return response;
 }

@@ -7,13 +7,14 @@ import { ChangeUsernameDialog } from "./ChangeUsernameDialog";
 import { ChangeEmailDialog } from "./ChangeEmailDialog";
 import { ChangePasswordDialog } from "./ChangePasswordDialog";
 import { LogoutAllDialog } from "./LogoutAllDialog";
+import { SecurityDialog } from "./SecurityDialog";
 
 type AccountSettingsMenuProps = {
     username: string;
     onChangeUsername: (newUsername: string) => Promise<{ success: boolean, message?: string }>;
 };
 
-type AccountDialog = 'username' | 'email' | 'password' | 'logoutAll' | null;
+type AccountDialog = 'username' | 'email' | 'password' | 'security' | 'logoutAll' | null;
 
 export function AccountSettingsMenu({ username, onChangeUsername }: AccountSettingsMenuProps) {
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -37,7 +38,8 @@ export function AccountSettingsMenu({ username, onChangeUsername }: AccountSetti
         const result = await userService.changeEmail(newEmail, currentPassword);
         if (result.success) {
             setOpenDialog(null);
-            setToastMessage('Email changed successfully.');
+            // The email only changes once the link sent to the new address is opened
+            setToastMessage(result.message || 'Check your new inbox to confirm the change.');
         }
 
         return result;
@@ -73,6 +75,7 @@ export function AccountSettingsMenu({ username, onChangeUsername }: AccountSetti
             <MenuItem onClick={() => handleOpenDialog('username')}>Change username</MenuItem>
             <MenuItem onClick={() => handleOpenDialog('email')}>Change email</MenuItem>
             <MenuItem onClick={() => handleOpenDialog('password')}>Change password</MenuItem>
+            <MenuItem onClick={() => handleOpenDialog('security')}>Security</MenuItem>
             <Divider />
             <MenuItem onClick={() => handleOpenDialog('logoutAll')} sx={{ color: 'error.main' }}>Log out of all devices</MenuItem>
         </Menu>
@@ -94,6 +97,11 @@ export function AccountSettingsMenu({ username, onChangeUsername }: AccountSetti
             open={openDialog === 'password'}
             onClose={() => setOpenDialog(null)}
             onSave={handleChangePassword}
+        />
+
+        <SecurityDialog
+            open={openDialog === 'security'}
+            onClose={() => setOpenDialog(null)}
         />
 
         <LogoutAllDialog
