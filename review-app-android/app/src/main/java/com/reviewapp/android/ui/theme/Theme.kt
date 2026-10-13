@@ -1,58 +1,92 @@
 package com.reviewapp.android.ui.theme
 
-import android.app.Activity
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
-
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
-)
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
+import com.reviewapp.android.util.ScoreTier
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
+    primary = Blue700,
     onPrimary = Color.White,
+    primaryContainer = Blue50,
+    onPrimaryContainer = Blue900,
+    secondary = Purple700,
     onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+    secondaryContainer = Purple50,
+    onSecondaryContainer = Purple900,
+    error = Red700,
 )
+
+private val DarkColorScheme = darkColorScheme(
+    primary = Blue200,
+    onPrimary = Blue900,
+    primaryContainer = Blue900,
+    onPrimaryContainer = Blue50,
+    secondary = Purple200,
+    onSecondary = Purple900,
+    secondaryContainer = Purple900,
+    onSecondaryContainer = Purple50,
+    error = Red400,
+)
+
+/** Colors Material 3 has no slot for: success (login button, pros), warning, and the pros/cons boxes. */
+@Immutable
+data class ExtendedColors(
+    val success: Color,
+    val onSuccess: Color,
+    val successContainer: Color,
+    val warning: Color,
+    val errorContainer: Color,
+)
+
+private val LightExtendedColors = ExtendedColors(
+    success = Green800,
+    onSuccess = Color.White,
+    successContainer = Green50,
+    warning = Orange700,
+    errorContainer = Red50,
+)
+
+private val DarkExtendedColors = ExtendedColors(
+    success = Green400,
+    onSuccess = Green900,
+    successContainer = Green900,
+    warning = Orange400,
+    errorContainer = Red900,
+)
+
+private val LocalExtendedColors = staticCompositionLocalOf { LightExtendedColors }
+
+object AppTheme {
+    val extendedColors: ExtendedColors
+        @Composable @ReadOnlyComposable get() = LocalExtendedColors.current
+}
+
+/** Green / orange / red like the web app's score colours. */
+@Composable
+@ReadOnlyComposable
+fun ScoreTier.color(): Color = when (this) {
+    ScoreTier.Great -> AppTheme.extendedColors.success
+    ScoreTier.Mixed -> AppTheme.extendedColors.warning
+    ScoreTier.Poor -> MaterialTheme.colorScheme.error
+}
 
 @Composable
 fun ReviewAppTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
-    content: @Composable () -> Unit
+    darkTheme: Boolean,
+    content: @Composable () -> Unit,
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+    CompositionLocalProvider(LocalExtendedColors provides if (darkTheme) DarkExtendedColors else LightExtendedColors) {
+        MaterialTheme(
+            colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
+            typography = Typography,
+            content = content,
+        )
     }
-
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
 }
