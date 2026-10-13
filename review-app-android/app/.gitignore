@@ -1,1 +1,3 @@
 /build
+# Local ASP.NET dev certificate (and its key, which must never be in res/raw), see CLAUDE.md
+/src/debug/res/raw/aspnet_dev_cert.*
