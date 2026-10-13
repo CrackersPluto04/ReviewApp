@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository layout
 
-This is a two-project repo with no shared root tooling — each half is built/run independently:
+This is a three-project repo with no shared root tooling — each part is built/run independently:
 
 - `ReviewApp.Api/` — ASP.NET Core 8 Web API (C#), EF Core + SQL Server backend.
 - `review-app/` — Preact + TypeScript frontend (built with Vite), using MUI for components and react-router-dom for routing.
+- `review-app-android/` — native Android client (Kotlin, Jetpack Compose + Material 3), being brought up to the web app's feature set milestone by milestone. Mobile wireframes are in `wireframes_mobile/` (gitignored, local only).
 
 ## Common commands
 
@@ -38,6 +39,27 @@ npm run build  # production build
 npm run preview
 ```
 
+### Android (`review-app-android/`)
+
+Run all commands from `review-app-android/` (Windows: `gradlew.bat`). Gradle needs a JDK 17+; Android Studio's bundled one works (`JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"`).
+
+```
+gradlew assembleDebug         # build the debug APK
+gradlew installDebug          # install on the running emulator/device
+gradlew testDebugUnitTest     # JVM unit tests (validation, formatting, API JSON parsing)
+adb reverse tcp:7140 tcp:7140 # once per emulator/device boot, see below
+```
+
+- **Reaching the local API**: the app calls `BuildConfig.API_BASE_URL` = `https://localhost:7140/api/` (set in `app/build.gradle.kts`). `adb reverse` forwards the device's `localhost:7140` to the dev machine, so the hostname matches the ASP.NET dev certificate (works for the emulator and USB devices). Run the API with the `https` profile.
+- **Dev certificate**: debug builds trust the ASP.NET dev cert through `app/src/debug/res/xml/network_security_config.xml` (`<debug-overrides>`), which points to `app/src/debug/res/raw/aspnet_dev_cert.pem`. That file is per developer and gitignored, so export it once. The PEM export also writes the **private key**, so export outside the project and copy only the `.pem` (anything in `res/raw` is packaged into the APK):
+  ```
+  dotnet dev-certs https --export-path %TEMP%\aspnet_dev_cert.pem --format Pem --no-password
+  copy %TEMP%\aspnet_dev_cert.pem app\src\debug\res\raw\
+  del %TEMP%\aspnet_dev_cert.pem %TEMP%\aspnet_dev_cert.key
+  ```
+  Release builds trust only the system CAs.
+- `libs.versions.toml` holds all dependency versions. AGP 9 has built-in Kotlin, so the `kotlin-android` plugin entry is not applied.
+
 - The dev server uses `@vitejs/plugin-basic-ssl`, so it always serves over HTTPS on `https://localhost:5173` — this must match the CORS origin allowed by the API.
 - No lint or test scripts are currently configured in `package.json`.
 
@@ -65,6 +87,7 @@ npm run preview
   - **Unlock delivery**: newly unlocked tiers go to every registered `IAchievementUnlockHandler`. `ResponseHeaderUnlockHandler` writes them (only for the requesting user) to the `X-Unlocked-Achievements` response header as JSON; the header is exposed in the CORS policy. `NotificationUnlockHandler` stores one notification per tier. Add a new handler instead of changing the service. `GET api/Achievement/{username}` is public.
 - **Notifications**: `Notification` (recipient cascade, nullable actor `Restrict`) stores ready-to-display `Title`/`Message` plus a navigation target as plain ints/strings without FKs (`ReviewID`, `ReplyID`, `GroupCode`), so it outlives deleted content (the link then shows a not-found state). Types (`NotificationType`): `System`, `ReviewReply`, `ReplyReply`, `AchievementUnlocked`, `NewFollower`. Create them through `INotificationService` (`CreateAsync`, `CreateSystemAsync`, `NotifyNewFollowerAsync`) after the triggering `SaveChangesAsync`; like achievements, creation never throws. Hooks: `ReviewReplyService.CreateReplyAsync` (review author for layer 2, parent reply author for layer 3; never self, never a deleted parent, only if the recipient can still see the review), `FollowerService.FollowUserAsync` (deduplicated per actor for 7 days), the unlock handler, and `SecurityService`/`UserService` system messages. `NotificationController` (`api/Notification`, own notifications only — someone else's is a 404) lists with keyset paging (`status`, `sort`, `afterId`), has a cheap `unseen-count` for the badge polling, and mark seen/unseen, mark all seen, delete, delete all seen. Max 200 per user (oldest seen dropped first). A new type needs an enum value, a creation call where its data changes, and a route in `src/utils/notifications.ts`.
 - **Single review / reply**: `GET api/Review/{id}` (with author, hidden == 404) and `GET api/ReviewReply/{id}` (the reply plus its layer-2 parent, deleted == 404) back the `/review/:reviewId?reply=` deep links.
+- **Recent reviews**: `GET api/Review/recent?count=` (anonymous, 1–20, default 10) returns the newest public reviews that have some written text, with author and media; it feeds the Android home page (the web app doesn't use it).
 - **Email**: `IAccountEmailService` builds the account emails (`EmailTemplates`: one inline-styled HTML layout + plain-text part, every value HTML-encoded) and only enqueues them on the singleton `EmailQueue` (bounded `Channel`); `EmailDispatcherService` (hosted) sends them with `SmtpEmailSender` (MailKit, `EmailOptions` from the `Email` section) with a couple of retries. Queued mail is lost on restart, which is fine because every email-dependent flow has a resend. Never log email bodies (they contain tokens/codes).
 - **Background cleanup**: `DataCleanupService` (hosted, daily) deletes seen notifications older than 90 days and spent/expired `SecurityToken` rows.
 - **DTOs**: Request/response shapes live in `DTOs/`, kept separate from EF entities; controllers should not return entities directly.
@@ -81,6 +104,18 @@ npm run preview
 - **Email links**: `EmailLinkPage` serves `/verify-email` and `/confirm-email-change`; it POSTs the `token` query param once on mount.
 - **Account settings**: the owner-only `AccountSettingsMenu` on the profile header (rendered by `ProfileLayout`) opens the `ChangeUsernameDialog`, `ChangeEmailDialog`, `ChangePasswordDialog`, `SecurityDialog` (verification state + resend, pending email change + cancel, 2FA enable/disable) and `LogoutAllDialog`. Change email/password require the current password; client-side validation helpers (`isValidEmail`, password length limits) live in `src/utils/validation.ts`.
 - **Theming**: light/dark mode is managed in `src/index.tsx` via MUI's `ThemeProvider`/`createTheme`, persisted to `localStorage`, and toggled through `PageContainer`.
+
+### Android
+
+Package `com.reviewapp.android` (`review-app-android/app/src/main/java/...`). MVVM with a manual DI container; it follows the web app's behavior and the `wireframes_mobile/` design.
+
+- **DI**: `di/AppContainer.kt` (created in `ReviewApplication`) builds OkHttp, Retrofit, the APIs, repositories and `SessionManager` once. ViewModels get them through `viewModelFactory { initializer { appContainer()... } }` in their companion `Factory`; route arguments come from `createSavedStateHandle().toRoute<...>()`.
+- **Layers**: `data/remote` (one Retrofit interface per controller in `Apis.kt`, `@Serializable` DTOs in `dto/Dtos.kt` with `toDomain()` mappers, note the API's `externalApiID` casing) → `data/repository` (`AuthRepository`, `MediaRepository`, `ReviewRepository`) → `ui/<feature>` (Screen + ViewModel exposing `StateFlow` UI state and one-off events through a `Channel`). Domain models are in `domain/model`. New endpoints get a method in the matching `*Api` interface and repository, not direct calls from ViewModels.
+- **Errors**: wrap calls in `apiCall { }` → `ApiResult` (`Success`/`Error(message, code)`). `ApiErrors.message` picks `{ error }`, then the first `ValidationProblemDetails` message, then a generic one per status code.
+- **Session**: the same httpOnly JWT cookie as the web app. `data/local/SecureCookieJar` is the OkHttp `CookieJar`; it keeps `__Host-jwt_token` across restarts, encrypted with an Android Keystore AES-GCM key (`CryptoStore`) in the `session` DataStore (excluded from backups). Never read or log the token. `SessionManager` holds `AuthState` (`Loading`/`LoggedOut`/`LoggedIn(user)`), restores it on start with `GET Auth/check-auth`, and an OkHttp interceptor sends every 401 to `onUnauthorized()` (like `apiFetch` on the web), so revoked sessions log out on their next request.
+- **Navigation**: type-safe Navigation Compose routes in `ui/navigation/Routes.kt`, wired in `AppNavHost.kt`. The bottom bar tabs (Home, Movies, Series, Music, Profile) each keep their own back stack. Login is pushed on top of the screen that needed it and pops back after success. The Profile tab is a temporary `AccountScreen` (theme + logout) until the profile milestone.
+- **Lists**: infinite scroll with `ui/PagedLoader` (page-based endpoints, de-duplicates by key, retry) and `InfiniteListEffect`. Media cards load their average score lazily through `ReviewRepository.requestStats` (shared cache, at most 4 parallel requests). `MediaRepository` caches every media it returns, so the details screen opens without refetching. After a review is saved, `ReviewRepository.changes` tells the details and home screens to refresh.
+- **Theme**: fixed MUI-like palette (no dynamic color) in `ui/theme`, plus `AppTheme.extendedColors` (success/warning, pros/cons boxes) and `ScoreTier.color()`. Score thresholds, validation limits and filter values live in `util/` and mirror the web app (`Format.kt`, `Validation.kt`, `DiscoverOptions.kt`). The theme mode (system/light/dark) is stored by `SettingsStore`.
 
 ## Claude Instructions
 
