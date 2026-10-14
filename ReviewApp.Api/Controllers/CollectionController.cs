@@ -19,6 +19,20 @@ public class CollectionController : ControllerBase
         _userAuthHelper = userAuthHelper;
     }
 
+    [HttpGet("me/memberships")]
+    [Authorize]
+    public async Task<IActionResult> GetMyMemberships()
+    {
+        try
+        {
+            return Ok(await _collectionService.GetMembershipsAsync(_userAuthHelper.GetSecureUserID()));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+    }
+
     [HttpGet("{id}")]
     public async Task<IActionResult> GetCollectionWithMedias([FromRoute] int id)
     {

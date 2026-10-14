@@ -343,4 +343,19 @@ public class CollectionService : ICollectionService
     {
         throw new NotImplementedException();
     }
+
+    public async Task<List<CollectionMembershipDto>> GetMembershipsAsync(int userId)
+    {
+        // Every media in the user's own collections, so a client can tell what is already added
+        return await _context.CollectionMedias
+            .AsNoTracking()
+            .Where(cm => cm.Collection.UserID == userId)
+            .Select(cm => new CollectionMembershipDto
+            {
+                CollectionID = cm.CollectionID,
+                MediaType = cm.Media.MediaType,
+                ExternalApiID = cm.Media.ExternalApiID
+            })
+            .ToListAsync();
+    }
 }

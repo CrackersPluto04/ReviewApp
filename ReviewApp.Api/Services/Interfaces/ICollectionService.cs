@@ -16,4 +16,5 @@ public interface ICollectionService
     Task<List<CollectionDto>> GetUserCollectionsAsync(string targetUsername, int? requestingUserId, string sortBy = "createdAt_asc");
     Task<CollectionWithMediasDto?> OpenCollectionAsync(int? requestingUserId, int collectionId);
     Task<CollectionWithMediasDto> SearchCollectionMediaAsync(int? requestingUserId, int collectionId, string query);
+    Task<List<CollectionMembershipDto>> GetMembershipsAsync(int userId);
 }
