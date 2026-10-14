@@ -18,10 +18,12 @@ import com.reviewapp.android.data.remote.CollectionApi
 import com.reviewapp.android.data.remote.FollowerApi
 import com.reviewapp.android.data.remote.MediaApi
 import com.reviewapp.android.data.remote.ReviewApi
+import com.reviewapp.android.data.remote.ReviewReplyApi
 import com.reviewapp.android.data.remote.UserApi
 import com.reviewapp.android.data.repository.AuthRepository
 import com.reviewapp.android.data.repository.CollectionRepository
 import com.reviewapp.android.data.repository.MediaRepository
+import com.reviewapp.android.data.repository.ReplyRepository
 import com.reviewapp.android.data.repository.ReviewRepository
 import com.reviewapp.android.data.repository.UserRepository
 import kotlinx.coroutines.CoroutineScope
@@ -75,6 +77,7 @@ class AppContainer(context: Context) {
     private val userApi: UserApi = retrofit.create(UserApi::class.java)
     private val followerApi: FollowerApi = retrofit.create(FollowerApi::class.java)
     private val collectionApi: CollectionApi = retrofit.create(CollectionApi::class.java)
+    private val replyApi: ReviewReplyApi = retrofit.create(ReviewReplyApi::class.java)
 
     val sessionManager = SessionManager(authApi, cookieJar)
     val authRepository = AuthRepository(authApi, sessionManager)
@@ -82,6 +85,7 @@ class AppContainer(context: Context) {
     val reviewRepository = ReviewRepository(reviewApi, appScope)
     val userRepository = UserRepository(userApi, followerApi, sessionManager)
     val collectionRepository = CollectionRepository(collectionApi, userApi, sessionManager, appScope)
+    val replyRepository = ReplyRepository(replyApi)
 }
 
 /** For ViewModel factories: `initializer { val c = appContainer(); ... }` */

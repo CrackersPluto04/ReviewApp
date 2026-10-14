@@ -13,6 +13,7 @@ import com.reviewapp.android.domain.model.MediaReview
 import com.reviewapp.android.domain.model.MediaType
 import com.reviewapp.android.domain.model.Page
 import com.reviewapp.android.domain.model.ProfileReview
+import com.reviewapp.android.domain.model.ReviewDetail
 import com.reviewapp.android.domain.model.ReviewDraft
 import com.reviewapp.android.domain.model.ScoreStats
 import com.reviewapp.android.domain.model.mediaKey
@@ -40,8 +41,13 @@ data class ReviewFilter(
     val isDefault: Boolean get() = this == ReviewFilter()
 }
 
-/** Emitted after the current user created, edited ([message] set) or deleted ([deleted], no message) a review. */
-data class ReviewChange(val mediaKey: String, val message: String? = null, val deleted: Boolean = false)
+/** Emitted after the current user created, edited ([message] set) or deleted ([deleted] with [reviewId], no message) a review. */
+data class ReviewChange(
+    val mediaKey: String,
+    val message: String? = null,
+    val deleted: Boolean = false,
+    val reviewId: Int? = null,
+)
 
 class ReviewRepository(
     private val reviewApi: ReviewApi,
@@ -73,6 +79,9 @@ class ReviewRepository(
             synchronized(statsInFlight) { statsInFlight -= key }
         }
     }
+
+    /** One review with its author, a 404 when it's hidden from the current user. */
+    suspend fun review(id: Int): ApiResult<ReviewDetail> = apiCall { reviewApi.getReview(id) }.map { it.toDomain() }
 
     suspend fun recent(count: Int = 10): ApiResult<List<FeedReview>> =
         apiCall { reviewApi.getRecent(count) }.map { list -> list.map { it.toDomain() } }
@@ -119,7 +128,7 @@ class ReviewRepository(
         val result = apiCall { reviewApi.deleteReview(review.id) }
         if (result is ApiResult.Success) {
             requestStats(review.mediaType, review.externalApiId, force = true)
-            _changes.tryEmit(ReviewChange(review.mediaKey, deleted = true))
+            _changes.tryEmit(ReviewChange(review.mediaKey, deleted = true, reviewId = review.id))
         }
         return result
     }

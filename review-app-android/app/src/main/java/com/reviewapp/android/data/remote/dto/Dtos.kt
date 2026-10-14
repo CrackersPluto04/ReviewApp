@@ -10,6 +10,10 @@ import com.reviewapp.android.domain.model.MediaReview
 import com.reviewapp.android.domain.model.MediaType
 import com.reviewapp.android.domain.model.Page
 import com.reviewapp.android.domain.model.ProfileReview
+import com.reviewapp.android.domain.model.Reply
+import com.reviewapp.android.domain.model.ReplyContext
+import com.reviewapp.android.domain.model.ReplyPage
+import com.reviewapp.android.domain.model.ReviewDetail
 import com.reviewapp.android.domain.model.ReviewDraft
 import com.reviewapp.android.domain.model.ScoreStats
 import com.reviewapp.android.domain.model.UserProfile
@@ -325,3 +329,85 @@ data class CollectionMembershipDto(
 ) {
     val mediaKey: String get() = mediaKey(MediaType.fromId(mediaType), externalApiId)
 }
+
+/** `GET Review/{id}`: one review with its author and media. */
+@Serializable
+data class ReviewDetailDto(
+    val id: Int,
+    val username: String = "",
+    val profilePictureUrl: String? = null,
+    val title: String = "",
+    val posterUrl: String? = null,
+    val mediaType: Int = 0,
+    @SerialName("externalApiID") val externalApiId: String = "",
+    val score: Double,
+    val reviewText: String? = null,
+    val pros: String? = null,
+    val cons: String? = null,
+    val createdAt: String = "",
+    val updatedAt: String = "",
+    val visibilityLevel: Int = Visibility.Public.id,
+    val isOwner: Boolean = false,
+    val replyCount: Int = 0,
+) {
+    fun toDomain() = ReviewDetail(
+        review = ProfileReview(
+            id, title, posterUrl, MediaType.fromId(mediaType), externalApiId, score, reviewText, pros, cons,
+            createdAt, updatedAt, Visibility.fromId(visibilityLevel), isOwner, replyCount,
+        ),
+        username = username,
+        profilePictureUrl = profilePictureUrl?.takeIf { it.isNotBlank() },
+    )
+}
+
+// Review replies
+
+/** A deleted reply comes as a placeholder: no content, no author, `isOwner` false. */
+@Serializable
+data class ReplyDto(
+    val id: Int,
+    @SerialName("parentReplyID") val parentReplyId: Int? = null,
+    val content: String? = null,
+    val username: String? = null,
+    val profilePictureUrl: String? = null,
+    val createdAt: String = "",
+    val isDeleted: Boolean = false,
+    val isOwner: Boolean = false,
+    val childCount: Int = 0,
+) {
+    fun toDomain() = Reply(
+        id = id,
+        parentReplyId = parentReplyId,
+        content = content.orEmpty(),
+        username = username,
+        profilePictureUrl = profilePictureUrl?.takeIf { it.isNotBlank() },
+        createdAt = createdAt,
+        isDeleted = isDeleted,
+        isOwner = isOwner,
+        childCount = childCount,
+    )
+}
+
+/** Keyset page: send the last item's id as `afterId` for the next one. */
+@Serializable
+data class ReplyPageDto(val items: List<ReplyDto> = emptyList(), val hasMore: Boolean = false) {
+    fun toDomain() = ReplyPage(items.map { it.toDomain() }, hasMore)
+}
+
+/** A reply with its layer-2 parent when it's a reply to a reply, for opening a thread at that reply. */
+@Serializable
+data class ReplyContextDto(
+    @SerialName("reviewID") val reviewId: Int,
+    val reply: ReplyDto,
+    val parentReply: ReplyDto? = null,
+) {
+    fun toDomain() = ReplyContext(reviewId, reply.toDomain(), parentReply?.toDomain())
+}
+
+/** `parentReplyID` null means a reply to the review itself. */
+@Serializable
+data class CreateReplyRequest(
+    @SerialName("reviewID") val reviewId: Int,
+    @SerialName("parentReplyID") val parentReplyId: Int?,
+    val content: String,
+)

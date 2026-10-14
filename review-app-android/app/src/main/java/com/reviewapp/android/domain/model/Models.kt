@@ -149,3 +149,31 @@ data class MediaCollection(
 data class CollectionItem(val dbMediaId: Int, val media: Media)
 
 data class CollectionDetails(val collection: MediaCollection, val items: List<CollectionItem>)
+
+/** A single review with its author (the review page). */
+data class ReviewDetail(
+    val review: ProfileReview,
+    val username: String,
+    val profilePictureUrl: String?,
+)
+
+data class Reply(
+    val id: Int,
+    /** Null for a reply to the review (layer 2), set for a reply to a reply (layer 3). */
+    val parentReplyId: Int?,
+    val content: String,
+    /** Null for a deleted reply. */
+    val username: String?,
+    val profilePictureUrl: String?,
+    val createdAt: String,
+    val isDeleted: Boolean,
+    val isOwner: Boolean,
+    /** Non-deleted direct replies to this one. */
+    val childCount: Int,
+) {
+    val isTopLevel: Boolean get() = parentReplyId == null
+}
+
+data class ReplyPage(val items: List<Reply>, val hasMore: Boolean)
+
+data class ReplyContext(val reviewId: Int, val reply: Reply, val parentReply: Reply?)

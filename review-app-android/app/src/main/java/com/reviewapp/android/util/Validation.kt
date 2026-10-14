@@ -18,6 +18,7 @@ object Validation {
     const val MAX_PROS_CONS_LENGTH = 250
     const val MAX_BIO_LENGTH = 150
     const val MAX_COLLECTION_NAME_LENGTH = 50
+    const val MAX_REPLY_LENGTH = 500
 
     private val EMAIL_REGEX = Regex("^[^\\s@]+@[^\\s@.]+(\\.[^\\s@.]+)+$")
     private val TWO_FACTOR_CODE_REGEX = Regex("^\\d{6}$")
@@ -63,6 +64,16 @@ object Validation {
             trimmed.isEmpty() -> "Collection name cannot be empty."
             trimmed.length > MAX_COLLECTION_NAME_LENGTH ->
                 "Collection name can be at most $MAX_COLLECTION_NAME_LENGTH characters."
+            else -> null
+        }
+    }
+
+    /** Same as the web's `isValidReply`: 1-500 characters after trimming (the API trims too). */
+    fun replyError(text: String): String? {
+        val length = text.trim().length
+        return when {
+            length == 0 -> "Reply cannot be empty."
+            length > MAX_REPLY_LENGTH -> "Reply can be at most $MAX_REPLY_LENGTH characters."
             else -> null
         }
     }

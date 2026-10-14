@@ -3,13 +3,17 @@ package com.reviewapp.android.data.remote
 import com.reviewapp.android.data.remote.dto.AddMediaRequest
 import com.reviewapp.android.data.remote.dto.CollectionMembershipDto
 import com.reviewapp.android.data.remote.dto.CollectionWithMediasDto
+import com.reviewapp.android.data.remote.dto.CreateReplyRequest
 import com.reviewapp.android.data.remote.dto.LoginResponse
 import com.reviewapp.android.data.remote.dto.MediaDto
 import com.reviewapp.android.data.remote.dto.MediaReviewDto
 import com.reviewapp.android.data.remote.dto.PagedResponse
 import com.reviewapp.android.data.remote.dto.ProfileReviewDto
 import com.reviewapp.android.data.remote.dto.ReorderMediaRequest
+import com.reviewapp.android.data.remote.dto.ReplyContextDto
+import com.reviewapp.android.data.remote.dto.ReplyPageDto
 import com.reviewapp.android.data.remote.dto.ReviewCheckResponse
+import com.reviewapp.android.data.remote.dto.ReviewDetailDto
 import com.reviewapp.android.data.remote.dto.ReviewDto
 import com.reviewapp.android.data.remote.dto.ReviewMediaRequest
 import com.reviewapp.android.data.remote.dto.UpdateCollectionRequest
@@ -204,6 +208,71 @@ class ApiParsingTest {
 
         val reorder = json.encodeToString(ReorderMediaRequest.serializer(), ReorderMediaRequest(12, 3))
         assertEquals("""{"dbMediaID":12,"newOrderIndex":3}""", reorder)
+    }
+
+    @Test
+    fun replyPage_parsesDeletedPlaceholder() {
+        val page = json.decodeFromString<ReplyPageDto>(
+            """{"items":[
+                 {"id":4,"parentReplyID":null,"content":null,"username":null,"profilePictureUrl":null,
+                  "createdAt":"2026-10-13","isDeleted":true,"isOwner":false,"childCount":1},
+                 {"id":6,"parentReplyID":null,"content":"Nice","username":"bob","profilePictureUrl":null,
+                  "createdAt":"2026-10-14","isDeleted":false,"isOwner":true,"childCount":0}],
+               "hasMore":true}""",
+        ).toDomain()
+
+        assertTrue(page.hasMore)
+        val deleted = page.items.first()
+        assertTrue(deleted.isDeleted)
+        assertNull(deleted.username)
+        assertEquals("", deleted.content)
+        assertTrue(page.items[1].isTopLevel)
+        assertEquals("bob", page.items[1].username)
+    }
+
+    @Test
+    fun replyContext_withAndWithoutParent() {
+        val layer3 = json.decodeFromString<ReplyContextDto>(
+            """{"reviewID":7,"reply":{"id":9,"parentReplyID":3,"content":"Agreed","username":"cid","createdAt":"2026-10-14",
+                 "isDeleted":false,"isOwner":false,"childCount":0},
+               "parentReply":{"id":3,"parentReplyID":null,"content":"Great take","username":"bob","createdAt":"2026-10-13",
+                 "isDeleted":false,"isOwner":false,"childCount":1}}""",
+        ).toDomain()
+        assertEquals(7, layer3.reviewId)
+        assertEquals(3, layer3.reply.parentReplyId)
+        assertEquals(3, layer3.parentReply?.id)
+
+        val layer2 = json.decodeFromString<ReplyContextDto>(
+            """{"reviewID":7,"reply":{"id":3,"parentReplyID":null,"content":"Hi","username":"bob","createdAt":"2026-10-13",
+                 "isDeleted":false,"isOwner":false,"childCount":0},"parentReply":null}""",
+        ).toDomain()
+        assertNull(layer2.parentReply)
+    }
+
+    @Test
+    fun reviewDetail_parsesAuthorAndVisibility() {
+        val detail = json.decodeFromString<ReviewDetailDto>(
+            """{"id":7,"username":"asd","profilePictureUrl":null,"title":"Fight Club","posterUrl":null,"mediaType":0,
+               "externalApiID":"550","score":8.5,"reviewText":"Good","pros":null,"cons":null,"createdAt":"2026-10-13",
+               "updatedAt":"2026-10-13","visibilityLevel":0,"isOwner":true,"replyCount":3}""",
+        ).toDomain()
+
+        assertEquals("asd", detail.username)
+        assertEquals(Visibility.Private, detail.review.visibility)
+        assertEquals(3, detail.review.replyCount)
+        assertEquals("0:550", detail.review.mediaKey)
+    }
+
+    @Test
+    fun createReply_usesApiCasingAndLeavesOutTopLevelParent() {
+        assertEquals(
+            """{"reviewID":7,"content":"Hi"}""",
+            json.encodeToString(CreateReplyRequest.serializer(), CreateReplyRequest(7, null, "Hi")),
+        )
+        assertEquals(
+            """{"reviewID":7,"parentReplyID":3,"content":"Hi"}""",
+            json.encodeToString(CreateReplyRequest.serializer(), CreateReplyRequest(7, 3, "Hi")),
+        )
     }
 
     @Test
