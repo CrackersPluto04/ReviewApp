@@ -7,6 +7,8 @@ public interface IReviewService
 {
     Task<PagedResponse<object>> GetMediaReviewsAsync(MediaType mediaType, string externalApiId, ReviewFilterParams p);
     Task<(decimal AverageScore, int ReviewCount)> GetAverageScoreAsync(MediaType mediaType, string externalApiId);
+    // Newest public reviews with written text, with their author and media (home feed)
+    Task<List<object>> GetRecentPublicReviewsAsync(int count);
 
     Task<(bool Success, string Message)> CreateReviewAsync(int userId, ReviewMediaDto dto);
     Task<(bool Success, string Message)> EditReviewAsync(int userId, ReviewMediaDto dto);

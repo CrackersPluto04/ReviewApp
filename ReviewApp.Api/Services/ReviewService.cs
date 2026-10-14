@@ -75,6 +75,37 @@ public class ReviewService : IReviewService
         return response;
     }
 
+    public async Task<List<object>> GetRecentPublicReviewsAsync(int count)
+    {
+        count = Math.Clamp(count, 1, 20);
+
+        var reviews = await _context.Reviews
+            .Where(r => r.VisibilityLevel == VisibilityLevel.Public)
+            .Where(r => !string.IsNullOrWhiteSpace(r.ReviewText) || !string.IsNullOrWhiteSpace(r.Pros) || !string.IsNullOrWhiteSpace(r.Cons))
+            .OrderByDescending(r => r.CreatedAt)
+            .Take(count)
+            .Select(r => new
+            {
+                r.ID,
+                r.User.Username,
+                r.User.ProfilePictureUrl,
+                r.Media.Title,
+                r.Media.PosterUrl,
+                r.Media.MediaType,
+                r.Media.ExternalApiID,
+                r.Score,
+                r.ReviewText,
+                r.Pros,
+                r.Cons,
+                CreatedAt = r.CreatedAt.ToString("yyyy-MM-dd"),
+                UpdatedAt = r.UpdatedAt.ToString("yyyy-MM-dd"),
+                ReplyCount = _context.ReviewReplies.Count(rr => rr.ReviewID == r.ID && !rr.IsDeleted)
+            })
+            .ToListAsync();
+
+        return reviews.Cast<object>().ToList();
+    }
+
     public async Task<(decimal AverageScore, int ReviewCount)> GetAverageScoreAsync(MediaType mediaType, string externalApiId)
     {
         // Find Media ID, if null, nobody has reviewed it yet

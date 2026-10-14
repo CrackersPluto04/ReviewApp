@@ -28,6 +28,14 @@ public class ReviewController : ControllerBase
         return Ok(pagedReviews);
     }
 
+    // Home feed of the mobile app
+    [HttpGet("recent")]
+    public async Task<IActionResult> GetRecentReviews([FromQuery] int count = 10)
+    {
+        var reviews = await _reviewService.GetRecentPublicReviewsAsync(count);
+        return Ok(reviews);
+    }
+
     // Shareable single review, also the target of reply notifications
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetReview([FromRoute] int id)
