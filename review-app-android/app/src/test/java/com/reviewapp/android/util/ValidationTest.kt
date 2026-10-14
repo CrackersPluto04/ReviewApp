@@ -28,6 +28,13 @@ class ValidationTest {
     }
 
     @Test
+    fun reply_isTrimmedAndLimited() {
+        assertEquals("Reply cannot be empty.", Validation.replyError("   \n "))
+        assertNull(Validation.replyError("  " + "a".repeat(500) + "  "))
+        assertNotNull(Validation.replyError("a".repeat(501)))
+    }
+
+    @Test
     fun imageUrl_needsAbsoluteHttpLink() {
         assertTrue(Validation.isValidImageUrl("https://example.com/me.png"))
         assertTrue(Validation.isValidImageUrl(" http://cdn.example.com/a/b.jpg?size=200 "))

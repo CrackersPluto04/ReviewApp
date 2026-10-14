@@ -70,6 +70,11 @@ class PagedLoader<T>(
         job = scope.launch { load(current.page + 1) }
     }
 
+    /** Changes one item locally (e.g. its reply count) instead of reloading the list. */
+    fun update(key: Any, transform: (T) -> T) = _state.update { current ->
+        current.copy(items = current.items.map { if (itemKey(it) == key) transform(it) else it })
+    }
+
     /** Drops an item locally (e.g. after deleting it) instead of reloading the list. */
     fun remove(key: Any) = _state.update { current ->
         val remaining = current.items.filterNot { itemKey(it) == key }

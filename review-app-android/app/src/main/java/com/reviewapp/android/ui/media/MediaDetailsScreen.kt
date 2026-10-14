@@ -67,6 +67,7 @@ fun MediaDetailsScreen(
     onWriteReview: (MediaType, String) -> Unit,
     onLoginRequired: () -> Unit,
     onOpenProfile: (String) -> Unit,
+    onOpenReview: (Int) -> Unit,
     viewModel: MediaDetailsViewModel = viewModel(factory = MediaDetailsViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -140,7 +141,12 @@ fun MediaDetailsScreen(
                 }
                 else -> {
                     items(reviews.items, key = { it.id }) { review ->
-                        ReviewCard(review, onOpenProfile, Modifier.padding(horizontal = 16.dp))
+                        ReviewCard(
+                            review = review,
+                            onClick = { onOpenReview(review.id) },
+                            onOpenProfile = onOpenProfile,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        )
                     }
                     item { ListFooter(reviews.isLoading, reviews.error, viewModel::retryReviews) }
                 }

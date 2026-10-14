@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.reviewapp.android.data.SessionManager
 import com.reviewapp.android.data.remote.ApiResult
 import com.reviewapp.android.data.repository.MediaRepository
+import com.reviewapp.android.data.repository.ReplyRepository
 import com.reviewapp.android.data.repository.ReviewRepository
 import com.reviewapp.android.data.repository.TmdbDiscoverFilters
 import com.reviewapp.android.di.appContainer
@@ -44,6 +45,7 @@ class HomeViewModel(
     private val mediaRepository: MediaRepository,
     private val reviewRepository: ReviewRepository,
     private val sessionManager: SessionManager,
+    private val replyRepository: ReplyRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeUiState())
@@ -53,6 +55,21 @@ class HomeViewModel(
         load()
         // A newly written review shows up in the feed
         viewModelScope.launch { reviewRepository.changes.collect { loadReviews() } }
+        // Replies written on the review page update the cards' counts without a reload
+        viewModelScope.launch {
+            replyRepository.replyCountChanges.collect { change ->
+                _state.update { state ->
+                    val section = state.recentReviews
+                    state.copy(
+                        recentReviews = section.copy(
+                            items = section.items.map {
+                                if (it.id == change.reviewId) it.copy(replyCount = (it.replyCount + change.delta).coerceAtLeast(0)) else it
+                            },
+                        ),
+                    )
+                }
+            }
+        }
     }
 
     fun refresh() {
@@ -98,7 +115,7 @@ class HomeViewModel(
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val c = appContainer()
-                HomeViewModel(c.mediaRepository, c.reviewRepository, c.sessionManager)
+                HomeViewModel(c.mediaRepository, c.reviewRepository, c.sessionManager, c.replyRepository)
             }
         }
     }

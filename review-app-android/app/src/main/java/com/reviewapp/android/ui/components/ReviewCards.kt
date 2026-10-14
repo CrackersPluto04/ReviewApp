@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.reviewapp.android.domain.model.FeedReview
 import com.reviewapp.android.domain.model.MediaReview
 import com.reviewapp.android.domain.model.ProfileReview
+import com.reviewapp.android.domain.model.Visibility
 import com.reviewapp.android.ui.theme.AppTheme
 import com.reviewapp.android.ui.theme.color
 import com.reviewapp.android.util.formatDate
@@ -63,10 +64,15 @@ fun ScoreBadge(score: Double, modifier: Modifier = Modifier) {
     }
 }
 
-/** A review on a media's page (the web app's `ReviewCard` in `media` mode, without replies for now). */
+/** A review on a media's page (the web app's `ReviewCard` in `media` mode); tapping it opens its replies. */
 @Composable
-fun ReviewCard(review: MediaReview, onOpenProfile: (String) -> Unit, modifier: Modifier = Modifier) {
-    Card(modifier.fillMaxWidth()) {
+fun ReviewCard(
+    review: MediaReview,
+    onClick: () -> Unit,
+    onOpenProfile: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(onClick = onClick, modifier = modifier.fillMaxWidth()) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(
                 Modifier
@@ -85,22 +91,33 @@ fun ReviewCard(review: MediaReview, onOpenProfile: (String) -> Unit, modifier: M
             ScoreBadge(review.score)
         }
         HorizontalDivider()
-        ReviewBody(review.reviewText, review.pros, review.cons, review.replyCount)
+        ReviewBody(review.reviewText, review.pros, review.cons, ReplyHint.Count(review.replyCount))
     }
 }
 
-/** A review in a profile: the reviewed media instead of the author, plus owner-only visibility and actions. */
+/**
+ * A review with the reviewed media instead of the author, plus owner-only visibility and actions.
+ * Used in profiles ([onClick] opens the review page) and on the review page itself ([onClick] null).
+ * The poster and title open the media.
+ */
 @Composable
 fun ProfileReviewCard(
     review: ProfileReview,
+    onClick: (() -> Unit)?,
     onOpenMedia: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(onClick = onOpenMedia, modifier = modifier.fillMaxWidth()) {
+    val content: @Composable () -> Unit = {
         Row(Modifier.padding(12.dp)) {
-            Poster(review.posterUrl, review.mediaType, Modifier.size(width = 60.dp, height = 90.dp))
+            Poster(
+                review.posterUrl,
+                review.mediaType,
+                Modifier
+                    .size(width = 60.dp, height = 90.dp)
+                    .clickable(onClick = onOpenMedia),
+            )
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
@@ -109,6 +126,7 @@ fun ProfileReviewCard(
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.clip(MaterialTheme.shapes.extraSmall).clickable(onClick = onOpenMedia),
                 )
                 ReviewDates(review.createdAt, review.updatedAt)
                 if (review.isOwner) {
@@ -135,8 +153,25 @@ fun ProfileReviewCard(
             }
         }
         HorizontalDivider()
-        ReviewBody(review.reviewText, review.pros, review.cons, review.replyCount)
+        // The review page shows the replies itself; private reviews can't get any
+        val hint = when {
+            onClick == null -> ReplyHint.None
+            review.visibility == Visibility.Private && review.replyCount == 0 -> ReplyHint.None
+            else -> ReplyHint.Count(review.replyCount)
+        }
+        ReviewBody(review.reviewText, review.pros, review.cons, hint)
     }
+    if (onClick != null) {
+        Card(onClick = onClick, modifier = modifier.fillMaxWidth()) { content() }
+    } else {
+        Card(modifier.fillMaxWidth()) { content() }
+    }
+}
+
+/** The line under a review card's text that leads to its replies. */
+private sealed interface ReplyHint {
+    data object None : ReplyHint
+    data class Count(val count: Int) : ReplyHint
 }
 
 @Composable
@@ -183,9 +218,9 @@ private fun ReviewDates(createdAt: String, updatedAt: String) {
     }
 }
 
-/** Text, pros/cons boxes and the reply count, shared by the review cards. */
+/** Text, pros/cons boxes and the replies hint, shared by the review cards. */
 @Composable
-private fun ReviewBody(reviewText: String?, pros: String?, cons: String?, replyCount: Int) {
+private fun ReviewBody(reviewText: String?, pros: String?, cons: String?, replyHint: ReplyHint) {
     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (reviewText.isNullOrBlank()) {
             Text(
@@ -213,19 +248,19 @@ private fun ReviewBody(reviewText: String?, pros: String?, cons: String?, replyC
                 modifier = Modifier.weight(1f),
             )
         }
-        if (replyCount > 0) {
+        if (replyHint is ReplyHint.Count) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     Icons.AutoMirrored.Outlined.Comment,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = MaterialTheme.colorScheme.primary,
                 )
                 Spacer(Modifier.width(4.dp))
                 Text(
-                    pluralize(replyCount, "reply", "replies"),
+                    if (replyHint.count > 0) pluralize(replyHint.count, "reply", "replies") else "Reply",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
         }
@@ -245,17 +280,27 @@ private fun ProsConsBox(title: String, text: String?, titleColor: Color, contain
     }
 }
 
-/** Home feed card: who reviewed what, the score and a snippet. Tapping the author opens their profile. */
+/**
+ * Home feed card: who reviewed what, the score and a snippet. Tapping it opens the review page,
+ * the poster opens the media and the author their profile.
+ */
 @Composable
 fun FeedReviewCard(
     review: FeedReview,
     onClick: () -> Unit,
+    onOpenMedia: () -> Unit,
     onOpenProfile: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(onClick = onClick, modifier = modifier.fillMaxWidth()) {
         Row(Modifier.padding(12.dp)) {
-            Poster(review.posterUrl, review.mediaType, Modifier.size(width = 60.dp, height = 90.dp))
+            Poster(
+                review.posterUrl,
+                review.mediaType,
+                Modifier
+                    .size(width = 60.dp, height = 90.dp)
+                    .clickable(onClick = onOpenMedia),
+            )
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(

@@ -33,6 +33,10 @@ data class CollectionRoute(val collectionId: Int)
 @Serializable
 data object UserSearchRoute
 
+/** One review with its replies; [replyId] opens the thread at that reply (also a `reviewapp://review/...` deep link). */
+@Serializable
+data class ReviewRoute(val reviewId: Int, val replyId: Int? = null)
+
 @Serializable
 data object LoginRoute
 

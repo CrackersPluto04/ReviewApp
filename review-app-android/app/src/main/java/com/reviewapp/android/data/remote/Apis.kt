@@ -6,6 +6,7 @@ import com.reviewapp.android.data.remote.dto.CollectionDto
 import com.reviewapp.android.data.remote.dto.CollectionMembershipDto
 import com.reviewapp.android.data.remote.dto.CollectionWithMediasDto
 import com.reviewapp.android.data.remote.dto.CreateCollectionRequest
+import com.reviewapp.android.data.remote.dto.CreateReplyRequest
 import com.reviewapp.android.data.remote.dto.FeedReviewDto
 import com.reviewapp.android.data.remote.dto.LoginRequest
 import com.reviewapp.android.data.remote.dto.LoginResponse
@@ -16,7 +17,11 @@ import com.reviewapp.android.data.remote.dto.PagedResponse
 import com.reviewapp.android.data.remote.dto.ProfileReviewDto
 import com.reviewapp.android.data.remote.dto.RegisterRequest
 import com.reviewapp.android.data.remote.dto.ReorderMediaRequest
+import com.reviewapp.android.data.remote.dto.ReplyContextDto
+import com.reviewapp.android.data.remote.dto.ReplyDto
+import com.reviewapp.android.data.remote.dto.ReplyPageDto
 import com.reviewapp.android.data.remote.dto.ReviewCheckResponse
+import com.reviewapp.android.data.remote.dto.ReviewDetailDto
 import com.reviewapp.android.data.remote.dto.ReviewMediaRequest
 import com.reviewapp.android.data.remote.dto.TwoFactorLoginRequest
 import com.reviewapp.android.data.remote.dto.TwoFactorResendRequest
@@ -132,6 +137,10 @@ interface ReviewApi {
     @PUT("Review")
     suspend fun editReview(@Body body: ReviewMediaRequest): MessageResponse
 
+    /** One review with its author; hidden ones (private, followers only) are a 404. */
+    @GET("Review/{id}")
+    suspend fun getReview(@Path("id") id: Int): ReviewDetailDto
+
     @DELETE("Review/{id}")
     suspend fun deleteReview(@Path("id") id: Int)
 }
@@ -215,4 +224,26 @@ interface CollectionApi {
     /** Moves one item, the API shifts the others. */
     @PUT("Collection/{id}/reorder")
     suspend fun reorder(@Path("id") id: Int, @Body body: ReorderMediaRequest)
+}
+
+interface ReviewReplyApi {
+    /** Oldest first; [parentReplyId] null lists the replies to the review, otherwise that reply's children. */
+    @GET("ReviewReply")
+    suspend fun getReplies(
+        @Query("reviewId") reviewId: Int,
+        @Query("parentReplyId") parentReplyId: Int?,
+        @Query("afterId") afterId: Int?,
+        @Query("pageSize") pageSize: Int,
+    ): ReplyPageDto
+
+    /** A reply and its parent (if it's a reply to a reply); deleted or hidden ones are a 404. */
+    @GET("ReviewReply/{id}")
+    suspend fun getReplyContext(@Path("id") id: Int): ReplyContextDto
+
+    @POST("ReviewReply")
+    suspend fun create(@Body body: CreateReplyRequest): ReplyDto
+
+    /** Soft delete, only the author's own reply. */
+    @DELETE("ReviewReply/{id}")
+    suspend fun delete(@Path("id") id: Int)
 }

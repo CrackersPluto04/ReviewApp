@@ -12,6 +12,7 @@ import com.reviewapp.android.data.local.SettingsStore
 import com.reviewapp.android.data.local.ThemeMode
 import com.reviewapp.android.data.remote.ApiResult
 import com.reviewapp.android.data.repository.CollectionRepository
+import com.reviewapp.android.data.repository.ReplyRepository
 import com.reviewapp.android.data.repository.ReviewFilter
 import com.reviewapp.android.data.repository.ReviewRepository
 import com.reviewapp.android.data.repository.UserRepository
@@ -93,6 +94,7 @@ class ProfileViewModel(
     private val userRepository: UserRepository,
     private val reviewRepository: ReviewRepository,
     private val collectionRepository: CollectionRepository,
+    private val replyRepository: ReplyRepository,
     private val settingsStore: SettingsStore,
 ) : ViewModel() {
 
@@ -128,13 +130,23 @@ class ProfileViewModel(
             userRepository.followChanges.collect { loadProfile(quiet = true) }
         }
         viewModelScope.launch {
-            // Created/edited from the review form; deletions are removed locally instead
+            // Created/edited from the review form reloads; deletions are removed locally
             reviewRepository.changes.collect { change ->
-                if (_state.value.isOwner && !change.deleted) reviewsLoader.reload()
+                when {
+                    // Deleted on the review page (deleting here already removed it)
+                    change.deleted -> change.reviewId?.let { reviewsLoader.remove(it) }
+                    _state.value.isOwner -> reviewsLoader.reload()
+                }
             }
         }
         viewModelScope.launch {
             collectionRepository.changes.collect { if (_state.value.isOwner) loadCollections() }
+        }
+        viewModelScope.launch {
+            // Replies written on the review page update the counts without a reload
+            replyRepository.replyCountChanges.collect { change ->
+                reviewsLoader.update(change.reviewId) { it.copy(replyCount = (it.replyCount + change.delta).coerceAtLeast(0)) }
+            }
         }
     }
 
@@ -375,7 +387,8 @@ class ProfileViewModel(
                 val c = appContainer()
                 val username = createSavedStateHandle().get<String>(ProfileRoute::username.name)
                 ProfileViewModel(
-                    username, c.sessionManager, c.userRepository, c.reviewRepository, c.collectionRepository, c.settingsStore,
+                    username, c.sessionManager, c.userRepository, c.reviewRepository, c.collectionRepository,
+                    c.replyRepository, c.settingsStore,
                 )
             }
         }
