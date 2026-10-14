@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.ZoneId
 
 class FormatTest {
 
@@ -40,6 +41,18 @@ class FormatTest {
         assertEquals("1999-05", formatDate("1999-05"))
         // A date-time and a plain date of the same day format the same way
         assertEquals(formatDate("2026-10-13"), formatDate("2026-10-13T12:34:56.789"))
+    }
+
+    @Test
+    fun formatDateTime_convertsInstantToLocalZone() {
+        assertNull(formatDateTime(null))
+        // Up to 7 fractional digits, like the API sends
+        val raw = "2026-10-14T23:30:00.1234567Z"
+        assertTrue(formatDateTime(raw, ZoneId.of("UTC"))!!.contains(formatDate("2026-10-14")!!))
+        // Already the next day in Budapest (UTC+2)
+        assertTrue(formatDateTime(raw, ZoneId.of("Europe/Budapest"))!!.contains(formatDate("2026-10-15")!!))
+        // Without a zone it falls back to the date only
+        assertEquals(formatDate("2026-10-14"), formatDateTime("2026-10-14"))
     }
 
     @Test

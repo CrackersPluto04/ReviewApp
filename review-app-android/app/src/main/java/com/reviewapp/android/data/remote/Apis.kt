@@ -1,5 +1,6 @@
 package com.reviewapp.android.data.remote
 
+import com.reviewapp.android.data.remote.dto.AchievementDto
 import com.reviewapp.android.data.remote.dto.AddMediaRequest
 import com.reviewapp.android.data.remote.dto.AverageScoreResponse
 import com.reviewapp.android.data.remote.dto.CollectionDto
@@ -13,6 +14,7 @@ import com.reviewapp.android.data.remote.dto.LoginResponse
 import com.reviewapp.android.data.remote.dto.MediaDto
 import com.reviewapp.android.data.remote.dto.MediaReviewDto
 import com.reviewapp.android.data.remote.dto.MessageResponse
+import com.reviewapp.android.data.remote.dto.NotificationPageDto
 import com.reviewapp.android.data.remote.dto.PagedResponse
 import com.reviewapp.android.data.remote.dto.ProfileReviewDto
 import com.reviewapp.android.data.remote.dto.RegisterRequest
@@ -23,8 +25,10 @@ import com.reviewapp.android.data.remote.dto.ReplyPageDto
 import com.reviewapp.android.data.remote.dto.ReviewCheckResponse
 import com.reviewapp.android.data.remote.dto.ReviewDetailDto
 import com.reviewapp.android.data.remote.dto.ReviewMediaRequest
+import com.reviewapp.android.data.remote.dto.SetSeenRequest
 import com.reviewapp.android.data.remote.dto.TwoFactorLoginRequest
 import com.reviewapp.android.data.remote.dto.TwoFactorResendRequest
+import com.reviewapp.android.data.remote.dto.UnseenCountDto
 import com.reviewapp.android.data.remote.dto.UpdateCollectionRequest
 import com.reviewapp.android.data.remote.dto.UserCompactDto
 import com.reviewapp.android.data.remote.dto.UserDto
@@ -246,4 +250,38 @@ interface ReviewReplyApi {
     /** Soft delete, only the author's own reply. */
     @DELETE("ReviewReply/{id}")
     suspend fun delete(@Path("id") id: Int)
+}
+
+/** Only the current user's notifications; someone else's id is a 404. */
+interface NotificationApi {
+    /** [status] `all`/`seen`/`unseen`, [sort] `newest`/`oldest`; [afterId] is the last id of the previous page. */
+    @GET("Notification")
+    suspend fun getNotifications(
+        @Query("status") status: String,
+        @Query("sort") sort: String,
+        @Query("afterId") afterId: Int?,
+        @Query("pageSize") pageSize: Int,
+    ): NotificationPageDto
+
+    @GET("Notification/unseen-count")
+    suspend fun getUnseenCount(): UnseenCountDto
+
+    @PATCH("Notification/{id}/seen")
+    suspend fun setSeen(@Path("id") id: Int, @Body body: SetSeenRequest)
+
+    @POST("Notification/seen-all")
+    suspend fun markAllSeen()
+
+    @DELETE("Notification/{id}")
+    suspend fun delete(@Path("id") id: Int)
+
+    /** Deletes every seen notification. */
+    @DELETE("Notification/seen")
+    suspend fun deleteSeen()
+}
+
+interface AchievementApi {
+    /** Every achievement card with the user's progress, public. */
+    @GET("Achievement/{username}")
+    suspend fun getAchievements(@Path("username") username: String): List<AchievementDto>
 }

@@ -177,3 +177,103 @@ data class Reply(
 data class ReplyPage(val items: List<Reply>, val hasMore: Boolean)
 
 data class ReplyContext(val reviewId: Int, val reply: Reply, val parentReply: Reply?)
+
+// Notifications
+
+enum class NotificationType(val label: String) {
+    System("System"),
+    ReviewReply("Reply"),
+    ReplyReply("Reply"),
+    AchievementUnlocked("Achievement"),
+    NewFollower("Follower");
+
+    companion object {
+        /** The API sends the enum's name; anything unknown is shown as a system message. */
+        fun fromName(name: String?): NotificationType = entries.firstOrNull { it.name == name } ?: System
+    }
+}
+
+/** A notification with ready-to-show texts and the ids of what it points to (which may be deleted since). */
+data class AppNotification(
+    val id: Int,
+    val type: NotificationType,
+    val title: String,
+    val message: String,
+    val isSeen: Boolean,
+    val createdAt: String,
+    val actorUsername: String?,
+    val actorProfilePictureUrl: String?,
+    val reviewId: Int?,
+    val replyId: Int?,
+    val groupCode: String?,
+)
+
+/** Keyset page; [unseenCount] is the user's overall count, for the badge. */
+data class NotificationPage(
+    val items: List<AppNotification>,
+    val hasMore: Boolean,
+    val totalCount: Int,
+    val unseenCount: Int,
+)
+
+/** The list's `status` filter, [apiValue] is the query parameter. */
+enum class NotificationStatus(val apiValue: String) {
+    All("all"), Seen("seen"), Unseen("unseen");
+
+    companion object {
+        /** The Seen / Unseen toggles: exactly one on filters by it, both or neither shows everything. */
+        fun from(seenOn: Boolean, unseenOn: Boolean): NotificationStatus = when {
+            seenOn && !unseenOn -> Seen
+            unseenOn && !seenOn -> Unseen
+            else -> All
+        }
+    }
+}
+
+enum class NotificationSort(val apiValue: String, val label: String) {
+    Newest("newest", "Newest first"), Oldest("oldest", "Oldest first")
+}
+
+// Achievements
+
+enum class AchievementTier {
+    Bronze, Silver, Gold;
+
+    companion object {
+        fun fromName(name: String?): AchievementTier = entries.firstOrNull { it.name == name } ?: Bronze
+    }
+}
+
+enum class AchievementCategory {
+    Movie, Series, Music, Review, Reply, Collection;
+
+    companion object {
+        fun fromName(name: String): AchievementCategory? = entries.firstOrNull { it.name == name }
+    }
+}
+
+data class AchievementTierInfo(
+    val tier: AchievementTier,
+    val description: String,
+    val targetValue: Int,
+    val isUnlocked: Boolean,
+)
+
+/** One achievement card: its tiers share [currentProgress] (the highest count ever reached). */
+data class Achievement(
+    val groupCode: String,
+    val title: String,
+    val iconKey: String,
+    val categories: Set<AchievementCategory>,
+    val currentProgress: Int,
+    /** Bronze -> Silver -> Gold. */
+    val tiers: List<AchievementTierInfo>,
+) {
+    val unlockedCount: Int get() = tiers.count { it.isUnlocked }
+    /** The first tier not unlocked yet, null when completed. */
+    val nextTier: AchievementTierInfo? get() = tiers.firstOrNull { !it.isUnlocked }
+    val isCompleted: Boolean get() = tiers.isNotEmpty() && tiers.all { it.isUnlocked }
+}
+
+/** A tier unlocked by the current user's last request (the `X-Unlocked-Achievements` header). */
+data class UnlockedAchievement(val groupCode: String, val title: String, val tier: AchievementTier)

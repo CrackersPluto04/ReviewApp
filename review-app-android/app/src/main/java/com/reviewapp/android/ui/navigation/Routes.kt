@@ -20,9 +20,15 @@ data object DiscoverMusicRoute
 @Serializable
 data object MyProfileRoute
 
-/** Anyone's profile (also the current user's when opened from a review or a list). */
+/**
+ * Anyone's profile (also the current user's when opened from a review or a list). [tab] is a
+ * `ProfileTab` name to open on, e.g. the achievements from a notification.
+ */
 @Serializable
-data class ProfileRoute(val username: String)
+data class ProfileRoute(val username: String, val tab: String? = null)
+
+@Serializable
+data object NotificationsRoute
 
 @Serializable
 data class FollowListRoute(val username: String, val showFollowing: Boolean)

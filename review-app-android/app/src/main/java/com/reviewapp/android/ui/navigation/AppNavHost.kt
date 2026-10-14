@@ -1,7 +1,9 @@
 package com.reviewapp.android.ui.navigation
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -14,6 +16,8 @@ import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Tv
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.MaterialTheme
@@ -30,8 +34,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -44,6 +51,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navDeepLink
 import com.reviewapp.android.domain.model.Media
 import com.reviewapp.android.domain.model.MediaType
+import com.reviewapp.android.ui.achievements.UnlockBannerHost
 import com.reviewapp.android.ui.auth.LoginScreen
 import com.reviewapp.android.ui.collection.CollectionActionsHost
 import com.reviewapp.android.ui.collection.CollectionScreen
@@ -51,8 +59,13 @@ import com.reviewapp.android.ui.discover.DiscoverMusicScreen
 import com.reviewapp.android.ui.discover.DiscoverScreen
 import com.reviewapp.android.ui.home.HomeScreen
 import com.reviewapp.android.ui.media.MediaDetailsScreen
+import com.reviewapp.android.ui.notifications.NotificationBadgeViewModel
+import com.reviewapp.android.ui.notifications.NotificationPollingEffect
+import com.reviewapp.android.ui.notifications.NotificationTarget
+import com.reviewapp.android.ui.notifications.NotificationsScreen
 import com.reviewapp.android.ui.profile.FollowListScreen
 import com.reviewapp.android.ui.profile.ProfileScreen
+import com.reviewapp.android.ui.profile.ProfileTab
 import com.reviewapp.android.ui.review.ReviewScreen
 import com.reviewapp.android.ui.review.WriteReviewScreen
 import com.reviewapp.android.ui.search.SearchScreen
@@ -96,6 +109,9 @@ fun ReviewAppRoot() {
     val showBottomBar = destination?.hasRoute(LoginRoute::class) != true
     // Errors of the favourite / add-to-collection buttons, which live on many screens
     val snackbarHostState = remember { SnackbarHostState() }
+    val badgeViewModel: NotificationBadgeViewModel = viewModel(factory = NotificationBadgeViewModel.Factory)
+    val unseenNotifications by badgeViewModel.unseenCount.collectAsStateWithLifecycle()
+    NotificationPollingEffect(badgeViewModel, isLoggedIn = unseenNotifications != null)
 
     Scaffold(
         // Every screen has its own Scaffold for its top bar, this one only adds the bottom bar
@@ -113,7 +129,13 @@ fun ReviewAppRoot() {
                                 selectedTab = tab
                                 navController.navigateToTab(tab, reselect = selected)
                             },
-                            icon = { Icon(if (selected) tab.selectedIcon else tab.icon, contentDescription = null) },
+                            icon = {
+                                // The bell is on the Home screen, so its tab shows that there is something new
+                                val showDot = tab == TopLevelTab.Home && (unseenNotifications ?: 0) > 0
+                                BadgedBox(badge = { if (showDot) Badge() }) {
+                                    Icon(if (selected) tab.selectedIcon else tab.icon, contentDescription = null)
+                                }
+                            },
                             label = { Text(tab.label) },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -129,8 +151,18 @@ fun ReviewAppRoot() {
         CollectionActionsHost(snackbarHostState) {
             AppNavHost(
                 navController,
+                unseenNotifications,
                 // Consuming the bottom bar's padding stops the inner Scaffolds adding the system bar inset again
                 Modifier.padding(padding).consumeWindowInsets(padding),
+            )
+        }
+        // Over every screen, unlocks can come from any request
+        Box(Modifier.fillMaxWidth()) {
+            UnlockBannerHost(
+                onOpenAchievements = { username ->
+                    navController.navigate(ProfileRoute(username, ProfileTab.Achievements.name))
+                },
+                modifier = Modifier.align(Alignment.TopCenter),
             )
         }
     }
@@ -147,7 +179,7 @@ private fun NavHostController.navigateToTab(tab: TopLevelTab, reselect: Boolean)
 }
 
 @Composable
-private fun AppNavHost(navController: NavHostController, modifier: Modifier) {
+private fun AppNavHost(navController: NavHostController, unseenNotifications: Int?, modifier: Modifier) {
     val openMedia: (Media) -> Unit = { media ->
         navController.navigate(MediaDetailsRoute(media.mediaType.id, media.externalApiId))
     }
@@ -179,6 +211,8 @@ private fun AppNavHost(navController: NavHostController, modifier: Modifier) {
                 onOpenReviewMedia = { review -> openMediaById(review.mediaType, review.externalApiId) },
                 onOpenProfile = openProfile,
                 onOpenUserSearch = { navController.navigate(UserSearchRoute) },
+                unseenNotifications = unseenNotifications,
+                onOpenNotifications = { navController.navigate(NotificationsRoute) { launchSingleTop = true } },
             )
         }
         composable<DiscoverMoviesRoute> { DiscoverScreen(MediaType.Movie, onOpenMedia = openMedia) }
@@ -216,6 +250,21 @@ private fun AppNavHost(navController: NavHostController, modifier: Modifier) {
         }
         composable<CollectionRoute> {
             CollectionScreen(onBack = goBack, onOpenMedia = openMedia)
+        }
+        composable<NotificationsRoute> {
+            NotificationsScreen(
+                onBack = goBack,
+                onLogin = goToLogin,
+                onOpenTarget = { target ->
+                    navController.navigate(
+                        when (target) {
+                            is NotificationTarget.Review -> ReviewRoute(target.reviewId, target.replyId)
+                            is NotificationTarget.Profile -> ProfileRoute(target.username)
+                            is NotificationTarget.Achievements -> ProfileRoute(target.username, ProfileTab.Achievements.name)
+                        },
+                    )
+                },
+            )
         }
         composable<UserSearchRoute> {
             UserSearchScreen(onBack = goBack, onOpenProfile = openProfile)

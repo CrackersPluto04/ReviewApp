@@ -42,6 +42,7 @@ import com.reviewapp.android.ui.components.LoadingState
 import com.reviewapp.android.ui.components.PosterTile
 import com.reviewapp.android.ui.components.SearchField
 import com.reviewapp.android.ui.components.SectionTitle
+import com.reviewapp.android.ui.notifications.NotificationBell
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,6 +53,9 @@ fun HomeScreen(
     onOpenReviewMedia: (FeedReview) -> Unit,
     onOpenProfile: (String) -> Unit,
     onOpenUserSearch: () -> Unit,
+    /** Null while logged out, then there is no bell. */
+    unseenNotifications: Int?,
+    onOpenNotifications: () -> Unit,
     viewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -65,6 +69,7 @@ fun HomeScreen(
                     IconButton(onClick = onOpenUserSearch) {
                         Icon(Icons.Filled.PersonSearch, contentDescription = "Find users")
                     }
+                    if (unseenNotifications != null) NotificationBell(unseenNotifications, onOpenNotifications)
                 },
             )
         },

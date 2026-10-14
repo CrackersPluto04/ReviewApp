@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Converted from review-app/public/achievements/critic.svg, keep the two in sync -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <path android:pathData="M48,2 A46,46 0 1,1 48,94 A46,46 0 1,1 48,2 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="2"
+                android:startY="2"
+                android:endX="94"
+                android:endY="94">
+                <item android:offset="0" android:color="#FB8C00" />
+                <item android:offset="1" android:color="#B53D00" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:pathData="M48,8 A40,40 0 1,1 48,88 A40,40 0 1,1 48,8 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.35"
+        android:strokeWidth="2" />
+    <path
+        android:pathData="M48,20 L55.6,37.5 L74,39.2 L60.2,51.5 L64.3,70 L48,60.4 L31.7,70 L35.8,51.5 L22,39.2 L40.4,37.5 Z"
+        android:fillColor="#FFFFFF" />
+</vector>

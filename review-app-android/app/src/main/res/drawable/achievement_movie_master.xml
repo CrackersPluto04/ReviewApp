@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Converted from review-app/public/achievements/movie-master.svg, keep the two in sync -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <path android:pathData="M48,2 A46,46 0 1,1 48,94 A46,46 0 1,1 48,2 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="2"
+                android:startY="2"
+                android:endX="94"
+                android:endY="94">
+                <item android:offset="0" android:color="#E53935" />
+                <item android:offset="1" android:color="#8E0000" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:pathData="M48,8 A40,40 0 1,1 48,88 A40,40 0 1,1 48,8 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.35"
+        android:strokeWidth="2" />
+    <path
+        android:pathData="M29,42 H67 A3,3 0 0 1 70,45 V67 A3,3 0 0 1 67,70 H29 A3,3 0 0 1 26,67 V45 A3,3 0 0 1 29,42 Z"
+        android:fillColor="#FFFFFF" />
+    <path
+        android:pathData="M26,34 L68,26 L70,34 L28,42 Z"
+        android:fillColor="#FFFFFF" />
+    <path
+        android:pathData="M36,32.5 L40,39 M48,30 L52,37 M60,28 L64,34.5"
+        android:strokeColor="#8E0000"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

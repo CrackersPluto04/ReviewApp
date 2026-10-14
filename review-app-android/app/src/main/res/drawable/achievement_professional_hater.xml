@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Converted from review-app/public/achievements/professional-hater.svg, keep the two in sync -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <path android:pathData="M48,2 A46,46 0 1,1 48,94 A46,46 0 1,1 48,2 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="2"
+                android:startY="2"
+                android:endX="94"
+                android:endY="94">
+                <item android:offset="0" android:color="#546E7A" />
+                <item android:offset="1" android:color="#1C313A" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:pathData="M48,8 A40,40 0 1,1 48,88 A40,40 0 1,1 48,8 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.35"
+        android:strokeWidth="2" />
+    <path
+        android:pathData="M24,30 h10 v32 h-10 z"
+        android:fillColor="#FFFFFF" />
+    <path
+        android:pathData="M38,30 h22 a6,6 0 0 1 6,5 l4,18 a6,6 0 0 1 -6,7 h-14 l3,10 a5,5 0 0 1 -9,4 l-8,-14 v-30 z"
+        android:fillColor="#FFFFFF" />
+</vector>

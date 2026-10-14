@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Converted from review-app/public/achievements/curator.svg, keep the two in sync -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <path android:pathData="M48,2 A46,46 0 1,1 48,94 A46,46 0 1,1 48,2 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="2"
+                android:startY="2"
+                android:endX="94"
+                android:endY="94">
+                <item android:offset="0" android:color="#D81B60" />
+                <item android:offset="1" android:color="#880E4F" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:pathData="M48,8 A40,40 0 1,1 48,88 A40,40 0 1,1 48,8 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.35"
+        android:strokeWidth="2" />
+    <path
+        android:pathData="M33,22 H67 A3,3 0 0 1 70,25 V63 A3,3 0 0 1 67,66 H33 A3,3 0 0 1 30,63 V25 A3,3 0 0 1 33,22 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M27,30 H61 A3,3 0 0 1 64,33 V73 A3,3 0 0 1 61,76 H27 A3,3 0 0 1 24,73 V33 A3,3 0 0 1 27,30 Z"
+        android:fillColor="#FFFFFF" />
+    <path
+        android:pathData="M36,30 v20 l6,-5 l6,5 v-20"
+        android:fillColor="#880E4F" />
+</vector>

@@ -12,17 +12,21 @@ import com.reviewapp.android.data.SessionManager
 import com.reviewapp.android.data.local.CryptoStore
 import com.reviewapp.android.data.local.SecureCookieJar
 import com.reviewapp.android.data.local.SettingsStore
+import com.reviewapp.android.data.remote.AchievementApi
 import com.reviewapp.android.data.remote.ApiJson
 import com.reviewapp.android.data.remote.AuthApi
 import com.reviewapp.android.data.remote.CollectionApi
 import com.reviewapp.android.data.remote.FollowerApi
 import com.reviewapp.android.data.remote.MediaApi
+import com.reviewapp.android.data.remote.NotificationApi
 import com.reviewapp.android.data.remote.ReviewApi
 import com.reviewapp.android.data.remote.ReviewReplyApi
 import com.reviewapp.android.data.remote.UserApi
+import com.reviewapp.android.data.repository.AchievementRepository
 import com.reviewapp.android.data.repository.AuthRepository
 import com.reviewapp.android.data.repository.CollectionRepository
 import com.reviewapp.android.data.repository.MediaRepository
+import com.reviewapp.android.data.repository.NotificationRepository
 import com.reviewapp.android.data.repository.ReplyRepository
 import com.reviewapp.android.data.repository.ReviewRepository
 import com.reviewapp.android.data.repository.UserRepository
@@ -57,6 +61,15 @@ class AppContainer(context: Context) {
             if (response.code == 401) sessionManager.onUnauthorized()
             response
         }
+        // Unlocked achievements come with the response that earned them, and the user's own changes
+        // can notify them, so the badge is refreshed shortly after any successful write (like apiFetch)
+        .addInterceptor { chain ->
+            val request = chain.request()
+            val response = chain.proceed(request)
+            response.header(AchievementRepository.UNLOCK_HEADER)?.let(achievementRepository::onUnlockHeader)
+            if (response.isSuccessful && request.method != "GET") notificationRepository.onMutation()
+            response
+        }
         .apply {
             if (BuildConfig.DEBUG) {
                 // HEADERS would print the session cookie, so only the request lines are logged
@@ -78,6 +91,8 @@ class AppContainer(context: Context) {
     private val followerApi: FollowerApi = retrofit.create(FollowerApi::class.java)
     private val collectionApi: CollectionApi = retrofit.create(CollectionApi::class.java)
     private val replyApi: ReviewReplyApi = retrofit.create(ReviewReplyApi::class.java)
+    private val notificationApi: NotificationApi = retrofit.create(NotificationApi::class.java)
+    private val achievementApi: AchievementApi = retrofit.create(AchievementApi::class.java)
 
     val sessionManager = SessionManager(authApi, cookieJar)
     val authRepository = AuthRepository(authApi, sessionManager)
@@ -86,6 +101,8 @@ class AppContainer(context: Context) {
     val userRepository = UserRepository(userApi, followerApi, sessionManager)
     val collectionRepository = CollectionRepository(collectionApi, userApi, sessionManager, appScope)
     val replyRepository = ReplyRepository(replyApi)
+    val notificationRepository = NotificationRepository(notificationApi, sessionManager, appScope)
+    val achievementRepository = AchievementRepository(achievementApi)
 }
 
 /** For ViewModel factories: `initializer { val c = appContainer(); ... }` */
