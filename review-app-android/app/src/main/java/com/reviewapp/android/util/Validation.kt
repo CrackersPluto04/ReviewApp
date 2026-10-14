@@ -28,6 +28,9 @@ object Validation {
 
     fun isValidTwoFactorCode(code: String): Boolean = TWO_FACTOR_CODE_REGEX.matches(code)
 
+    /** Case-insensitive and trimmed, like the web's change email dialog. */
+    fun emailsMatch(email: String, confirm: String): Boolean = email.trim().equals(confirm.trim(), ignoreCase = true)
+
     fun usernameError(username: String): String? {
         val trimmed = username.trim()
         return when {

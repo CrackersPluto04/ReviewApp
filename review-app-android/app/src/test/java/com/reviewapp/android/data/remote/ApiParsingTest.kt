@@ -2,9 +2,12 @@ package com.reviewapp.android.data.remote
 
 import com.reviewapp.android.data.remote.dto.AchievementDto
 import com.reviewapp.android.data.remote.dto.AddMediaRequest
+import com.reviewapp.android.data.remote.dto.ChangeEmailRequest
+import com.reviewapp.android.data.remote.dto.ChangePasswordRequest
 import com.reviewapp.android.data.remote.dto.CollectionMembershipDto
 import com.reviewapp.android.data.remote.dto.CollectionWithMediasDto
 import com.reviewapp.android.data.remote.dto.CreateReplyRequest
+import com.reviewapp.android.data.remote.dto.CurrentPasswordRequest
 import com.reviewapp.android.data.remote.dto.LoginResponse
 import com.reviewapp.android.data.remote.dto.MediaDto
 import com.reviewapp.android.data.remote.dto.MediaReviewDto
@@ -18,7 +21,9 @@ import com.reviewapp.android.data.remote.dto.ReviewCheckResponse
 import com.reviewapp.android.data.remote.dto.ReviewDetailDto
 import com.reviewapp.android.data.remote.dto.ReviewDto
 import com.reviewapp.android.data.remote.dto.ReviewMediaRequest
+import com.reviewapp.android.data.remote.dto.SecurityStatusDto
 import com.reviewapp.android.data.remote.dto.SetSeenRequest
+import com.reviewapp.android.data.remote.dto.TwoFactorCodeRequest
 import com.reviewapp.android.data.remote.dto.UnseenCountDto
 import com.reviewapp.android.data.remote.dto.UpdateCollectionRequest
 import com.reviewapp.android.data.remote.dto.UserCompactDto
@@ -357,6 +362,38 @@ class ApiParsingTest {
             unlocked,
         )
         assertNull(AchievementRepository.parseUnlockHeader("not json"))
+    }
+
+    @Test
+    fun securityStatus_parsesPendingEmail() {
+        val none = json.decodeFromString<SecurityStatusDto>(
+            """{"email":"a@b.com","isEmailConfirmed":false,"isTwoFactorEnabled":false,"pendingEmail":null}""",
+        ).toDomain()
+        assertEquals("a@b.com", none.email)
+        assertNull(none.pendingEmail)
+
+        val pending = json.decodeFromString<SecurityStatusDto>(
+            """{"email":"a@b.com","isEmailConfirmed":true,"isTwoFactorEnabled":true,"pendingEmail":"new@b.com"}""",
+        ).toDomain()
+        assertTrue(pending.isEmailConfirmed)
+        assertTrue(pending.isTwoFactorEnabled)
+        assertEquals("new@b.com", pending.pendingEmail)
+    }
+
+    @Test
+    fun accountRequests_useApiNames() {
+        assertEquals(
+            """{"newEmail":"n@b.com","currentPassword":"pw"}""",
+            json.encodeToString(ChangeEmailRequest.serializer(), ChangeEmailRequest("n@b.com", "pw")),
+        )
+        assertEquals(
+            """{"currentPassword":"old","newPassword":"new"}""",
+            json.encodeToString(ChangePasswordRequest.serializer(), ChangePasswordRequest("old", "new")),
+        )
+        assertEquals("""{"currentPassword":"pw"}""", json.encodeToString(CurrentPasswordRequest.serializer(), CurrentPasswordRequest("pw")))
+        assertEquals("""{"code":"012345"}""", json.encodeToString(TwoFactorCodeRequest.serializer(), TwoFactorCodeRequest("012345")))
+        // Only the username is sent, the other profile fields stay as they are
+        assertEquals("""{"username":"bob"}""", json.encodeToString(UserUpdateRequest.serializer(), UserUpdateRequest(username = "bob")))
     }
 
     @Test

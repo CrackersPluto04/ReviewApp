@@ -150,6 +150,19 @@ class ProfileViewModel(
             sessionManager.state.distinctUntilChanged { old, new -> old.userId == new.userId && old::class == new::class }
                 .collect { auth -> onAuthChanged(auth) }
         }
+        if (fixedUsername == null) {
+            viewModelScope.launch {
+                // Renamed in the account settings: the Profile tab follows the new name
+                sessionManager.state.collect { auth ->
+                    val user = (auth as? AuthState.LoggedIn)?.user ?: return@collect
+                    val current = username
+                    if (current != null && user.id == _state.value.currentUserId && user.username != current) {
+                        username = user.username
+                        reloadAll()
+                    }
+                }
+            }
+        }
         viewModelScope.launch {
             // Counts changed (here or in a follower list), refresh them without a loading state
             userRepository.followChanges.collect { loadProfile(quiet = true) }
@@ -432,10 +445,6 @@ class ProfileViewModel(
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { settingsStore.setThemeMode(mode) }
-    }
-
-    fun logout() {
-        viewModelScope.launch { sessionManager.logout() }
     }
 
     private fun updateEdits(transform: (ProfileEdits) -> ProfileEdits) =

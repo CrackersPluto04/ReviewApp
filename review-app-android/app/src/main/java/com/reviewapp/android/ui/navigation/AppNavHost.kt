@@ -69,6 +69,7 @@ import com.reviewapp.android.ui.profile.ProfileTab
 import com.reviewapp.android.ui.review.ReviewScreen
 import com.reviewapp.android.ui.review.WriteReviewScreen
 import com.reviewapp.android.ui.search.SearchScreen
+import com.reviewapp.android.ui.settings.AccountSettingsScreen
 import com.reviewapp.android.ui.usersearch.UserSearchScreen
 import kotlin.reflect.KClass
 
@@ -200,6 +201,7 @@ private fun AppNavHost(navController: NavHostController, unseenNotifications: In
         onOpenReview = openReview,
         onOpenFollowList = { username, following -> navController.navigate(FollowListRoute(username, following)) },
         onOpenCollection = { id -> navController.navigate(CollectionRoute(id)) },
+        onOpenSettings = { navController.navigate(AccountSettingsRoute) { launchSingleTop = true } },
     )
 
     NavHost(navController = navController, startDestination = HomeRoute, modifier = modifier) {
@@ -266,6 +268,7 @@ private fun AppNavHost(navController: NavHostController, unseenNotifications: In
                 },
             )
         }
+        composable<AccountSettingsRoute> { AccountSettingsScreen(onBack = goBack) }
         composable<UserSearchRoute> {
             UserSearchScreen(onBack = goBack, onOpenProfile = openProfile)
         }

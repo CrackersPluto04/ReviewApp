@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.Check
@@ -96,6 +95,8 @@ import com.reviewapp.android.ui.components.ReviewsTitle
 import com.reviewapp.android.ui.components.ScoreRangeSheet
 import com.reviewapp.android.ui.components.UserAvatar
 import com.reviewapp.android.ui.components.icon
+import com.reviewapp.android.ui.settings.EmailVerificationBanner
+import com.reviewapp.android.ui.settings.VerificationBannerViewModel
 import com.reviewapp.android.util.AchievementFilter
 import com.reviewapp.android.util.DiscoverOptions
 import com.reviewapp.android.util.Validation
@@ -118,9 +119,12 @@ fun ProfileScreen(
     onOpenReview: (Int) -> Unit,
     onOpenFollowList: (username: String, following: Boolean) -> Unit,
     onOpenCollection: (Int) -> Unit,
+    onOpenSettings: () -> Unit,
     viewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory),
+    bannerViewModel: VerificationBannerViewModel = viewModel(factory = VerificationBannerViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val banner by bannerViewModel.state.collectAsStateWithLifecycle()
     val reviews by viewModel.reviews.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -163,7 +167,9 @@ fun ProfileScreen(
                 navigationIcon = { if (onBack != null) BackButton(onBack) },
                 actions = {
                     ThemeMenu(themeMode, viewModel::setThemeMode)
-                    if (state.isOwner) SettingsMenu(onLogout = viewModel::logout)
+                    if (state.isOwner) {
+                        IconButton(onClick = onOpenSettings) { Icon(Icons.Outlined.Settings, contentDescription = "Account settings") }
+                    }
                 },
             )
         },
@@ -186,6 +192,11 @@ fun ProfileScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = modifier,
             ) {
+                if (state.isOwner && banner.visible) {
+                    item(key = "verify-email") {
+                        EmailVerificationBanner(bannerViewModel, Modifier.padding(horizontal = 16.dp).padding(top = 8.dp))
+                    }
+                }
                 item(key = "header") {
                     ProfileHeader(
                         profile = profile,
@@ -569,24 +580,6 @@ private val ThemeMode.icon: ImageVector
     }
 
 /** Account settings (username, email, password, 2FA) come in a later milestone; logout for now. */
-@Composable
-private fun SettingsMenu(onLogout: () -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        IconButton(onClick = { expanded = true }) { Icon(Icons.Outlined.Settings, contentDescription = "Settings") }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text("Log out", color = MaterialTheme.colorScheme.error) },
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Logout, null, tint = MaterialTheme.colorScheme.error) },
-                onClick = {
-                    expanded = false
-                    onLogout()
-                },
-            )
-        }
-    }
-}
-
 @Composable
 private fun ProfileDialogs(state: ProfileUiState, viewModel: ProfileViewModel) {
     val edits = state.edits
