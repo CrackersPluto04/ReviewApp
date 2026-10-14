@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds also trust the local ASP.NET development certificate, exported to
+     res/raw/aspnet_dev_cert.pem (gitignored, see CLAUDE.md). -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="@raw/aspnet_dev_cert" />
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>
