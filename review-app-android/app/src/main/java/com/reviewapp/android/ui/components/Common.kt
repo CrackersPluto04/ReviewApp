@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.reviewapp.android.domain.model.MediaType
 import com.reviewapp.android.domain.model.ScoreStats
@@ -107,9 +108,9 @@ fun Poster(
 }
 
 @Composable
-fun UserAvatar(username: String, pictureUrl: String?, size: Dp = 40.dp) {
+fun UserAvatar(username: String, pictureUrl: String?, size: Dp = 40.dp, modifier: Modifier = Modifier) {
     Box(
-        Modifier
+        modifier
             .size(size)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.secondaryContainer),
@@ -119,6 +120,7 @@ fun UserAvatar(username: String, pictureUrl: String?, size: Dp = 40.dp) {
             username.firstOrNull()?.uppercase() ?: "?",
             color = MaterialTheme.colorScheme.onSecondaryContainer,
             fontWeight = FontWeight.Bold,
+            fontSize = (size.value * 0.4f).sp,
         )
         if (!pictureUrl.isNullOrBlank()) {
             AsyncImage(

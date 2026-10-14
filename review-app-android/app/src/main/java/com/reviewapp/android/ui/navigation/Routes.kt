@@ -16,9 +16,22 @@ data object DiscoverSeriesRoute
 @Serializable
 data object DiscoverMusicRoute
 
-/** Temporary profile tab (theme + logout) until the profile pages are built. */
+/** The Profile tab: the logged-in user's profile, or a login prompt. */
 @Serializable
-data object AccountRoute
+data object MyProfileRoute
+
+/** Anyone's profile (also the current user's when opened from a review or a list). */
+@Serializable
+data class ProfileRoute(val username: String)
+
+@Serializable
+data class FollowListRoute(val username: String, val showFollowing: Boolean)
+
+@Serializable
+data class CollectionRoute(val collectionId: Int)
+
+@Serializable
+data object UserSearchRoute
 
 @Serializable
 data object LoginRoute

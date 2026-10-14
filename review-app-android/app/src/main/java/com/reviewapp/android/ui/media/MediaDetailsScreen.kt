@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -19,21 +20,15 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.RateReview
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,34 +37,28 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.reviewapp.android.data.repository.ReviewFilter
 import com.reviewapp.android.domain.model.Media
 import com.reviewapp.android.domain.model.MediaType
 import com.reviewapp.android.domain.model.ScoreStats
+import com.reviewapp.android.ui.collection.MediaCollectionButtons
 import com.reviewapp.android.ui.components.BackButton
-import com.reviewapp.android.ui.components.DropdownFilterChip
 import com.reviewapp.android.ui.components.EmptyState
 import com.reviewapp.android.ui.components.ErrorState
-import com.reviewapp.android.ui.components.FilterChipRow
 import com.reviewapp.android.ui.components.InfiniteListEffect
 import com.reviewapp.android.ui.components.ListFooter
 import com.reviewapp.android.ui.components.LoadingState
 import com.reviewapp.android.ui.components.Poster
 import com.reviewapp.android.ui.components.ReviewCard
+import com.reviewapp.android.ui.components.ReviewsHeader
+import com.reviewapp.android.ui.components.ScoreRangeSheet
 import com.reviewapp.android.ui.components.ScoreStatsText
-import com.reviewapp.android.util.DiscoverOptions
-import com.reviewapp.android.util.MAX_SCORE
-import com.reviewapp.android.util.MIN_SCORE
 import com.reviewapp.android.util.formatDate
-import com.reviewapp.android.util.formatScore
-import com.reviewapp.android.util.snapScore
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,6 +66,7 @@ fun MediaDetailsScreen(
     onBack: () -> Unit,
     onWriteReview: (MediaType, String) -> Unit,
     onLoginRequired: () -> Unit,
+    onOpenProfile: (String) -> Unit,
     viewModel: MediaDetailsViewModel = viewModel(factory = MediaDetailsViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -150,7 +140,7 @@ fun MediaDetailsScreen(
                 }
                 else -> {
                     items(reviews.items, key = { it.id }) { review ->
-                        ReviewCard(review, Modifier.padding(horizontal = 16.dp))
+                        ReviewCard(review, onOpenProfile, Modifier.padding(horizontal = 16.dp))
                     }
                     item { ListFooter(reviews.isLoading, reviews.error, viewModel::retryReviews) }
                 }
@@ -188,6 +178,8 @@ private fun MediaHeader(media: Media, stats: ScoreStats?) {
             Spacer(Modifier.height(4.dp))
             Text("Average score", style = MaterialTheme.typography.labelMedium)
             ScoreStatsText(stats)
+            // IconButtons have their own padding, so pull them back in line with the text
+            MediaCollectionButtons(media, Modifier.offset(x = (-12).dp))
         }
     }
 }
@@ -220,89 +212,6 @@ private fun ExpandableOverview(overview: String) {
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(top = 4.dp),
                 )
-            }
-        }
-    }
-}
-
-/** "Reviews (N)" with the filter chips, stays on top while scrolling through the reviews. */
-@Composable
-private fun ReviewsHeader(
-    totalCount: Int,
-    filter: ReviewFilter,
-    onFilterChange: (ReviewFilter) -> Unit,
-    onOpenScoreFilter: () -> Unit,
-) {
-    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(vertical = 8.dp)) {
-            Text(
-                "Reviews ($totalCount)",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
-            FilterChipRow(Modifier.padding(horizontal = 16.dp)) {
-                DropdownFilterChip(
-                    label = "Sort",
-                    options = DiscoverOptions.reviewSortOptions,
-                    selected = filter.sortBy,
-                    onSelect = { onFilterChange(filter.copy(sortBy = it ?: DiscoverOptions.DEFAULT_REVIEW_SORT)) },
-                    highlighted = filter.sortBy != DiscoverOptions.DEFAULT_REVIEW_SORT,
-                )
-                val scoreFiltered = filter.minScore != MIN_SCORE || filter.maxScore != MAX_SCORE
-                FilterChip(
-                    selected = scoreFiltered,
-                    onClick = onOpenScoreFilter,
-                    label = {
-                        Text(
-                            if (scoreFiltered) "Score ${formatScore(filter.minScore)}-${formatScore(filter.maxScore)}"
-                            else "Score",
-                        )
-                    },
-                )
-                FilterChip(
-                    selected = filter.writtenOnly,
-                    onClick = { onFilterChange(filter.copy(writtenOnly = !filter.writtenOnly)) },
-                    label = { Text("Written only") },
-                )
-                if (!filter.isDefault) {
-                    TextButton(onClick = { onFilterChange(ReviewFilter()) }) { Text("Clear") }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ScoreRangeSheet(filter: ReviewFilter, onApply: (ReviewFilter) -> Unit, onDismiss: () -> Unit) {
-    var range by remember { mutableStateOf(filter.minScore.toFloat()..filter.maxScore.toFloat()) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
-            Text("Score range", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text(
-                "${formatScore(snapScore(range.start.toDouble()))} - ${formatScore(snapScore(range.endInclusive.toDouble()))}",
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp),
-            )
-            RangeSlider(
-                value = range,
-                onValueChange = { range = it },
-                valueRange = MIN_SCORE.toFloat()..MAX_SCORE.toFloat(),
-                // 1-10 in steps of 0.5 is 18 intervals, so 17 stops between the ends
-                steps = 17,
-            )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = { range = MIN_SCORE.toFloat()..MAX_SCORE.toFloat() }) { Text("Reset") }
-                Spacer(Modifier.width(8.dp))
-                Button(onClick = {
-                    onApply(
-                        filter.copy(
-                            minScore = snapScore(range.start.toDouble()),
-                            maxScore = snapScore(range.endInclusive.toDouble()),
-                        ),
-                    )
-                }) { Text("Apply") }
             }
         }
     }
