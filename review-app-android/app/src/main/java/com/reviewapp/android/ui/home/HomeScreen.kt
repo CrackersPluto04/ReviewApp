@@ -11,7 +11,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PersonSearch
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -45,13 +49,24 @@ fun HomeScreen(
     onSearch: (String) -> Unit,
     onOpenMedia: (Media) -> Unit,
     onOpenReview: (FeedReview) -> Unit,
+    onOpenProfile: (String) -> Unit,
+    onOpenUserSearch: () -> Unit,
     viewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
 
     Scaffold(
-        topBar = { TopAppBar(title = { AppLogo() }) },
+        topBar = {
+            TopAppBar(
+                title = { AppLogo() },
+                actions = {
+                    IconButton(onClick = onOpenUserSearch) {
+                        Icon(Icons.Filled.PersonSearch, contentDescription = "Find users")
+                    }
+                },
+            )
+        },
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = state.isRefreshing,
@@ -93,6 +108,7 @@ fun HomeScreen(
                         FeedReviewCard(
                             review = review,
                             onClick = { onOpenReview(review) },
+                            onOpenProfile = onOpenProfile,
                             modifier = Modifier.padding(horizontal = 16.dp),
                         )
                     }

@@ -1,5 +1,8 @@
 package com.reviewapp.android.util
 
+import java.net.URI
+import java.net.URISyntaxException
+
 /**
  * Client-side validation, mirrors `review-app/src/utils/validation.ts` and the API's DTO limits.
  * Kotlin, JS and C# all count UTF-16 units, so the lengths match the server exactly.
@@ -13,6 +16,8 @@ object Validation {
     const val TWO_FACTOR_CODE_LENGTH = 6
     const val MAX_REVIEW_LENGTH = 500
     const val MAX_PROS_CONS_LENGTH = 250
+    const val MAX_BIO_LENGTH = 150
+    const val MAX_COLLECTION_NAME_LENGTH = 50
 
     private val EMAIL_REGEX = Regex("^[^\\s@]+@[^\\s@.]+(\\.[^\\s@.]+)+$")
     private val TWO_FACTOR_CODE_REGEX = Regex("^\\d{6}$")
@@ -50,6 +55,26 @@ object Validation {
         password.length !in MIN_PASSWORD_LENGTH..MAX_PASSWORD_LENGTH ->
             "Password must be between $MIN_PASSWORD_LENGTH and $MAX_PASSWORD_LENGTH characters."
         else -> null
+    }
+
+    fun collectionNameError(name: String): String? {
+        val trimmed = name.trim()
+        return when {
+            trimmed.isEmpty() -> "Collection name cannot be empty."
+            trimmed.length > MAX_COLLECTION_NAME_LENGTH ->
+                "Collection name can be at most $MAX_COLLECTION_NAME_LENGTH characters."
+            else -> null
+        }
+    }
+
+    /** An absolute http(s) link, the API checks it with `[Url]` too. */
+    fun isValidImageUrl(url: String): Boolean {
+        val uri = try {
+            URI(url.trim())
+        } catch (_: URISyntaxException) {
+            return false
+        }
+        return uri.scheme?.lowercase() in setOf("http", "https") && !uri.host.isNullOrBlank()
     }
 
     fun confirmPasswordError(password: String, confirm: String): String? = when {

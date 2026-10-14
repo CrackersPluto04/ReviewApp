@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -25,12 +26,13 @@ import androidx.compose.ui.unit.dp
 import com.reviewapp.android.domain.model.Media
 import com.reviewapp.android.domain.model.MediaType
 import com.reviewapp.android.domain.model.ScoreStats
+import com.reviewapp.android.ui.collection.MediaCollectionButtons
 import com.reviewapp.android.util.formatDate
 
 /**
  * Search/discover result: poster, title, release date, overview (artists for music) and the
  * average score. [onNeedStats] is called once when the card first appears so the score loads lazily.
- * The add-to-collection and favourite buttons come with the collections feature.
+ * Logged-in users also get the add-to-collection and favourite buttons ([MediaCollectionButtons]).
  */
 @Composable
 fun MediaCard(
@@ -78,7 +80,10 @@ fun MediaCard(
                     }
                 }
                 HorizontalDivider()
-                ScoreStatsText(stats, Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+                Row(Modifier.heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ScoreStatsText(stats, Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 8.dp))
+                    MediaCollectionButtons(media)
+                }
             }
         }
     }

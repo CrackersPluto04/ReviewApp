@@ -60,3 +60,10 @@ public record CollectionMediaDto
     public int OrderIndex { get; init; }
     public DateTime AddedAt { get; init; }
 }
+
+public record CollectionMembershipDto
+{
+    public int CollectionID { get; init; }
+    public MediaType MediaType { get; init; }
+    public string ExternalApiID { get; init; } = string.Empty;
+}

@@ -1,6 +1,5 @@
 package com.reviewapp.android.ui.review
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,21 +13,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -37,22 +31,18 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.reviewapp.android.domain.model.Media
-import com.reviewapp.android.domain.model.Visibility
 import com.reviewapp.android.ui.components.ErrorState
+import com.reviewapp.android.ui.components.LimitedTextField
 import com.reviewapp.android.ui.components.LoadingState
 import com.reviewapp.android.ui.components.Poster
+import com.reviewapp.android.ui.components.VisibilityField
 import com.reviewapp.android.ui.theme.color
 import com.reviewapp.android.util.MAX_SCORE
 import com.reviewapp.android.util.MIN_SCORE
@@ -140,7 +130,7 @@ private fun ReviewForm(state: WriteReviewUiState, viewModel: WriteReviewViewMode
             minLines = 2,
         )
 
-        VisibilityField(draft.visibility) { visibility -> viewModel.updateDraft { copy(visibility = visibility) } }
+        VisibilityField(draft.visibility, onSelect = { visibility -> viewModel.updateDraft { copy(visibility = visibility) } })
 
         state.saveError?.let {
             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
@@ -208,61 +198,5 @@ private fun ScoreSlider(score: Double, onScoreChange: (Double) -> Unit) {
                 inactiveTickColor = MaterialTheme.colorScheme.onSurfaceVariant,
             ),
         )
-    }
-}
-
-/** Text field with a live "n / max" counter that turns red over the limit (like the web form). */
-@Composable
-private fun LimitedTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    maxLength: Int,
-    minLines: Int,
-) {
-    val tooLong = value.length > maxLength
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        minLines = minLines,
-        isError = tooLong,
-        supportingText = {
-            Text(
-                "${value.length} / $maxLength",
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.End,
-            )
-        },
-        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-        modifier = Modifier.fillMaxWidth(),
-    )
-}
-
-@Composable
-private fun VisibilityField(selected: Visibility, onSelect: (Visibility) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        OutlinedTextField(
-            value = selected.label,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Visibility") },
-            trailingIcon = { Icon(Icons.Filled.ArrowDropDown, null) },
-            modifier = Modifier.fillMaxWidth(),
-        )
-        // A read-only text field still takes the touch, so a transparent layer opens the menu
-        Box(Modifier.matchParentSize().clickable { expanded = true })
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            Visibility.entries.forEach { visibility ->
-                DropdownMenuItem(
-                    text = { Text(visibility.label) },
-                    onClick = {
-                        expanded = false
-                        onSelect(visibility)
-                    },
-                )
-            }
-        }
     }
 }

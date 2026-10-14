@@ -1,6 +1,11 @@
 package com.reviewapp.android.data.remote
 
+import com.reviewapp.android.data.remote.dto.AddMediaRequest
 import com.reviewapp.android.data.remote.dto.AverageScoreResponse
+import com.reviewapp.android.data.remote.dto.CollectionDto
+import com.reviewapp.android.data.remote.dto.CollectionMembershipDto
+import com.reviewapp.android.data.remote.dto.CollectionWithMediasDto
+import com.reviewapp.android.data.remote.dto.CreateCollectionRequest
 import com.reviewapp.android.data.remote.dto.FeedReviewDto
 import com.reviewapp.android.data.remote.dto.LoginRequest
 import com.reviewapp.android.data.remote.dto.LoginResponse
@@ -8,14 +13,22 @@ import com.reviewapp.android.data.remote.dto.MediaDto
 import com.reviewapp.android.data.remote.dto.MediaReviewDto
 import com.reviewapp.android.data.remote.dto.MessageResponse
 import com.reviewapp.android.data.remote.dto.PagedResponse
+import com.reviewapp.android.data.remote.dto.ProfileReviewDto
 import com.reviewapp.android.data.remote.dto.RegisterRequest
+import com.reviewapp.android.data.remote.dto.ReorderMediaRequest
 import com.reviewapp.android.data.remote.dto.ReviewCheckResponse
 import com.reviewapp.android.data.remote.dto.ReviewMediaRequest
 import com.reviewapp.android.data.remote.dto.TwoFactorLoginRequest
 import com.reviewapp.android.data.remote.dto.TwoFactorResendRequest
+import com.reviewapp.android.data.remote.dto.UpdateCollectionRequest
+import com.reviewapp.android.data.remote.dto.UserCompactDto
 import com.reviewapp.android.data.remote.dto.UserDto
+import com.reviewapp.android.data.remote.dto.UserProfileDto
+import com.reviewapp.android.data.remote.dto.UserUpdateRequest
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
@@ -118,4 +131,88 @@ interface ReviewApi {
     /** Finds the review by media + current user, not by id. */
     @PUT("Review")
     suspend fun editReview(@Body body: ReviewMediaRequest): MessageResponse
+
+    @DELETE("Review/{id}")
+    suspend fun deleteReview(@Path("id") id: Int)
+}
+
+interface UserApi {
+    /** Up to 10 users whose name contains [query]. */
+    @GET("User/search")
+    suspend fun search(@Query("q") query: String): List<UserCompactDto>
+
+    @GET("User/{username}")
+    suspend fun getProfile(@Path("username") username: String): UserProfileDto
+
+    @PATCH("User/me")
+    suspend fun updateMe(@Body body: UserUpdateRequest): MessageResponse
+
+    /** Only the reviews the caller may see (owner: all, follower: public + followers only, others: public). */
+    @GET("User/{username}/reviews")
+    suspend fun getReviews(
+        @Path("username") username: String,
+        @Query("page") page: Int,
+        @Query("sortBy") sortBy: String,
+        @Query("minScore") minScore: Double,
+        @Query("maxScore") maxScore: Double,
+        @Query("hasWrittenText") hasWrittenText: Boolean,
+    ): PagedResponse<ProfileReviewDto>
+
+    /** Same visibility rules as [getReviews]. */
+    @GET("User/{username}/collections")
+    suspend fun getCollections(
+        @Path("username") username: String,
+        @Query("sortBy") sortBy: String,
+    ): List<CollectionDto>
+
+    @GET("User/{username}/followers")
+    suspend fun getFollowers(@Path("username") username: String): List<UserCompactDto>
+
+    @GET("User/{username}/following")
+    suspend fun getFollowing(@Path("username") username: String): List<UserCompactDto>
+}
+
+interface FollowerApi {
+    @POST("Follower/{userId}/follow")
+    suspend fun follow(@Path("userId") userId: Int)
+
+    @DELETE("Follower/{userId}/unfollow")
+    suspend fun unfollow(@Path("userId") userId: Int)
+
+    /** Removes someone who follows the current user. */
+    @DELETE("Follower/{userId}/remove")
+    suspend fun removeFollower(@Path("userId") userId: Int)
+}
+
+interface CollectionApi {
+    /** Every media in the current user's collections. */
+    @GET("Collection/me/memberships")
+    suspend fun getMemberships(): List<CollectionMembershipDto>
+
+    @GET("Collection/{id}")
+    suspend fun getCollection(@Path("id") id: Int): CollectionWithMediasDto
+
+    @POST("Collection")
+    suspend fun create(@Body body: CreateCollectionRequest): CollectionDto
+
+    /** The response's `isDefault` and `mediaCount` aren't reliable, keep the old values. */
+    @PUT("Collection")
+    suspend fun update(@Body body: UpdateCollectionRequest): CollectionDto
+
+    @DELETE("Collection/{id}")
+    suspend fun delete(@Path("id") id: Int)
+
+    @POST("Collection/{id}/media")
+    suspend fun addMedia(@Path("id") id: Int, @Body body: AddMediaRequest)
+
+    @DELETE("Collection/{id}/media/{mediaType}-{externalApiId}")
+    suspend fun removeMedia(
+        @Path("id") id: Int,
+        @Path("mediaType") mediaType: Int,
+        @Path("externalApiId") externalApiId: String,
+    )
+
+    /** Moves one item, the API shifts the others. */
+    @PUT("Collection/{id}/reorder")
+    suspend fun reorder(@Path("id") id: Int, @Body body: ReorderMediaRequest)
 }

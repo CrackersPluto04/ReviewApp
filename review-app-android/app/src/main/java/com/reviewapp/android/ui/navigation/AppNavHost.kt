@@ -20,11 +20,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -40,14 +43,18 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.reviewapp.android.domain.model.Media
 import com.reviewapp.android.domain.model.MediaType
-import com.reviewapp.android.ui.account.AccountScreen
 import com.reviewapp.android.ui.auth.LoginScreen
+import com.reviewapp.android.ui.collection.CollectionActionsHost
+import com.reviewapp.android.ui.collection.CollectionScreen
 import com.reviewapp.android.ui.discover.DiscoverMusicScreen
 import com.reviewapp.android.ui.discover.DiscoverScreen
 import com.reviewapp.android.ui.home.HomeScreen
 import com.reviewapp.android.ui.media.MediaDetailsScreen
+import com.reviewapp.android.ui.profile.FollowListScreen
+import com.reviewapp.android.ui.profile.ProfileScreen
 import com.reviewapp.android.ui.review.WriteReviewScreen
 import com.reviewapp.android.ui.search.SearchScreen
+import com.reviewapp.android.ui.usersearch.UserSearchScreen
 import kotlin.reflect.KClass
 
 /** The bottom navigation tabs, each keeps its own back stack (saved and restored on switch). */
@@ -62,7 +69,7 @@ enum class TopLevelTab(
     Movies("Movies", DiscoverMoviesRoute, DiscoverMoviesRoute::class, Icons.Filled.Movie, Icons.Outlined.Movie),
     Series("Series", DiscoverSeriesRoute, DiscoverSeriesRoute::class, Icons.Filled.Tv, Icons.Outlined.Tv),
     Music("Music", DiscoverMusicRoute, DiscoverMusicRoute::class, Icons.Filled.LibraryMusic, Icons.Outlined.LibraryMusic),
-    Profile("Profile", AccountRoute, AccountRoute::class, Icons.Filled.Person, Icons.Outlined.Person),
+    Profile("Profile", MyProfileRoute, MyProfileRoute::class, Icons.Filled.Person, Icons.Outlined.Person),
 }
 
 private fun NavDestination.topLevelTab(): TopLevelTab? =
@@ -85,10 +92,13 @@ fun ReviewAppRoot() {
     }
 
     val showBottomBar = destination?.hasRoute(LoginRoute::class) != true
+    // Errors of the favourite / add-to-collection buttons, which live on many screens
+    val snackbarHostState = remember { SnackbarHostState() }
 
     Scaffold(
         // Every screen has its own Scaffold for its top bar, this one only adds the bottom bar
         contentWindowInsets = WindowInsets(0),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar {
@@ -114,11 +124,13 @@ fun ReviewAppRoot() {
             }
         },
     ) { padding ->
-        AppNavHost(
-            navController,
-            // Consuming the bottom bar's padding stops the inner Scaffolds adding the system bar inset again
-            Modifier.padding(padding).consumeWindowInsets(padding),
-        )
+        CollectionActionsHost(snackbarHostState) {
+            AppNavHost(
+                navController,
+                // Consuming the bottom bar's padding stops the inner Scaffolds adding the system bar inset again
+                Modifier.padding(padding).consumeWindowInsets(padding),
+            )
+        }
     }
 }
 
@@ -138,6 +150,19 @@ private fun AppNavHost(navController: NavHostController, modifier: Modifier) {
         navController.navigate(MediaDetailsRoute(media.mediaType.id, media.externalApiId))
     }
     val goToLogin: () -> Unit = { navController.navigate(LoginRoute) { launchSingleTop = true } }
+    val openProfile: (String) -> Unit = { username -> navController.navigate(ProfileRoute(username)) }
+    val goBack: () -> Unit = { navController.popBackStack() }
+
+    // A profile is the Profile tab (no username, no back button) or any user's page
+    @Composable
+    fun Profile(onBack: (() -> Unit)?) = ProfileScreen(
+        onBack = onBack,
+        onLogin = goToLogin,
+        onOpenMedia = { type, id -> navController.navigate(MediaDetailsRoute(type.id, id)) },
+        onEditReview = { type, id -> navController.navigate(WriteReviewRoute(type.id, id)) },
+        onOpenFollowList = { username, following -> navController.navigate(FollowListRoute(username, following)) },
+        onOpenCollection = { id -> navController.navigate(CollectionRoute(id)) },
+    )
 
     NavHost(navController = navController, startDestination = HomeRoute, modifier = modifier) {
         composable<HomeRoute> {
@@ -147,22 +172,35 @@ private fun AppNavHost(navController: NavHostController, modifier: Modifier) {
                 onOpenReview = { review ->
                     navController.navigate(MediaDetailsRoute(review.mediaType.id, review.externalApiId))
                 },
+                onOpenProfile = openProfile,
+                onOpenUserSearch = { navController.navigate(UserSearchRoute) },
             )
         }
         composable<DiscoverMoviesRoute> { DiscoverScreen(MediaType.Movie, onOpenMedia = openMedia) }
         composable<DiscoverSeriesRoute> { DiscoverScreen(MediaType.Series, onOpenMedia = openMedia) }
         composable<DiscoverMusicRoute> { DiscoverMusicScreen(onOpenMedia = openMedia) }
-        composable<AccountRoute> { AccountScreen(onLogin = goToLogin) }
+        composable<MyProfileRoute> { Profile(onBack = null) }
 
         composable<SearchRoute> {
-            SearchScreen(onBack = { navController.popBackStack() }, onOpenMedia = openMedia)
+            SearchScreen(onBack = goBack, onOpenMedia = openMedia)
         }
         composable<MediaDetailsRoute> {
             MediaDetailsScreen(
-                onBack = { navController.popBackStack() },
+                onBack = goBack,
                 onWriteReview = { type, id -> navController.navigate(WriteReviewRoute(type.id, id)) },
                 onLoginRequired = goToLogin,
+                onOpenProfile = openProfile,
             )
+        }
+        composable<ProfileRoute> { Profile(onBack = goBack) }
+        composable<FollowListRoute> {
+            FollowListScreen(onBack = goBack, onOpenProfile = openProfile, onLoginRequired = goToLogin)
+        }
+        composable<CollectionRoute> {
+            CollectionScreen(onBack = goBack, onOpenMedia = openMedia)
+        }
+        composable<UserSearchRoute> {
+            UserSearchScreen(onBack = goBack, onOpenProfile = openProfile)
         }
         composable<WriteReviewRoute> {
             WriteReviewScreen(onClose = { navController.popBackStack() })

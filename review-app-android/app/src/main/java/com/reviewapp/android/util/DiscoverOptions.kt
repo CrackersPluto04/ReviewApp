@@ -67,4 +67,14 @@ object DiscoverOptions {
         Option("score_desc", "Highest Score"),
         Option("score_asc", "Lowest Score"),
     )
+
+    /** Same default as the web's collections tab, so Favourites (the first one made) comes first. */
+    const val DEFAULT_COLLECTION_SORT = "createdAt_asc"
+
+    val collectionSortOptions: List<Option> = listOf(
+        Option("createdAt_asc", "Oldest First"),
+        Option("createdAt_desc", "Newest First"),
+        Option("name_asc", "Name A-Z"),
+        Option("name_desc", "Name Z-A"),
+    )
 }
