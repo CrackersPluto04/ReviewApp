@@ -30,6 +30,10 @@ data class ProfileRoute(val username: String, val tab: String? = null)
 @Serializable
 data object NotificationsRoute
 
+/** The logged-in user's account settings (username, email, password, security, sessions). */
+@Serializable
+data object AccountSettingsRoute
+
 @Serializable
 data class FollowListRoute(val username: String, val showFollowing: Boolean)
 

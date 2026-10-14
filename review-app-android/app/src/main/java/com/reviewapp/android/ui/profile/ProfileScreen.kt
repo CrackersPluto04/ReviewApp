@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.Check
@@ -118,6 +117,7 @@ fun ProfileScreen(
     onOpenReview: (Int) -> Unit,
     onOpenFollowList: (username: String, following: Boolean) -> Unit,
     onOpenCollection: (Int) -> Unit,
+    onOpenSettings: () -> Unit,
     viewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -163,7 +163,9 @@ fun ProfileScreen(
                 navigationIcon = { if (onBack != null) BackButton(onBack) },
                 actions = {
                     ThemeMenu(themeMode, viewModel::setThemeMode)
-                    if (state.isOwner) SettingsMenu(onLogout = viewModel::logout)
+                    if (state.isOwner) {
+                        IconButton(onClick = onOpenSettings) { Icon(Icons.Outlined.Settings, contentDescription = "Account settings") }
+                    }
                 },
             )
         },
@@ -569,24 +571,6 @@ private val ThemeMode.icon: ImageVector
     }
 
 /** Account settings (username, email, password, 2FA) come in a later milestone; logout for now. */
-@Composable
-private fun SettingsMenu(onLogout: () -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        IconButton(onClick = { expanded = true }) { Icon(Icons.Outlined.Settings, contentDescription = "Settings") }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text("Log out", color = MaterialTheme.colorScheme.error) },
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Logout, null, tint = MaterialTheme.colorScheme.error) },
-                onClick = {
-                    expanded = false
-                    onLogout()
-                },
-            )
-        }
-    }
-}
-
 @Composable
 private fun ProfileDialogs(state: ProfileUiState, viewModel: ProfileViewModel) {
     val edits = state.edits

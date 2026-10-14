@@ -434,10 +434,6 @@ class ProfileViewModel(
         viewModelScope.launch { settingsStore.setThemeMode(mode) }
     }
 
-    fun logout() {
-        viewModelScope.launch { sessionManager.logout() }
-    }
-
     private fun updateEdits(transform: (ProfileEdits) -> ProfileEdits) =
         _state.update { it.copy(edits = transform(it.edits)) }
 

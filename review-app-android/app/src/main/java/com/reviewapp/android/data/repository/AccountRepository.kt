@@ -36,7 +36,15 @@ class AccountRepository(
         _verificationBannerDismissed.value = true
     }
 
-    suspend fun status(): ApiResult<SecurityStatus> = apiCall { securityApi.getStatus() }.map { it.toDomain() }
+    /** Also updates the cached user's verified flag, so the verification banner follows it. */
+    suspend fun status(): ApiResult<SecurityStatus> {
+        val result = apiCall { securityApi.getStatus() }.map { it.toDomain() }
+        if (result is ApiResult.Success) {
+            val confirmed = result.data.isEmailConfirmed
+            sessionManager.updateUser { if (it.isEmailConfirmed == confirmed) it else it.copy(isEmailConfirmed = confirmed) }
+        }
+        return result
+    }
 
     suspend fun changeUsername(username: String): ApiResult<Unit> {
         val trimmed = username.trim()
