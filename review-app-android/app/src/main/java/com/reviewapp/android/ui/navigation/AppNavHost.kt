@@ -41,6 +41,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navDeepLink
 import com.reviewapp.android.domain.model.Media
 import com.reviewapp.android.domain.model.MediaType
 import com.reviewapp.android.ui.auth.LoginScreen
@@ -52,6 +53,7 @@ import com.reviewapp.android.ui.home.HomeScreen
 import com.reviewapp.android.ui.media.MediaDetailsScreen
 import com.reviewapp.android.ui.profile.FollowListScreen
 import com.reviewapp.android.ui.profile.ProfileScreen
+import com.reviewapp.android.ui.review.ReviewScreen
 import com.reviewapp.android.ui.review.WriteReviewScreen
 import com.reviewapp.android.ui.search.SearchScreen
 import com.reviewapp.android.ui.usersearch.UserSearchScreen
@@ -152,14 +154,18 @@ private fun AppNavHost(navController: NavHostController, modifier: Modifier) {
     val goToLogin: () -> Unit = { navController.navigate(LoginRoute) { launchSingleTop = true } }
     val openProfile: (String) -> Unit = { username -> navController.navigate(ProfileRoute(username)) }
     val goBack: () -> Unit = { navController.popBackStack() }
+    val openMediaById: (MediaType, String) -> Unit = { type, id -> navController.navigate(MediaDetailsRoute(type.id, id)) }
+    val editReview: (MediaType, String) -> Unit = { type, id -> navController.navigate(WriteReviewRoute(type.id, id)) }
+    val openReview: (Int) -> Unit = { id -> navController.navigate(ReviewRoute(id)) }
 
     // A profile is the Profile tab (no username, no back button) or any user's page
     @Composable
     fun Profile(onBack: (() -> Unit)?) = ProfileScreen(
         onBack = onBack,
         onLogin = goToLogin,
-        onOpenMedia = { type, id -> navController.navigate(MediaDetailsRoute(type.id, id)) },
-        onEditReview = { type, id -> navController.navigate(WriteReviewRoute(type.id, id)) },
+        onOpenMedia = openMediaById,
+        onEditReview = editReview,
+        onOpenReview = openReview,
         onOpenFollowList = { username, following -> navController.navigate(FollowListRoute(username, following)) },
         onOpenCollection = { id -> navController.navigate(CollectionRoute(id)) },
     )
@@ -169,9 +175,8 @@ private fun AppNavHost(navController: NavHostController, modifier: Modifier) {
             HomeScreen(
                 onSearch = { query -> navController.navigate(SearchRoute(query)) },
                 onOpenMedia = openMedia,
-                onOpenReview = { review ->
-                    navController.navigate(MediaDetailsRoute(review.mediaType.id, review.externalApiId))
-                },
+                onOpenReview = { review -> openReview(review.id) },
+                onOpenReviewMedia = { review -> openMediaById(review.mediaType, review.externalApiId) },
                 onOpenProfile = openProfile,
                 onOpenUserSearch = { navController.navigate(UserSearchRoute) },
             )
@@ -187,9 +192,22 @@ private fun AppNavHost(navController: NavHostController, modifier: Modifier) {
         composable<MediaDetailsRoute> {
             MediaDetailsScreen(
                 onBack = goBack,
-                onWriteReview = { type, id -> navController.navigate(WriteReviewRoute(type.id, id)) },
+                onWriteReview = editReview,
                 onLoginRequired = goToLogin,
                 onOpenProfile = openProfile,
+                onOpenReview = openReview,
+            )
+        }
+        composable<ReviewRoute>(
+            // e.g. adb shell am start -d "reviewapp://review/12?replyId=34"
+            deepLinks = listOf(navDeepLink<ReviewRoute>(basePath = "reviewapp://review")),
+        ) {
+            ReviewScreen(
+                onBack = goBack,
+                onLogin = goToLogin,
+                onOpenProfile = openProfile,
+                onOpenMedia = openMediaById,
+                onEditReview = editReview,
             )
         }
         composable<ProfileRoute> { Profile(onBack = goBack) }

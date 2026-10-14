@@ -12,6 +12,7 @@ import com.reviewapp.android.data.AuthState
 import com.reviewapp.android.data.SessionManager
 import com.reviewapp.android.data.remote.ApiResult
 import com.reviewapp.android.data.repository.MediaRepository
+import com.reviewapp.android.data.repository.ReplyRepository
 import com.reviewapp.android.data.repository.ReviewFilter
 import com.reviewapp.android.data.repository.ReviewRepository
 import com.reviewapp.android.di.appContainer
@@ -52,6 +53,7 @@ class MediaDetailsViewModel(
     savedStateHandle: SavedStateHandle,
     private val mediaRepository: MediaRepository,
     private val reviewRepository: ReviewRepository,
+    replyRepository: ReplyRepository,
     sessionManager: SessionManager,
 ) : ViewModel() {
 
@@ -97,6 +99,13 @@ class MediaDetailsViewModel(
                 change.message?.let { _messages.send(it) }
             }
         }
+
+        viewModelScope.launch {
+            // Replies written on the review page update the counts without a reload
+            replyRepository.replyCountChanges.collect { change ->
+                reviewsLoader.update(change.reviewId) { it.copy(replyCount = (it.replyCount + change.delta).coerceAtLeast(0)) }
+            }
+        }
     }
 
     fun loadMedia() {
@@ -136,7 +145,9 @@ class MediaDetailsViewModel(
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val c = appContainer()
-                MediaDetailsViewModel(createSavedStateHandle(), c.mediaRepository, c.reviewRepository, c.sessionManager)
+                MediaDetailsViewModel(
+                    createSavedStateHandle(), c.mediaRepository, c.reviewRepository, c.replyRepository, c.sessionManager,
+                )
             }
         }
     }

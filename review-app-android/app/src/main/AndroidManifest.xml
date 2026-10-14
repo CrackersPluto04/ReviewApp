@@ -27,6 +27,15 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- reviewapp://review/{reviewId}?replyId={replyId}, handled by the navigation graph -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="reviewapp" android:host="review" />
+            </intent-filter>
         </activity>
     </application>
 

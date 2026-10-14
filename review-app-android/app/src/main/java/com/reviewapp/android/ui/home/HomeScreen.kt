@@ -49,6 +49,7 @@ fun HomeScreen(
     onSearch: (String) -> Unit,
     onOpenMedia: (Media) -> Unit,
     onOpenReview: (FeedReview) -> Unit,
+    onOpenReviewMedia: (FeedReview) -> Unit,
     onOpenProfile: (String) -> Unit,
     onOpenUserSearch: () -> Unit,
     viewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory),
@@ -108,6 +109,7 @@ fun HomeScreen(
                         FeedReviewCard(
                             review = review,
                             onClick = { onOpenReview(review) },
+                            onOpenMedia = { onOpenReviewMedia(review) },
                             onOpenProfile = onOpenProfile,
                             modifier = Modifier.padding(horizontal = 16.dp),
                         )

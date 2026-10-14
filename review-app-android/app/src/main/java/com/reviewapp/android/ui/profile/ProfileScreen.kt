@@ -110,6 +110,7 @@ fun ProfileScreen(
     onLogin: () -> Unit,
     onOpenMedia: (MediaType, String) -> Unit,
     onEditReview: (MediaType, String) -> Unit,
+    onOpenReview: (Int) -> Unit,
     onOpenFollowList: (username: String, following: Boolean) -> Unit,
     onOpenCollection: (Int) -> Unit,
     viewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory),
@@ -220,6 +221,7 @@ fun ProfileScreen(
                         filterIsDefault = state.reviewFilter.isDefault,
                         onOpenMedia = onOpenMedia,
                         onEditReview = onEditReview,
+                        onOpenReview = onOpenReview,
                         viewModel = viewModel,
                     )
                     ProfileTab.Collections -> collectionItems(state.collections, viewModel::retryCollections, onOpenCollection)
@@ -246,6 +248,7 @@ private fun LazyListScope.reviewItems(
     filterIsDefault: Boolean,
     onOpenMedia: (MediaType, String) -> Unit,
     onEditReview: (MediaType, String) -> Unit,
+    onOpenReview: (Int) -> Unit,
     viewModel: ProfileViewModel,
 ) {
     when {
@@ -258,6 +261,7 @@ private fun LazyListScope.reviewItems(
             items(reviews.items, key = { "review-${it.id}" }) { review ->
                 ProfileReviewCard(
                     review = review,
+                    onClick = { onOpenReview(review.id) },
                     onOpenMedia = { onOpenMedia(review.mediaType, review.externalApiId) },
                     onEdit = { onEditReview(review.mediaType, review.externalApiId) },
                     onDelete = { viewModel.askDeleteReview(review) },
