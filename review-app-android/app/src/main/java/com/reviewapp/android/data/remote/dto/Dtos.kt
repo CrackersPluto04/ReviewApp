@@ -1,5 +1,10 @@
 package com.reviewapp.android.data.remote.dto
 
+import com.reviewapp.android.domain.model.Achievement
+import com.reviewapp.android.domain.model.AchievementCategory
+import com.reviewapp.android.domain.model.AchievementTier
+import com.reviewapp.android.domain.model.AchievementTierInfo
+import com.reviewapp.android.domain.model.AppNotification
 import com.reviewapp.android.domain.model.AuthUser
 import com.reviewapp.android.domain.model.CollectionDetails
 import com.reviewapp.android.domain.model.CollectionItem
@@ -8,6 +13,8 @@ import com.reviewapp.android.domain.model.Media
 import com.reviewapp.android.domain.model.MediaCollection
 import com.reviewapp.android.domain.model.MediaReview
 import com.reviewapp.android.domain.model.MediaType
+import com.reviewapp.android.domain.model.NotificationPage
+import com.reviewapp.android.domain.model.NotificationType
 import com.reviewapp.android.domain.model.Page
 import com.reviewapp.android.domain.model.ProfileReview
 import com.reviewapp.android.domain.model.Reply
@@ -16,6 +23,7 @@ import com.reviewapp.android.domain.model.ReplyPage
 import com.reviewapp.android.domain.model.ReviewDetail
 import com.reviewapp.android.domain.model.ReviewDraft
 import com.reviewapp.android.domain.model.ScoreStats
+import com.reviewapp.android.domain.model.UnlockedAchievement
 import com.reviewapp.android.domain.model.UserProfile
 import com.reviewapp.android.domain.model.UserSummary
 import com.reviewapp.android.domain.model.Visibility
@@ -411,3 +419,90 @@ data class CreateReplyRequest(
     @SerialName("parentReplyID") val parentReplyId: Int?,
     val content: String,
 )
+
+// Notifications
+
+/** `type` is the enum's name (`ReviewReply`, ...), `createdAt` an ISO instant in UTC. */
+@Serializable
+data class NotificationDto(
+    val id: Int,
+    val type: String = "",
+    val title: String = "",
+    val message: String = "",
+    val isSeen: Boolean = false,
+    val createdAt: String = "",
+    val actorUsername: String? = null,
+    val actorProfilePictureUrl: String? = null,
+    @SerialName("reviewID") val reviewId: Int? = null,
+    @SerialName("replyID") val replyId: Int? = null,
+    val groupCode: String? = null,
+) {
+    fun toDomain() = AppNotification(
+        id = id,
+        type = NotificationType.fromName(type),
+        title = title,
+        message = message,
+        isSeen = isSeen,
+        createdAt = createdAt,
+        actorUsername = actorUsername?.takeIf { it.isNotBlank() },
+        actorProfilePictureUrl = actorProfilePictureUrl?.takeIf { it.isNotBlank() },
+        reviewId = reviewId,
+        replyId = replyId,
+        groupCode = groupCode,
+    )
+}
+
+/** Keyset page: send the last item's id as `afterId` for the next one. */
+@Serializable
+data class NotificationPageDto(
+    val items: List<NotificationDto> = emptyList(),
+    val hasMore: Boolean = false,
+    val totalCount: Int = 0,
+    val unseenCount: Int = 0,
+) {
+    fun toDomain() = NotificationPage(items.map { it.toDomain() }, hasMore, totalCount, unseenCount)
+}
+
+@Serializable
+data class UnseenCountDto(val count: Int = 0)
+
+@Serializable
+data class SetSeenRequest(val isSeen: Boolean)
+
+// Achievements
+
+@Serializable
+data class AchievementTierDto(
+    val tier: String = "",
+    val description: String = "",
+    val targetValue: Int = 0,
+    val isUnlocked: Boolean = false,
+) {
+    fun toDomain() = AchievementTierInfo(AchievementTier.fromName(tier), description, targetValue, isUnlocked)
+}
+
+/** One card with all of its tiers; `categories` are the flag names (`Movie`, `Review`, ...). */
+@Serializable
+data class AchievementDto(
+    val groupCode: String,
+    val title: String = "",
+    val iconKey: String = "",
+    val categories: List<String> = emptyList(),
+    val currentProgress: Int = 0,
+    val tiers: List<AchievementTierDto> = emptyList(),
+) {
+    fun toDomain() = Achievement(
+        groupCode = groupCode,
+        title = title,
+        iconKey = iconKey,
+        categories = categories.mapNotNullTo(LinkedHashSet()) { AchievementCategory.fromName(it) },
+        currentProgress = currentProgress,
+        tiers = tiers.map { it.toDomain() },
+    )
+}
+
+/** An item of the `X-Unlocked-Achievements` response header (a JSON array). */
+@Serializable
+data class UnlockedAchievementDto(val groupCode: String = "", val title: String = "", val tier: String = "") {
+    fun toDomain() = UnlockedAchievement(groupCode, title, AchievementTier.fromName(tier))
+}

@@ -1,6 +1,8 @@
 package com.reviewapp.android.util
 
 import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
@@ -47,3 +49,18 @@ fun isDifferentDay(first: String, second: String): Boolean = first.take(10) != s
 
 fun pluralize(count: Int, singular: String, plural: String = singular + "s") =
     "$count ${if (count == 1) singular else plural}"
+
+private val displayDateTimeFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+
+/**
+ * Formats an ISO instant (e.g. a notification's `2026-10-14T12:34:56.1234567Z`) as a local date
+ * and time. Anything without a time zone goes through [formatDate].
+ */
+fun formatDateTime(raw: String?, zone: ZoneId = ZoneId.systemDefault()): String? {
+    if (raw.isNullOrBlank()) return null
+    return try {
+        OffsetDateTime.parse(raw).atZoneSameInstant(zone).format(displayDateTimeFormatter)
+    } catch (_: Exception) {
+        formatDate(raw)
+    }
+}

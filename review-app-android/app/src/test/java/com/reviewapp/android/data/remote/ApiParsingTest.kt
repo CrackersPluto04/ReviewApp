@@ -1,5 +1,6 @@
 package com.reviewapp.android.data.remote
 
+import com.reviewapp.android.data.remote.dto.AchievementDto
 import com.reviewapp.android.data.remote.dto.AddMediaRequest
 import com.reviewapp.android.data.remote.dto.CollectionMembershipDto
 import com.reviewapp.android.data.remote.dto.CollectionWithMediasDto
@@ -7,6 +8,7 @@ import com.reviewapp.android.data.remote.dto.CreateReplyRequest
 import com.reviewapp.android.data.remote.dto.LoginResponse
 import com.reviewapp.android.data.remote.dto.MediaDto
 import com.reviewapp.android.data.remote.dto.MediaReviewDto
+import com.reviewapp.android.data.remote.dto.NotificationPageDto
 import com.reviewapp.android.data.remote.dto.PagedResponse
 import com.reviewapp.android.data.remote.dto.ProfileReviewDto
 import com.reviewapp.android.data.remote.dto.ReorderMediaRequest
@@ -16,13 +18,20 @@ import com.reviewapp.android.data.remote.dto.ReviewCheckResponse
 import com.reviewapp.android.data.remote.dto.ReviewDetailDto
 import com.reviewapp.android.data.remote.dto.ReviewDto
 import com.reviewapp.android.data.remote.dto.ReviewMediaRequest
+import com.reviewapp.android.data.remote.dto.SetSeenRequest
+import com.reviewapp.android.data.remote.dto.UnseenCountDto
 import com.reviewapp.android.data.remote.dto.UpdateCollectionRequest
 import com.reviewapp.android.data.remote.dto.UserCompactDto
 import com.reviewapp.android.data.remote.dto.UserProfileDto
 import com.reviewapp.android.data.remote.dto.UserUpdateRequest
 import com.reviewapp.android.data.remote.dto.toDto
+import com.reviewapp.android.data.repository.AchievementRepository
+import com.reviewapp.android.domain.model.AchievementCategory
+import com.reviewapp.android.domain.model.AchievementTier
 import com.reviewapp.android.domain.model.MediaType
+import com.reviewapp.android.domain.model.NotificationType
 import com.reviewapp.android.domain.model.ReviewDraft
+import com.reviewapp.android.domain.model.UnlockedAchievement
 import com.reviewapp.android.domain.model.Visibility
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.jsonObject
@@ -273,6 +282,81 @@ class ApiParsingTest {
             """{"reviewID":7,"parentReplyID":3,"content":"Hi"}""",
             json.encodeToString(CreateReplyRequest.serializer(), CreateReplyRequest(7, 3, "Hi")),
         )
+    }
+
+    @Test
+    fun notificationPage_parsesEveryTypeAndApiCasing() {
+        val page = json.decodeFromString<NotificationPageDto>(
+            """{"items":[
+                {"id":9,"type":"ReplyReply","title":"New reply to your reply","message":"bob replied:\n\"hi\"",
+                 "isSeen":false,"createdAt":"2026-10-14T12:34:56.1234567Z","actorUsername":"bob",
+                 "actorProfilePictureUrl":"","reviewID":12,"replyID":34,"groupCode":null},
+                {"id":8,"type":"AchievementUnlocked","title":"Achievement unlocked","message":"You earned...",
+                 "isSeen":true,"createdAt":"2026-10-13T08:00:00Z","actorUsername":null,
+                 "actorProfilePictureUrl":null,"reviewID":null,"replyID":null,"groupCode":"CRITIC"},
+                {"id":7,"type":"SomethingNew","title":"?","message":"","isSeen":true,"createdAt":"2026-10-12T08:00:00Z"}
+               ],"hasMore":true,"totalCount":41,"unseenCount":5}""",
+        ).toDomain()
+
+        assertEquals(listOf(9, 8, 7), page.items.map { it.id })
+        assertTrue(page.hasMore)
+        assertEquals(41, page.totalCount)
+        assertEquals(5, page.unseenCount)
+
+        val reply = page.items[0]
+        assertEquals(NotificationType.ReplyReply, reply.type)
+        assertEquals(12, reply.reviewId)
+        assertEquals(34, reply.replyId)
+        assertEquals("bob", reply.actorUsername)
+        // A blank picture is treated as none
+        assertNull(reply.actorProfilePictureUrl)
+        assertEquals("bob replied:\n\"hi\"", reply.message)
+
+        val unlock = page.items[1]
+        assertEquals(NotificationType.AchievementUnlocked, unlock.type)
+        assertEquals("CRITIC", unlock.groupCode)
+        assertNull(unlock.actorUsername)
+        // Unknown types are shown as system messages
+        assertEquals(NotificationType.System, page.items[2].type)
+    }
+
+    @Test
+    fun notificationRequests_matchApi() {
+        assertEquals(7, json.decodeFromString<UnseenCountDto>("""{"count":7}""").count)
+        assertEquals("""{"isSeen":false}""", json.encodeToString(SetSeenRequest.serializer(), SetSeenRequest(false)))
+    }
+
+    @Test
+    fun achievements_parseStringTiersAndCategories() {
+        val achievement = json.decodeFromString<List<AchievementDto>>(
+            """[{"groupCode":"MOVIE_MASTER","title":"Movie Master","iconKey":"movie-master",
+                 "categories":["Movie","Review","Future"],"currentProgress":12,
+                 "tiers":[{"tier":"Bronze","description":"Review 1 movie.","targetValue":1,"isUnlocked":true},
+                          {"tier":"Silver","description":"Review 10 movies.","targetValue":10,"isUnlocked":true},
+                          {"tier":"Gold","description":"Review 50 movies.","targetValue":50,"isUnlocked":false}]}]""",
+        ).single().toDomain()
+
+        assertEquals("movie-master", achievement.iconKey)
+        // Unknown categories are dropped
+        assertEquals(setOf(AchievementCategory.Movie, AchievementCategory.Review), achievement.categories)
+        assertEquals(listOf(AchievementTier.Bronze, AchievementTier.Silver, AchievementTier.Gold), achievement.tiers.map { it.tier })
+        assertEquals(2, achievement.unlockedCount)
+        assertEquals(50, achievement.nextTier?.targetValue)
+    }
+
+    @Test
+    fun unlockHeader_parsesArrayAndRejectsGarbage() {
+        val unlocked = AchievementRepository.parseUnlockHeader(
+            """[{"groupCode":"CRITIC","title":"Critic","tier":"Bronze"},{"groupCode":"CURATOR","title":"Curátor","tier":"Gold"}]""",
+        )!!
+        assertEquals(
+            listOf(
+                UnlockedAchievement("CRITIC", "Critic", AchievementTier.Bronze),
+                UnlockedAchievement("CURATOR", "Curátor", AchievementTier.Gold),
+            ),
+            unlocked,
+        )
+        assertNull(AchievementRepository.parseUnlockHeader("not json"))
     }
 
     @Test
