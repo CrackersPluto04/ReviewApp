@@ -23,7 +23,6 @@ import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -245,12 +244,9 @@ private fun VerificationItem(state: AccountSettingsUiState, status: SecurityStat
 
 @Composable
 private fun PendingEmailCard(pendingEmail: String, enabled: Boolean, onCancel: () -> Unit) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-    ) {
+    Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
         Row(Modifier.padding(start = 16.dp, top = 12.dp, end = 8.dp, bottom = 4.dp)) {
-            Icon(Icons.Outlined.Info, contentDescription = null, modifier = Modifier.padding(top = 2.dp, end = 12.dp))
+            Icon(Icons.Outlined.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp, end = 12.dp))
             Text(
                 buildAnnotatedString {
                     append("Change to ")

@@ -43,6 +43,8 @@ import com.reviewapp.android.ui.components.PosterTile
 import com.reviewapp.android.ui.components.SearchField
 import com.reviewapp.android.ui.components.SectionTitle
 import com.reviewapp.android.ui.notifications.NotificationBell
+import com.reviewapp.android.ui.settings.EmailVerificationBanner
+import com.reviewapp.android.ui.settings.VerificationBannerViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,8 +59,10 @@ fun HomeScreen(
     unseenNotifications: Int?,
     onOpenNotifications: () -> Unit,
     viewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory),
+    bannerViewModel: VerificationBannerViewModel = viewModel(factory = VerificationBannerViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val banner by bannerViewModel.state.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
 
     Scaffold(
@@ -84,6 +88,11 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
+                if (banner.visible) {
+                    item(key = "verify-email") {
+                        EmailVerificationBanner(bannerViewModel, Modifier.padding(horizontal = 16.dp).padding(top = 8.dp))
+                    }
+                }
                 item {
                     Text(
                         "Welcome to THE Review App!",

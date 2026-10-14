@@ -95,6 +95,8 @@ import com.reviewapp.android.ui.components.ReviewsTitle
 import com.reviewapp.android.ui.components.ScoreRangeSheet
 import com.reviewapp.android.ui.components.UserAvatar
 import com.reviewapp.android.ui.components.icon
+import com.reviewapp.android.ui.settings.EmailVerificationBanner
+import com.reviewapp.android.ui.settings.VerificationBannerViewModel
 import com.reviewapp.android.util.AchievementFilter
 import com.reviewapp.android.util.DiscoverOptions
 import com.reviewapp.android.util.Validation
@@ -119,8 +121,10 @@ fun ProfileScreen(
     onOpenCollection: (Int) -> Unit,
     onOpenSettings: () -> Unit,
     viewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory),
+    bannerViewModel: VerificationBannerViewModel = viewModel(factory = VerificationBannerViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val banner by bannerViewModel.state.collectAsStateWithLifecycle()
     val reviews by viewModel.reviews.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -188,6 +192,11 @@ fun ProfileScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = modifier,
             ) {
+                if (state.isOwner && banner.visible) {
+                    item(key = "verify-email") {
+                        EmailVerificationBanner(bannerViewModel, Modifier.padding(horizontal = 16.dp).padding(top = 8.dp))
+                    }
+                }
                 item(key = "header") {
                     ProfileHeader(
                         profile = profile,
