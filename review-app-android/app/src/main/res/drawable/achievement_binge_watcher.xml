@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Converted from review-app/public/achievements/binge-watcher.svg, keep the two in sync -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <path android:pathData="M48,2 A46,46 0 1,1 48,94 A46,46 0 1,1 48,2 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="2"
+                android:startY="2"
+                android:endX="94"
+                android:endY="94">
+                <item android:offset="0" android:color="#5E35B1" />
+                <item android:offset="1" android:color="#280680" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:pathData="M48,8 A40,40 0 1,1 48,88 A40,40 0 1,1 48,8 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.35"
+        android:strokeWidth="2" />
+    <path
+        android:pathData="M26,32 H70 A4,4 0 0 1 74,36 V62 A4,4 0 0 1 70,66 H26 A4,4 0 0 1 22,62 V36 A4,4 0 0 1 26,32 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M38,76 L58,76"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M40,20 L48,30 L56,20"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M43,41 L56,49 L43,57 Z"
+        android:fillColor="#FFFFFF" />
+</vector>

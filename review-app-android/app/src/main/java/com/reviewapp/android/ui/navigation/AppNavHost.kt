@@ -1,7 +1,9 @@
 package com.reviewapp.android.ui.navigation
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -32,6 +34,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -48,6 +51,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navDeepLink
 import com.reviewapp.android.domain.model.Media
 import com.reviewapp.android.domain.model.MediaType
+import com.reviewapp.android.ui.achievements.UnlockBannerHost
 import com.reviewapp.android.ui.auth.LoginScreen
 import com.reviewapp.android.ui.collection.CollectionActionsHost
 import com.reviewapp.android.ui.collection.CollectionScreen
@@ -61,6 +65,7 @@ import com.reviewapp.android.ui.notifications.NotificationTarget
 import com.reviewapp.android.ui.notifications.NotificationsScreen
 import com.reviewapp.android.ui.profile.FollowListScreen
 import com.reviewapp.android.ui.profile.ProfileScreen
+import com.reviewapp.android.ui.profile.ProfileTab
 import com.reviewapp.android.ui.review.ReviewScreen
 import com.reviewapp.android.ui.review.WriteReviewScreen
 import com.reviewapp.android.ui.search.SearchScreen
@@ -149,6 +154,15 @@ fun ReviewAppRoot() {
                 unseenNotifications,
                 // Consuming the bottom bar's padding stops the inner Scaffolds adding the system bar inset again
                 Modifier.padding(padding).consumeWindowInsets(padding),
+            )
+        }
+        // Over every screen, unlocks can come from any request
+        Box(Modifier.fillMaxWidth()) {
+            UnlockBannerHost(
+                onOpenAchievements = { username ->
+                    navController.navigate(ProfileRoute(username, ProfileTab.Achievements.name))
+                },
+                modifier = Modifier.align(Alignment.TopCenter),
             )
         }
     }
@@ -246,7 +260,7 @@ private fun AppNavHost(navController: NavHostController, unseenNotifications: In
                         when (target) {
                             is NotificationTarget.Review -> ReviewRoute(target.reviewId, target.replyId)
                             is NotificationTarget.Profile -> ProfileRoute(target.username)
-                            is NotificationTarget.Achievements -> ProfileRoute(target.username, tab = "Achievements")
+                            is NotificationTarget.Achievements -> ProfileRoute(target.username, ProfileTab.Achievements.name)
                         },
                     )
                 },

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Converted from review-app/public/achievements/conversation-starter.svg, keep the two in sync -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <path android:pathData="M48,2 A46,46 0 1,1 48,94 A46,46 0 1,1 48,2 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="2"
+                android:startY="2"
+                android:endX="94"
+                android:endY="94">
+                <item android:offset="0" android:color="#1E88E5" />
+                <item android:offset="1" android:color="#0D3C91" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:pathData="M48,8 A40,40 0 1,1 48,88 A40,40 0 1,1 48,8 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.35"
+        android:strokeWidth="2" />
+    <path
+        android:pathData="M22,28 h34 a4,4 0 0 1 4,4 v18 a4,4 0 0 1 -4,4 h-20 l-9,8 v-8 h-5 a4,4 0 0 1 -4,-4 v-18 a4,4 0 0 1 4,-4 z"
+        android:fillColor="#FFFFFF" />
+    <path
+        android:pathData="M64,40 h6 a4,4 0 0 1 4,4 v16 a4,4 0 0 1 -4,4 h-3 v7 l-8,-7 h-14 a4,4 0 0 1 -4,-4 v-2"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

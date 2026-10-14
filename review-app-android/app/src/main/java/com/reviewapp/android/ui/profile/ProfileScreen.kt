@@ -77,6 +77,8 @@ import com.reviewapp.android.domain.model.MediaType
 import com.reviewapp.android.domain.model.ProfileReview
 import com.reviewapp.android.domain.model.UserProfile
 import com.reviewapp.android.ui.PagedList
+import com.reviewapp.android.ui.achievements.AchievementFilterChips
+import com.reviewapp.android.ui.achievements.AchievementRow
 import com.reviewapp.android.ui.collection.CollectionFormDialog
 import com.reviewapp.android.ui.collection.FavouriteRed
 import com.reviewapp.android.ui.components.BackButton
@@ -94,14 +96,17 @@ import com.reviewapp.android.ui.components.ReviewsTitle
 import com.reviewapp.android.ui.components.ScoreRangeSheet
 import com.reviewapp.android.ui.components.UserAvatar
 import com.reviewapp.android.ui.components.icon
+import com.reviewapp.android.util.AchievementFilter
 import com.reviewapp.android.util.DiscoverOptions
 import com.reviewapp.android.util.Validation
 import com.reviewapp.android.util.formatDate
+import com.reviewapp.android.util.earnedTiers
 import com.reviewapp.android.util.pluralize
+import com.reviewapp.android.util.totalTiers
 
 /**
- * A user's profile (the web's `ProfileLayout` with the Reviews and Collections tabs). Also the
- * Profile tab, where it shows the logged-in user or a login prompt.
+ * A user's profile (the web's `ProfileLayout` with the Reviews, Collections and Achievements tabs).
+ * Also the Profile tab, where it shows the logged-in user or a login prompt.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -213,6 +218,7 @@ fun ProfileScreen(
                         onOpenScoreFilter = { showScoreSheet = true },
                         onSortCollections = viewModel::updateCollectionSort,
                         onCreateCollection = { viewModel.showCreateCollection(true) },
+                        onAchievementFilterChange = viewModel::updateAchievementFilter,
                     )
                 }
                 when (state.tab) {
@@ -225,6 +231,11 @@ fun ProfileScreen(
                         viewModel = viewModel,
                     )
                     ProfileTab.Collections -> collectionItems(state.collections, viewModel::retryCollections, onOpenCollection)
+                    ProfileTab.Achievements -> achievementItems(
+                        state.achievements,
+                        onRetry = viewModel::retryAchievements,
+                        onResetFilter = { viewModel.updateAchievementFilter(AchievementFilter()) },
+                    )
                 }
             }
         }
@@ -284,6 +295,29 @@ private fun LazyListScope.collectionItems(
         collections.items.isEmpty() -> item { EmptyState("No collections yet.") }
         else -> items(collections.items, key = { "collection-${it.id}" }) { collection ->
             CollectionCard(collection, onClick = { onOpenCollection(collection.id) })
+        }
+    }
+}
+
+private fun LazyListScope.achievementItems(
+    achievements: AchievementsState,
+    onRetry: () -> Unit,
+    onResetFilter: () -> Unit,
+) {
+    val shown = achievements.shown
+    when {
+        achievements.items.isEmpty() && (achievements.isLoading || !achievements.loaded && achievements.error == null) ->
+            item { LoadingState() }
+        achievements.items.isEmpty() && achievements.error != null -> item { ErrorState(achievements.error, onRetry) }
+        achievements.items.isEmpty() -> item { EmptyState("No achievements yet.") }
+        shown.isEmpty() -> item {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                EmptyState("No achievements match these filters.")
+                OutlinedButton(onClick = onResetFilter) { Text("Reset filters") }
+            }
+        }
+        else -> items(shown, key = { "achievement-${it.groupCode}" }) { achievement ->
+            AchievementRow(achievement, Modifier.padding(horizontal = 16.dp).animateItem())
         }
     }
 }
@@ -421,6 +455,7 @@ private fun TabsHeader(
     onOpenScoreFilter: () -> Unit,
     onSortCollections: (String) -> Unit,
     onCreateCollection: () -> Unit,
+    onAchievementFilterChange: (AchievementFilter) -> Unit,
 ) {
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -457,6 +492,17 @@ private fun TabsHeader(
                             Icon(Icons.Filled.Add, contentDescription = "New collection")
                         }
                     }
+                }
+                ProfileTab.Achievements -> {
+                    val items = state.achievements.items
+                    if (items.isNotEmpty()) {
+                        Text(
+                            "${earnedTiers(items)} of ${totalTiers(items)} tiers earned",
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        )
+                    }
+                    AchievementFilterChips(state.achievements.filter, onAchievementFilterChange)
                 }
             }
         }

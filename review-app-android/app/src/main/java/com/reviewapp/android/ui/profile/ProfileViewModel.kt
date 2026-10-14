@@ -11,12 +11,14 @@ import com.reviewapp.android.data.SessionManager
 import com.reviewapp.android.data.local.SettingsStore
 import com.reviewapp.android.data.local.ThemeMode
 import com.reviewapp.android.data.remote.ApiResult
+import com.reviewapp.android.data.repository.AchievementRepository
 import com.reviewapp.android.data.repository.CollectionRepository
 import com.reviewapp.android.data.repository.ReplyRepository
 import com.reviewapp.android.data.repository.ReviewFilter
 import com.reviewapp.android.data.repository.ReviewRepository
 import com.reviewapp.android.data.repository.UserRepository
 import com.reviewapp.android.di.appContainer
+import com.reviewapp.android.domain.model.Achievement
 import com.reviewapp.android.domain.model.MediaCollection
 import com.reviewapp.android.domain.model.ProfileReview
 import com.reviewapp.android.domain.model.UserProfile
@@ -24,6 +26,7 @@ import com.reviewapp.android.domain.model.Visibility
 import com.reviewapp.android.ui.PagedList
 import com.reviewapp.android.ui.PagedLoader
 import com.reviewapp.android.ui.navigation.ProfileRoute
+import com.reviewapp.android.util.AchievementFilter
 import com.reviewapp.android.util.DiscoverOptions
 import com.reviewapp.android.util.Validation
 import kotlinx.coroutines.Job
@@ -38,7 +41,24 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class ProfileTab(val label: String) { Reviews("Reviews"), Collections("Collections") }
+enum class ProfileTab(val label: String) {
+    Reviews("Reviews"), Collections("Collections"), Achievements("Achievements");
+
+    companion object {
+        fun fromName(name: String?): ProfileTab? = entries.firstOrNull { it.name == name }
+    }
+}
+
+/** Loaded the first time the tab is opened; filtered and sorted locally like on the web. */
+data class AchievementsState(
+    val items: List<Achievement> = emptyList(),
+    val filter: AchievementFilter = AchievementFilter(),
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val loaded: Boolean = false,
+) {
+    val shown: List<Achievement> get() = filter.apply(items)
+}
 
 data class CollectionsState(
     val items: List<MediaCollection> = emptyList(),
@@ -73,6 +93,7 @@ data class ProfileUiState(
     val tab: ProfileTab = ProfileTab.Reviews,
     val reviewFilter: ReviewFilter = ReviewFilter(),
     val collections: CollectionsState = CollectionsState(),
+    val achievements: AchievementsState = AchievementsState(),
     val isFollowBusy: Boolean = false,
     val edits: ProfileEdits = ProfileEdits(),
 ) {
@@ -85,20 +106,23 @@ sealed interface ProfileEvent {
 }
 
 /**
- * A user's profile with the Reviews and Collections tabs. [fixedUsername] is the route's user; when
- * it's null (the Profile tab) it follows the logged-in user and shows a login prompt when logged out.
+ * A user's profile with the Reviews, Collections and Achievements tabs. [fixedUsername] is the route's
+ * user; when it's null (the Profile tab) it follows the logged-in user and shows a login prompt when
+ * logged out. [initialTab] opens the profile on that tab (e.g. from an achievement notification).
  */
 class ProfileViewModel(
     private val fixedUsername: String?,
+    initialTab: ProfileTab?,
     private val sessionManager: SessionManager,
     private val userRepository: UserRepository,
     private val reviewRepository: ReviewRepository,
     private val collectionRepository: CollectionRepository,
     private val replyRepository: ReplyRepository,
+    private val achievementRepository: AchievementRepository,
     private val settingsStore: SettingsStore,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(ProfileUiState())
+    private val _state = MutableStateFlow(ProfileUiState(tab = initialTab ?: ProfileTab.Reviews))
     val state: StateFlow<ProfileUiState> = _state.asStateFlow()
 
     val themeMode: StateFlow<ThemeMode> = settingsStore.themeMode
@@ -117,6 +141,7 @@ class ProfileViewModel(
 
     private var profileJob: Job? = null
     private var collectionsJob: Job? = null
+    private var achievementsJob: Job? = null
 
     init {
         // What the profile shows depends on who is looking (follow state, private/followers-only
@@ -148,6 +173,12 @@ class ProfileViewModel(
                 reviewsLoader.update(change.reviewId) { it.copy(replyCount = (it.replyCount + change.delta).coerceAtLeast(0)) }
             }
         }
+        viewModelScope.launch {
+            // The owner just earned a tier (the unlock banner shows it), refresh the progress
+            achievementRepository.unlocks.collect {
+                if (_state.value.isOwner && _state.value.achievements.loaded) loadAchievements()
+            }
+        }
     }
 
     private val AuthState.userId: Int? get() = (this as? AuthState.LoggedIn)?.user?.id
@@ -165,6 +196,7 @@ class ProfileViewModel(
                 username = null
                 profileJob?.cancel()
                 collectionsJob?.cancel()
+                achievementsJob?.cancel()
                 reviewsLoader.reset()
                 _state.value = ProfileUiState(showLoginPrompt = true, isLoading = false)
             }
@@ -180,6 +212,10 @@ class ProfileViewModel(
         loadProfile(quiet = false)
         reviewsLoader.reload()
         loadCollections()
+        // Achievements load on demand, only when their tab is open (or opens later)
+        achievementsJob?.cancel()
+        updateAchievements { AchievementsState(filter = it.filter) }
+        if (_state.value.tab == ProfileTab.Achievements) loadAchievements()
     }
 
     private fun loadProfile(quiet: Boolean) {
@@ -215,7 +251,11 @@ class ProfileViewModel(
         }
     }
 
-    fun selectTab(tab: ProfileTab) = _state.update { it.copy(tab = tab) }
+    fun selectTab(tab: ProfileTab) {
+        _state.update { it.copy(tab = tab) }
+        val achievements = _state.value.achievements
+        if (tab == ProfileTab.Achievements && !achievements.loaded && !achievements.isLoading) loadAchievements()
+    }
 
     fun updateReviewFilter(filter: ReviewFilter) {
         if (filter == _state.value.reviewFilter) return
@@ -233,6 +273,27 @@ class ProfileViewModel(
     }
 
     fun retryCollections() = loadCollections()
+
+    // Achievements
+
+    private fun loadAchievements() {
+        val user = username ?: return
+        achievementsJob?.cancel()
+        updateAchievements { it.copy(isLoading = true, error = null) }
+        achievementsJob = viewModelScope.launch {
+            when (val result = achievementRepository.achievements(user)) {
+                is ApiResult.Success -> updateAchievements { it.copy(items = result.data, isLoading = false, loaded = true) }
+                is ApiResult.Error -> updateAchievements { it.copy(isLoading = false, error = result.message) }
+            }
+        }
+    }
+
+    fun retryAchievements() = loadAchievements()
+
+    fun updateAchievementFilter(filter: AchievementFilter) = updateAchievements { it.copy(filter = filter) }
+
+    private fun updateAchievements(transform: (AchievementsState) -> AchievementsState) =
+        _state.update { it.copy(achievements = transform(it.achievements)) }
 
     // Follow
 
@@ -381,14 +442,16 @@ class ProfileViewModel(
         _state.update { it.copy(edits = transform(it.edits)) }
 
     companion object {
-        /** For [ProfileRoute] the username comes from the route, the Profile tab has none. */
+        /** For [ProfileRoute] the username (and maybe a tab) comes from the route, the Profile tab has none. */
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val c = appContainer()
-                val username = createSavedStateHandle().get<String>(ProfileRoute::username.name)
+                val savedState = createSavedStateHandle()
                 ProfileViewModel(
-                    username, c.sessionManager, c.userRepository, c.reviewRepository, c.collectionRepository,
-                    c.replyRepository, c.settingsStore,
+                    savedState.get<String>(ProfileRoute::username.name),
+                    ProfileTab.fromName(savedState.get<String>(ProfileRoute::tab.name)),
+                    c.sessionManager, c.userRepository, c.reviewRepository, c.collectionRepository,
+                    c.replyRepository, c.achievementRepository, c.settingsStore,
                 )
             }
         }

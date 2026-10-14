@@ -59,6 +59,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -239,9 +240,9 @@ private fun NotificationCard(
     else colors.surfaceContainerHighest
     val cardColors = CardDefaults.cardColors(containerColor = containerColor)
     val content: @Composable () -> Unit = {
-        // The accent stripe needs the row's full height
+        // The accent stripe needs the row's full height; it stays (transparent) when seen so nothing shifts
         Row(Modifier.height(IntrinsicSize.Min)) {
-            if (unseen) Box(Modifier.width(4.dp).fillMaxHeight().background(colors.primary))
+            Box(Modifier.width(4.dp).fillMaxHeight().background(if (unseen) colors.primary else Color.Transparent))
             Column(Modifier.padding(start = 12.dp, top = 8.dp, bottom = 12.dp, end = 4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     NotificationIcon(notification)
@@ -268,7 +269,7 @@ private fun NotificationCard(
                     }
                     IconButton(onClick = onDelete) { Icon(Icons.Outlined.Delete, contentDescription = "Delete") }
                 }
-                Row(Modifier.padding(top = 8.dp, end = 8.dp), verticalAlignment = Alignment.Bottom) {
+                Row(Modifier.padding(top = 8.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(notification.message, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                     if (hasTarget) {
                         Spacer(Modifier.width(8.dp))
