@@ -35,6 +35,12 @@ class ValidationTest {
     }
 
     @Test
+    fun emailsMatch_ignoresCaseAndSpaces() {
+        assertTrue(Validation.emailsMatch("A@Example.com ", "a@example.COM"))
+        assertFalse(Validation.emailsMatch("a@example.com", "b@example.com"))
+    }
+
+    @Test
     fun imageUrl_needsAbsoluteHttpLink() {
         assertTrue(Validation.isValidImageUrl("https://example.com/me.png"))
         assertTrue(Validation.isValidImageUrl(" http://cdn.example.com/a/b.jpg?size=200 "))

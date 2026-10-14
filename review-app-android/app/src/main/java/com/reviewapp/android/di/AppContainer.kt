@@ -21,7 +21,9 @@ import com.reviewapp.android.data.remote.MediaApi
 import com.reviewapp.android.data.remote.NotificationApi
 import com.reviewapp.android.data.remote.ReviewApi
 import com.reviewapp.android.data.remote.ReviewReplyApi
+import com.reviewapp.android.data.remote.SecurityApi
 import com.reviewapp.android.data.remote.UserApi
+import com.reviewapp.android.data.repository.AccountRepository
 import com.reviewapp.android.data.repository.AchievementRepository
 import com.reviewapp.android.data.repository.AuthRepository
 import com.reviewapp.android.data.repository.CollectionRepository
@@ -93,6 +95,7 @@ class AppContainer(context: Context) {
     private val replyApi: ReviewReplyApi = retrofit.create(ReviewReplyApi::class.java)
     private val notificationApi: NotificationApi = retrofit.create(NotificationApi::class.java)
     private val achievementApi: AchievementApi = retrofit.create(AchievementApi::class.java)
+    private val securityApi: SecurityApi = retrofit.create(SecurityApi::class.java)
 
     val sessionManager = SessionManager(authApi, cookieJar)
     val authRepository = AuthRepository(authApi, sessionManager)
@@ -103,6 +106,7 @@ class AppContainer(context: Context) {
     val replyRepository = ReplyRepository(replyApi)
     val notificationRepository = NotificationRepository(notificationApi, sessionManager, appScope)
     val achievementRepository = AchievementRepository(achievementApi)
+    val accountRepository = AccountRepository(userApi, securityApi, authApi, sessionManager)
 }
 
 /** For ViewModel factories: `initializer { val c = appContainer(); ... }` */

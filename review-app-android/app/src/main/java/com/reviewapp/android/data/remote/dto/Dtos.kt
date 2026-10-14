@@ -23,6 +23,7 @@ import com.reviewapp.android.domain.model.ReplyPage
 import com.reviewapp.android.domain.model.ReviewDetail
 import com.reviewapp.android.domain.model.ReviewDraft
 import com.reviewapp.android.domain.model.ScoreStats
+import com.reviewapp.android.domain.model.SecurityStatus
 import com.reviewapp.android.domain.model.UnlockedAchievement
 import com.reviewapp.android.domain.model.UserProfile
 import com.reviewapp.android.domain.model.UserSummary
@@ -506,3 +507,28 @@ data class AchievementDto(
 data class UnlockedAchievementDto(val groupCode: String = "", val title: String = "", val tier: String = "") {
     fun toDomain() = UnlockedAchievement(groupCode, title, AchievementTier.fromName(tier))
 }
+
+// Account security
+
+@Serializable
+data class SecurityStatusDto(
+    val email: String = "",
+    val isEmailConfirmed: Boolean = false,
+    val isTwoFactorEnabled: Boolean = false,
+    val pendingEmail: String? = null,
+) {
+    fun toDomain() = SecurityStatus(email, isEmailConfirmed, isTwoFactorEnabled, pendingEmail?.takeIf { it.isNotBlank() })
+}
+
+@Serializable
+data class ChangeEmailRequest(val newEmail: String, val currentPassword: String)
+
+@Serializable
+data class ChangePasswordRequest(val currentPassword: String, val newPassword: String)
+
+/** The first step of enabling/disabling 2FA. */
+@Serializable
+data class CurrentPasswordRequest(val currentPassword: String)
+
+@Serializable
+data class TwoFactorCodeRequest(val code: String)

@@ -3,11 +3,14 @@ package com.reviewapp.android.data.remote
 import com.reviewapp.android.data.remote.dto.AchievementDto
 import com.reviewapp.android.data.remote.dto.AddMediaRequest
 import com.reviewapp.android.data.remote.dto.AverageScoreResponse
+import com.reviewapp.android.data.remote.dto.ChangeEmailRequest
+import com.reviewapp.android.data.remote.dto.ChangePasswordRequest
 import com.reviewapp.android.data.remote.dto.CollectionDto
 import com.reviewapp.android.data.remote.dto.CollectionMembershipDto
 import com.reviewapp.android.data.remote.dto.CollectionWithMediasDto
 import com.reviewapp.android.data.remote.dto.CreateCollectionRequest
 import com.reviewapp.android.data.remote.dto.CreateReplyRequest
+import com.reviewapp.android.data.remote.dto.CurrentPasswordRequest
 import com.reviewapp.android.data.remote.dto.FeedReviewDto
 import com.reviewapp.android.data.remote.dto.LoginRequest
 import com.reviewapp.android.data.remote.dto.LoginResponse
@@ -25,9 +28,11 @@ import com.reviewapp.android.data.remote.dto.ReplyPageDto
 import com.reviewapp.android.data.remote.dto.ReviewCheckResponse
 import com.reviewapp.android.data.remote.dto.ReviewDetailDto
 import com.reviewapp.android.data.remote.dto.ReviewMediaRequest
+import com.reviewapp.android.data.remote.dto.SecurityStatusDto
 import com.reviewapp.android.data.remote.dto.SetSeenRequest
 import com.reviewapp.android.data.remote.dto.TwoFactorLoginRequest
 import com.reviewapp.android.data.remote.dto.TwoFactorResendRequest
+import com.reviewapp.android.data.remote.dto.TwoFactorCodeRequest
 import com.reviewapp.android.data.remote.dto.UnseenCountDto
 import com.reviewapp.android.data.remote.dto.UpdateCollectionRequest
 import com.reviewapp.android.data.remote.dto.UserCompactDto
@@ -63,6 +68,10 @@ interface AuthApi {
 
     @GET("Auth/check-auth")
     suspend fun checkAuth(): UserDto
+
+    /** Revokes every session, this one included (the response deletes the cookie). */
+    @POST("Auth/logout-all")
+    suspend fun logoutAll(): MessageResponse
 }
 
 interface MediaApi {
@@ -159,6 +168,14 @@ interface UserApi {
 
     @PATCH("User/me")
     suspend fun updateMe(@Body body: UserUpdateRequest): MessageResponse
+
+    /** Only stores the new address as pending and emails it a confirmation link. */
+    @PUT("User/me/email")
+    suspend fun changeEmail(@Body body: ChangeEmailRequest): MessageResponse
+
+    /** Logs out every other session; this response carries a fresh cookie for this one. */
+    @PUT("User/me/password")
+    suspend fun changePassword(@Body body: ChangePasswordRequest): MessageResponse
 
     /** Only the reviews the caller may see (owner: all, follower: public + followers only, others: public). */
     @GET("User/{username}/reviews")
@@ -284,4 +301,30 @@ interface AchievementApi {
     /** Every achievement card with the user's progress, public. */
     @GET("Achievement/{username}")
     suspend fun getAchievements(@Path("username") username: String): List<AchievementDto>
+}
+
+/** Email verification, the pending email change and two-factor authentication of the current user. */
+interface SecurityApi {
+    @GET("Security/status")
+    suspend fun getStatus(): SecurityStatusDto
+
+    @DELETE("Security/pending-email")
+    suspend fun cancelPendingEmail()
+
+    /** 400 within a minute of the previous email. */
+    @POST("Security/resend-verification")
+    suspend fun resendVerification(): MessageResponse
+
+    /** Emails a 6-digit code; needs a verified email. Calling it again sends a new code. */
+    @POST("Security/2fa/enable/request")
+    suspend fun requestEnableTwoFactor(@Body body: CurrentPasswordRequest): MessageResponse
+
+    @POST("Security/2fa/enable/confirm")
+    suspend fun confirmEnableTwoFactor(@Body body: TwoFactorCodeRequest): MessageResponse
+
+    @POST("Security/2fa/disable/request")
+    suspend fun requestDisableTwoFactor(@Body body: CurrentPasswordRequest): MessageResponse
+
+    @POST("Security/2fa/disable/confirm")
+    suspend fun confirmDisableTwoFactor(@Body body: TwoFactorCodeRequest): MessageResponse
 }

@@ -67,6 +67,28 @@ class SessionManager(
         _state.update { state -> if (state is AuthState.LoggedIn) AuthState.LoggedIn(transform(state.user)) else state }
     }
 
+    /**
+     * Reloads the logged-in user (e.g. after verifying the email in the browser), like the web's
+     * `refreshUser`. A revoked session gets a 401, which logs out through [onUnauthorized].
+     */
+    suspend fun refreshUser() {
+        val current = currentUser ?: return
+        val result = apiCall { authApi.checkAuth() }
+        if (result is ApiResult.Success) {
+            val user = result.data.toDomain()
+            // Ignore it if someone else logged in meanwhile
+            _state.update { state ->
+                if (state is AuthState.LoggedIn && state.user.id == current.id) AuthState.LoggedIn(user) else state
+            }
+        }
+    }
+
+    /** After `logout-all`: the API already revoked every session and deleted the cookie. */
+    suspend fun onLoggedOutEverywhere() {
+        withContext(Dispatchers.IO) { cookieJar.clear() }
+        _state.value = AuthState.LoggedOut
+    }
+
     /** Called for every 401 response (see `UnauthorizedInterceptor`), like the web app's `apiFetch`. */
     fun onUnauthorized() {
         if (_state.value is AuthState.LoggedIn) {

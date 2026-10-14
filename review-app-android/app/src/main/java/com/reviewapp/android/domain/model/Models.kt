@@ -277,3 +277,14 @@ data class Achievement(
 
 /** A tier unlocked by the current user's last request (the `X-Unlocked-Achievements` header). */
 data class UnlockedAchievement(val groupCode: String, val title: String, val tier: AchievementTier)
+
+// Account security
+
+/** `GET Security/status`: the only place with the email, the pending change and the 2FA state. */
+data class SecurityStatus(
+    val email: String,
+    val isEmailConfirmed: Boolean,
+    val isTwoFactorEnabled: Boolean,
+    /** A new address waiting for its confirmation link to be opened. */
+    val pendingEmail: String?,
+)
