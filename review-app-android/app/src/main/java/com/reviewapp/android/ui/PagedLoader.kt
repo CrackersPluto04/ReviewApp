@@ -70,6 +70,13 @@ class PagedLoader<T>(
         job = scope.launch { load(current.page + 1) }
     }
 
+    /** Drops an item locally (e.g. after deleting it) instead of reloading the list. */
+    fun remove(key: Any) = _state.update { current ->
+        val remaining = current.items.filterNot { itemKey(it) == key }
+        if (remaining.size == current.items.size) current
+        else current.copy(items = remaining, totalCount = (current.totalCount - 1).coerceAtLeast(0))
+    }
+
     private suspend fun load(page: Int) {
         when (val result = fetch(page)) {
             is ApiResult.Error -> _state.update { it.copy(isLoading = false, error = result.message) }

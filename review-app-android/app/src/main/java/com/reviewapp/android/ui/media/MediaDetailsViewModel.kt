@@ -94,7 +94,7 @@ class MediaDetailsViewModel(
             reviewRepository.changes.filter { it.mediaKey == key }.collect { change ->
                 reviewsLoader.reload()
                 loadOwnReview()
-                _messages.send(change.message)
+                change.message?.let { _messages.send(it) }
             }
         }
     }

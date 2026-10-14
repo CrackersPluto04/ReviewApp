@@ -1,12 +1,21 @@
 package com.reviewapp.android.data.remote
 
+import com.reviewapp.android.data.remote.dto.AddMediaRequest
+import com.reviewapp.android.data.remote.dto.CollectionMembershipDto
+import com.reviewapp.android.data.remote.dto.CollectionWithMediasDto
 import com.reviewapp.android.data.remote.dto.LoginResponse
 import com.reviewapp.android.data.remote.dto.MediaDto
 import com.reviewapp.android.data.remote.dto.MediaReviewDto
 import com.reviewapp.android.data.remote.dto.PagedResponse
+import com.reviewapp.android.data.remote.dto.ProfileReviewDto
+import com.reviewapp.android.data.remote.dto.ReorderMediaRequest
 import com.reviewapp.android.data.remote.dto.ReviewCheckResponse
 import com.reviewapp.android.data.remote.dto.ReviewDto
 import com.reviewapp.android.data.remote.dto.ReviewMediaRequest
+import com.reviewapp.android.data.remote.dto.UpdateCollectionRequest
+import com.reviewapp.android.data.remote.dto.UserCompactDto
+import com.reviewapp.android.data.remote.dto.UserProfileDto
+import com.reviewapp.android.data.remote.dto.UserUpdateRequest
 import com.reviewapp.android.data.remote.dto.toDto
 import com.reviewapp.android.domain.model.MediaType
 import com.reviewapp.android.domain.model.ReviewDraft
@@ -109,6 +118,92 @@ class ApiParsingTest {
 
         assertEquals("1", root.getValue("reviewDto").jsonObject.getValue("visibilityLevel").jsonPrimitive.content)
         assertEquals("0", root.getValue("mediaDto").jsonObject.getValue("mediaType").jsonPrimitive.content)
+    }
+
+    @Test
+    fun profile_parsesCountsAndFollowState() {
+        val profile = json.decodeFromString<UserProfileDto>(
+            """{"id":3,"username":"bob","bio":null,"profilePictureUrl":"","createdAt":"2026-01-02",
+               "followersCount":4,"followingCount":1,"isFollowedByCurrentUser":true}""",
+        ).toDomain()
+
+        assertEquals("", profile.bio)
+        assertNull(profile.profilePictureUrl)
+        assertEquals(4, profile.followersCount)
+        assertTrue(profile.isFollowed)
+    }
+
+    @Test
+    fun userSearch_nullFollowFlagMeansNotFollowed() {
+        val users = json.decodeFromString<List<UserCompactDto>>(
+            """[{"id":1,"username":"alice","profilePictureUrl":null,"isFollowedByCurrentUser":null}]""",
+        ).map { it.toDomain() }
+
+        assertEquals("alice", users.single().username)
+        assertFalse(users.single().isFollowed)
+    }
+
+    @Test
+    fun userUpdate_leavesOutNullFields() {
+        val encoded = json.encodeToString(UserUpdateRequest.serializer(), UserUpdateRequest(bio = ""))
+        // A missing field means "unchanged" on the API side, an empty bio clears it
+        assertEquals("""{"bio":""}""", encoded)
+    }
+
+    @Test
+    fun profileReview_parsesVisibilityAndOwner() {
+        val review = json.decodeFromString<ProfileReviewDto>(
+            """{"id":9,"title":"Fight Club","posterUrl":null,"mediaType":0,"externalApiID":"550","score":7.5,
+               "reviewText":"Good","pros":null,"cons":null,"createdAt":"2026-10-01","updatedAt":"2026-10-02",
+               "visibilityLevel":2,"isOwner":true,"replyCount":0}""",
+        ).toDomain()
+
+        assertEquals(Visibility.FollowersOnly, review.visibility)
+        assertTrue(review.isOwner)
+        assertEquals("0:550", review.mediaKey)
+    }
+
+    @Test
+    fun collectionWithMedia_parsesDbMediaIdAndOrder() {
+        val details = json.decodeFromString<CollectionWithMediasDto>(
+            """{"collection":{"id":5,"name":"Favourites","visibilityLevel":0,"createdAt":"2026-01-02","mediaCount":2,
+                 "isOwner":true,"isDefault":true},
+               "mediaItems":[
+                 {"dbMediaID":12,"media":{"id":"550Movie","externalApiID":"550","mediaType":0,"title":"Fight Club"},
+                  "orderIndex":0,"addedAt":"2026-10-01T10:00:00.123"},
+                 {"dbMediaID":3,"media":{"id":"abcMusic","externalApiID":"abc","mediaType":2,"title":"Song","creator":"Band"},
+                  "orderIndex":1,"addedAt":"2026-10-02T10:00:00"}]}""",
+        ).toDomain()
+
+        assertTrue(details.collection.isDefault)
+        assertEquals(Visibility.Private, details.collection.visibility)
+        assertEquals(listOf(12, 3), details.items.map { it.dbMediaId })
+        assertEquals("2:abc", details.items[1].media.key)
+    }
+
+    @Test
+    fun memberships_useMediaKeys() {
+        val memberships = json.decodeFromString<List<CollectionMembershipDto>>(
+            """[{"collectionID":5,"mediaType":1,"externalApiID":"1399"}]""",
+        )
+        assertEquals(5, memberships.single().collectionId)
+        assertEquals("1:1399", memberships.single().mediaKey)
+    }
+
+    @Test
+    fun collectionRequests_useApiCasing() {
+        val update = json.parseToJsonElement(
+            json.encodeToString(UpdateCollectionRequest.serializer(), UpdateCollectionRequest(5, "Watch later", 0)),
+        ).jsonObject
+        assertEquals("5", update.getValue("collectionID").jsonPrimitive.content)
+        // PUT overwrites both fields, so visibility is always sent, Private (0) included
+        assertEquals("0", update.getValue("visibilityLevel").jsonPrimitive.content)
+
+        val add = json.encodeToString(AddMediaRequest.serializer(), AddMediaRequest(0, "550"))
+        assertEquals("""{"type":0,"externalApiID":"550"}""", add)
+
+        val reorder = json.encodeToString(ReorderMediaRequest.serializer(), ReorderMediaRequest(12, 3))
+        assertEquals("""{"dbMediaID":12,"newOrderIndex":3}""", reorder)
     }
 
     @Test

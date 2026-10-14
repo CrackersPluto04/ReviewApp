@@ -1,14 +1,21 @@
 package com.reviewapp.android.data.remote.dto
 
 import com.reviewapp.android.domain.model.AuthUser
+import com.reviewapp.android.domain.model.CollectionDetails
+import com.reviewapp.android.domain.model.CollectionItem
 import com.reviewapp.android.domain.model.FeedReview
 import com.reviewapp.android.domain.model.Media
+import com.reviewapp.android.domain.model.MediaCollection
 import com.reviewapp.android.domain.model.MediaReview
 import com.reviewapp.android.domain.model.MediaType
 import com.reviewapp.android.domain.model.Page
+import com.reviewapp.android.domain.model.ProfileReview
 import com.reviewapp.android.domain.model.ReviewDraft
 import com.reviewapp.android.domain.model.ScoreStats
+import com.reviewapp.android.domain.model.UserProfile
+import com.reviewapp.android.domain.model.UserSummary
 import com.reviewapp.android.domain.model.Visibility
+import com.reviewapp.android.domain.model.mediaKey
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -182,3 +189,139 @@ data class ReviewMediaRequest(val mediaDto: MediaDto, val reviewDto: ReviewDto)
 
 @Serializable
 data class ReviewCheckResponse(val hasReviewed: Boolean = false, val reviewData: ReviewDto? = null)
+
+// Users and followers
+
+@Serializable
+data class UserProfileDto(
+    val id: Int,
+    val username: String,
+    val bio: String? = null,
+    val profilePictureUrl: String? = null,
+    val createdAt: String = "",
+    val followersCount: Int = 0,
+    val followingCount: Int = 0,
+    val isFollowedByCurrentUser: Boolean = false,
+) {
+    fun toDomain() = UserProfile(
+        id = id,
+        username = username,
+        bio = bio.orEmpty(),
+        profilePictureUrl = profilePictureUrl?.takeIf { it.isNotBlank() },
+        joinedAt = createdAt,
+        followersCount = followersCount,
+        followingCount = followingCount,
+        isFollowed = isFollowedByCurrentUser,
+    )
+}
+
+/** In search results `isFollowedByCurrentUser` is always null. */
+@Serializable
+data class UserCompactDto(
+    val id: Int,
+    val username: String,
+    val profilePictureUrl: String? = null,
+    val isFollowedByCurrentUser: Boolean? = null,
+) {
+    fun toDomain() = UserSummary(id, username, profilePictureUrl?.takeIf { it.isNotBlank() }, isFollowedByCurrentUser == true)
+}
+
+/** `PATCH User/me`: null fields are left out of the JSON (`explicitNulls = false`), so they stay unchanged. */
+@Serializable
+data class UserUpdateRequest(
+    val username: String? = null,
+    val bio: String? = null,
+    val profilePictureUrl: String? = null,
+)
+
+/** A review in a user's profile, it carries the media instead of the author. */
+@Serializable
+data class ProfileReviewDto(
+    val id: Int,
+    val title: String = "",
+    val posterUrl: String? = null,
+    val mediaType: Int = 0,
+    @SerialName("externalApiID") val externalApiId: String = "",
+    val score: Double,
+    val reviewText: String? = null,
+    val pros: String? = null,
+    val cons: String? = null,
+    val createdAt: String = "",
+    val updatedAt: String = "",
+    val visibilityLevel: Int = Visibility.Public.id,
+    val isOwner: Boolean = false,
+    val replyCount: Int = 0,
+) {
+    fun toDomain() = ProfileReview(
+        id, title, posterUrl, MediaType.fromId(mediaType), externalApiId, score, reviewText, pros, cons,
+        createdAt, updatedAt, Visibility.fromId(visibilityLevel), isOwner, replyCount,
+    )
+}
+
+// Collections
+
+@Serializable
+data class CollectionDto(
+    val id: Int,
+    val name: String = "",
+    val visibilityLevel: Int = Visibility.Private.id,
+    val createdAt: String? = null,
+    val mediaCount: Int = 0,
+    val isOwner: Boolean = false,
+    val isDefault: Boolean = false,
+) {
+    fun toDomain() = MediaCollection(
+        id, name, Visibility.fromId(visibilityLevel), createdAt.orEmpty(), mediaCount, isOwner, isDefault,
+    )
+}
+
+@Serializable
+data class CollectionMediaDto(
+    @SerialName("dbMediaID") val dbMediaId: Int,
+    val media: MediaDto,
+    val orderIndex: Int = 0,
+) {
+    fun toDomain() = CollectionItem(dbMediaId, media.toDomain())
+}
+
+/** `mediaItems` come sorted by `orderIndex`. */
+@Serializable
+data class CollectionWithMediasDto(
+    val collection: CollectionDto,
+    val mediaItems: List<CollectionMediaDto> = emptyList(),
+) {
+    fun toDomain() = CollectionDetails(collection.toDomain(), mediaItems.map { it.toDomain() })
+}
+
+@Serializable
+data class CreateCollectionRequest(val name: String, val visibilityLevel: Int)
+
+@Serializable
+data class UpdateCollectionRequest(
+    @SerialName("collectionID") val collectionId: Int,
+    val name: String,
+    val visibilityLevel: Int,
+)
+
+/** The API looks the media up itself (TMDb / Spotify), so only the type and id are needed. */
+@Serializable
+data class AddMediaRequest(
+    val type: Int,
+    @SerialName("externalApiID") val externalApiId: String,
+)
+
+/** [dbMediaId] is the API's own media id from [CollectionMediaDto], not the external one. */
+@Serializable
+data class ReorderMediaRequest(
+    @SerialName("dbMediaID") val dbMediaId: Int,
+    val newOrderIndex: Int,
+)
+
+@Serializable
+data class CollectionMembershipDto(
+    @SerialName("collectionID") val collectionId: Int,
+    val mediaType: Int = 0,
+    @SerialName("externalApiID") val externalApiId: String = "",
+) {
+    val mediaKey: String get() = mediaKey(MediaType.fromId(mediaType), externalApiId)
+}

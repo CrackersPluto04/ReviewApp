@@ -12,6 +12,7 @@ import com.reviewapp.android.domain.model.Media
 import com.reviewapp.android.domain.model.MediaReview
 import com.reviewapp.android.domain.model.MediaType
 import com.reviewapp.android.domain.model.Page
+import com.reviewapp.android.domain.model.ProfileReview
 import com.reviewapp.android.domain.model.ReviewDraft
 import com.reviewapp.android.domain.model.ScoreStats
 import com.reviewapp.android.domain.model.mediaKey
@@ -39,8 +40,8 @@ data class ReviewFilter(
     val isDefault: Boolean get() = this == ReviewFilter()
 }
 
-/** Emitted after the current user created or edited a review. */
-data class ReviewChange(val mediaKey: String, val message: String)
+/** Emitted after the current user created, edited ([message] set) or deleted ([deleted], no message) a review. */
+data class ReviewChange(val mediaKey: String, val message: String? = null, val deleted: Boolean = false)
 
 class ReviewRepository(
     private val reviewApi: ReviewApi,
@@ -112,5 +113,14 @@ class ReviewRepository(
                 ApiResult.Success(message)
             }
         }
+    }
+
+    suspend fun delete(review: ProfileReview): ApiResult<Unit> {
+        val result = apiCall { reviewApi.deleteReview(review.id) }
+        if (result is ApiResult.Success) {
+            requestStats(review.mediaType, review.externalApiId, force = true)
+            _changes.tryEmit(ReviewChange(review.mediaKey, deleted = true))
+        }
+        return result
     }
 }

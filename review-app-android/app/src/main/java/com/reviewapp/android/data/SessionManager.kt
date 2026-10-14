@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 
 sealed interface AuthState {
@@ -59,6 +60,11 @@ class SessionManager(
 
     fun onLoggedIn(user: AuthUser) {
         _state.value = AuthState.LoggedIn(user)
+    }
+
+    /** Keeps the cached user in sync after a profile change (e.g. a new avatar). */
+    fun updateUser(transform: (AuthUser) -> AuthUser) {
+        _state.update { state -> if (state is AuthState.LoggedIn) AuthState.LoggedIn(transform(state.user)) else state }
     }
 
     /** Called for every 401 response (see `UnauthorizedInterceptor`), like the web app's `apiFetch`. */

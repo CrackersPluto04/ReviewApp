@@ -20,6 +20,25 @@ class ValidationTest {
     }
 
     @Test
+    fun collectionName_isTrimmedAndLimited() {
+        assertNull(Validation.collectionNameError("  Watch later  "))
+        assertNull(Validation.collectionNameError("a".repeat(50)))
+        assertEquals("Collection name cannot be empty.", Validation.collectionNameError("   "))
+        assertNotNull(Validation.collectionNameError("a".repeat(51)))
+    }
+
+    @Test
+    fun imageUrl_needsAbsoluteHttpLink() {
+        assertTrue(Validation.isValidImageUrl("https://example.com/me.png"))
+        assertTrue(Validation.isValidImageUrl(" http://cdn.example.com/a/b.jpg?size=200 "))
+        assertFalse(Validation.isValidImageUrl("example.com/me.png"))
+        assertFalse(Validation.isValidImageUrl("ftp://example.com/me.png"))
+        assertFalse(Validation.isValidImageUrl("https://"))
+        assertFalse(Validation.isValidImageUrl("https://exa mple.com/x.png"))
+        assertFalse(Validation.isValidImageUrl(""))
+    }
+
+    @Test
     fun username_isTrimmedAndLimited() {
         assertNull(Validation.usernameError("  bob  "))
         assertNotNull(Validation.usernameError(" ab "))

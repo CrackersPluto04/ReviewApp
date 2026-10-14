@@ -14,11 +14,16 @@ import com.reviewapp.android.data.local.SecureCookieJar
 import com.reviewapp.android.data.local.SettingsStore
 import com.reviewapp.android.data.remote.ApiJson
 import com.reviewapp.android.data.remote.AuthApi
+import com.reviewapp.android.data.remote.CollectionApi
+import com.reviewapp.android.data.remote.FollowerApi
 import com.reviewapp.android.data.remote.MediaApi
 import com.reviewapp.android.data.remote.ReviewApi
+import com.reviewapp.android.data.remote.UserApi
 import com.reviewapp.android.data.repository.AuthRepository
+import com.reviewapp.android.data.repository.CollectionRepository
 import com.reviewapp.android.data.repository.MediaRepository
 import com.reviewapp.android.data.repository.ReviewRepository
+import com.reviewapp.android.data.repository.UserRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import okhttp3.MediaType.Companion.toMediaType
@@ -67,11 +72,16 @@ class AppContainer(context: Context) {
     private val authApi: AuthApi = retrofit.create(AuthApi::class.java)
     private val mediaApi: MediaApi = retrofit.create(MediaApi::class.java)
     private val reviewApi: ReviewApi = retrofit.create(ReviewApi::class.java)
+    private val userApi: UserApi = retrofit.create(UserApi::class.java)
+    private val followerApi: FollowerApi = retrofit.create(FollowerApi::class.java)
+    private val collectionApi: CollectionApi = retrofit.create(CollectionApi::class.java)
 
     val sessionManager = SessionManager(authApi, cookieJar)
     val authRepository = AuthRepository(authApi, sessionManager)
     val mediaRepository = MediaRepository(mediaApi)
     val reviewRepository = ReviewRepository(reviewApi, appScope)
+    val userRepository = UserRepository(userApi, followerApi, sessionManager)
+    val collectionRepository = CollectionRepository(collectionApi, userApi, sessionManager, appScope)
 }
 
 /** For ViewModel factories: `initializer { val c = appContainer(); ... }` */

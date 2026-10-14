@@ -93,3 +93,59 @@ data class Page<T>(
 ) {
     val hasMore: Boolean get() = page < totalPages
 }
+
+data class UserProfile(
+    val id: Int,
+    val username: String,
+    val bio: String,
+    val profilePictureUrl: String?,
+    val joinedAt: String,
+    val followersCount: Int,
+    val followingCount: Int,
+    /** Whether the current user follows them, always false for a logged-out viewer and the owner. */
+    val isFollowed: Boolean,
+)
+
+/** A user in search results and follower lists. */
+data class UserSummary(
+    val id: Int,
+    val username: String,
+    val profilePictureUrl: String?,
+    val isFollowed: Boolean,
+)
+
+/** A review in a user's profile, with the reviewed media instead of the author. */
+data class ProfileReview(
+    val id: Int,
+    val mediaTitle: String,
+    val posterUrl: String?,
+    val mediaType: MediaType,
+    val externalApiId: String,
+    val score: Double,
+    val reviewText: String?,
+    val pros: String?,
+    val cons: String?,
+    val createdAt: String,
+    val updatedAt: String,
+    val visibility: Visibility,
+    val isOwner: Boolean,
+    val replyCount: Int,
+) {
+    val mediaKey: String get() = mediaKey(mediaType, externalApiId)
+}
+
+data class MediaCollection(
+    val id: Int,
+    val name: String,
+    val visibility: Visibility,
+    val createdAt: String,
+    val mediaCount: Int,
+    val isOwner: Boolean,
+    /** The permanent "Favourites" collection, it can't be renamed, edited or deleted. */
+    val isDefault: Boolean,
+)
+
+/** A media in a collection; [dbMediaId] is the API's own id, needed for reordering. */
+data class CollectionItem(val dbMediaId: Int, val media: Media)
+
+data class CollectionDetails(val collection: MediaCollection, val items: List<CollectionItem>)
