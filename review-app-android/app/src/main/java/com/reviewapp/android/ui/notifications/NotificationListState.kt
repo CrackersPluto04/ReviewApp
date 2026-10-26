@@ -68,11 +68,14 @@ sealed interface NotificationTarget {
     data class Profile(val username: String) : NotificationTarget
     /** The current user's Achievements tab. */
     data class Achievements(val username: String) : NotificationTarget
+    /** The Premium screen with the current user's subscription. */
+    data object Subscription : NotificationTarget
 }
 
 /**
  * The web's `getNotificationRoute`: replies (and system messages about a review) open the review,
- * a new follower opens their profile, an unlock opens the user's own achievements.
+ * a new follower opens their profile, an unlock opens the user's own achievements, subscription
+ * changes open the Premium screen.
  */
 fun notificationTarget(notification: AppNotification, currentUsername: String?): NotificationTarget? =
     when (notification.type) {
@@ -80,4 +83,6 @@ fun notificationTarget(notification: AppNotification, currentUsername: String?):
         NotificationType.NewFollower -> notification.actorUsername?.let { NotificationTarget.Profile(it) }
         NotificationType.ReviewReply, NotificationType.ReplyReply, NotificationType.System ->
             notification.reviewId?.let { NotificationTarget.Review(it, notification.replyId) }
+        NotificationType.SubscriptionStarted, NotificationType.PaymentFailed,
+        NotificationType.SubscriptionCancelled, NotificationType.SubscriptionEnded -> NotificationTarget.Subscription
     }

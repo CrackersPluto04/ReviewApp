@@ -36,6 +36,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -166,6 +168,14 @@ class ProfileViewModel(
         viewModelScope.launch {
             // Counts changed (here or in a follower list), refresh them without a loading state
             userRepository.followChanges.collect { loadProfile(quiet = true) }
+        }
+        viewModelScope.launch {
+            // Subscribed or Premium ended: the owner's badge follows it
+            sessionManager.state
+                .map { auth -> (auth as? AuthState.LoggedIn)?.user?.let { it.id to it.isPremium } }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect { if (_state.value.isOwner) loadProfile(quiet = true) }
         }
         viewModelScope.launch {
             // Created/edited from the review form reloads; deletions are removed locally

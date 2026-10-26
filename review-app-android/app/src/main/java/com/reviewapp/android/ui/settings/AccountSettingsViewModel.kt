@@ -32,6 +32,8 @@ sealed interface SettingsDialog {
 
 data class AccountSettingsUiState(
     val username: String = "",
+    /** From the cached user; the Premium screen loads the details. */
+    val isPremium: Boolean = false,
     val status: SecurityStatus? = null,
     val isLoading: Boolean = true,
     val error: String? = null,
@@ -74,7 +76,7 @@ class AccountSettingsViewModel(
         viewModelScope.launch {
             sessionManager.state.collect { auth ->
                 when (auth) {
-                    is AuthState.LoggedIn -> _state.update { it.copy(username = auth.user.username) }
+                    is AuthState.LoggedIn -> _state.update { it.copy(username = auth.user.username, isPremium = auth.user.isPremium) }
                     AuthState.LoggedOut -> _events.send(AccountSettingsEvent.LoggedOut)
                     AuthState.Loading -> Unit
                 }

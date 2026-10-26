@@ -51,6 +51,7 @@ object ApiErrors {
 
         return when (code) {
             401 -> "Your session has expired. Please log in again."
+            402 -> "This is a Premium feature."
             403 -> "You don't have permission to do that."
             404 -> "Not found."
             429 -> "Too many requests. Please try again later."

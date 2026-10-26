@@ -1,5 +1,7 @@
 package com.reviewapp.android.ui.navigation
 
+import android.content.Intent
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -37,6 +39,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.util.Consumer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
@@ -49,6 +53,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navDeepLink
+import androidx.navigation.navOptions
 import com.reviewapp.android.domain.model.Media
 import com.reviewapp.android.domain.model.MediaType
 import com.reviewapp.android.ui.achievements.UnlockBannerHost
@@ -70,6 +75,9 @@ import com.reviewapp.android.ui.review.ReviewScreen
 import com.reviewapp.android.ui.review.WriteReviewScreen
 import com.reviewapp.android.ui.search.SearchScreen
 import com.reviewapp.android.ui.settings.AccountSettingsScreen
+import com.reviewapp.android.ui.subscription.PremiumRequiredHost
+import com.reviewapp.android.ui.subscription.PremiumScreen
+import com.reviewapp.android.ui.subscription.SubscriptionReturnScreen
 import com.reviewapp.android.ui.usersearch.UserSearchScreen
 import kotlin.reflect.KClass
 
@@ -113,6 +121,7 @@ fun ReviewAppRoot() {
     val badgeViewModel: NotificationBadgeViewModel = viewModel(factory = NotificationBadgeViewModel.Factory)
     val unseenNotifications by badgeViewModel.unseenCount.collectAsStateWithLifecycle()
     NotificationPollingEffect(badgeViewModel, isLoggedIn = unseenNotifications != null)
+    NewIntentDeepLinks(navController)
 
     Scaffold(
         // Every screen has its own Scaffold for its top bar, this one only adds the bottom bar
@@ -166,6 +175,27 @@ fun ReviewAppRoot() {
                 modifier = Modifier.align(Alignment.TopCenter),
             )
         }
+        // Any request can hit a Premium feature (402)
+        PremiumRequiredHost(onSeePremium = { navController.navigate(PremiumRoute) { launchSingleTop = true } })
+    }
+}
+
+/**
+ * Deep links that arrive while the app is running (the activity is `singleTask`), e.g. coming back from
+ * checkout in the browser. `handleDeepLink` would restart the whole task for these NEW_TASK intents, so
+ * the link is navigated to on top of the current screen instead. Cold starts go through the graph's deep links.
+ */
+@Composable
+private fun NewIntentDeepLinks(navController: NavHostController) {
+    val activity = LocalContext.current as? ComponentActivity ?: return
+    DisposableEffect(activity, navController) {
+        val listener = Consumer<Intent> { intent ->
+            val uri = intent.data ?: return@Consumer
+            // An earlier return screen is replaced, not reused: its ViewModel holds the old result
+            runCatching { navController.navigate(uri, navOptions { popUpTo<SubscriptionReturnRoute> { inclusive = true } }) }
+        }
+        activity.addOnNewIntentListener(listener)
+        onDispose { activity.removeOnNewIntentListener(listener) }
     }
 }
 
@@ -190,6 +220,7 @@ private fun AppNavHost(navController: NavHostController, unseenNotifications: In
     val openMediaById: (MediaType, String) -> Unit = { type, id -> navController.navigate(MediaDetailsRoute(type.id, id)) }
     val editReview: (MediaType, String) -> Unit = { type, id -> navController.navigate(WriteReviewRoute(type.id, id)) }
     val openReview: (Int) -> Unit = { id -> navController.navigate(ReviewRoute(id)) }
+    val openPremium: () -> Unit = { navController.navigate(PremiumRoute) { launchSingleTop = true } }
 
     // A profile is the Profile tab (no username, no back button) or any user's page
     @Composable
@@ -263,12 +294,29 @@ private fun AppNavHost(navController: NavHostController, unseenNotifications: In
                             is NotificationTarget.Review -> ReviewRoute(target.reviewId, target.replyId)
                             is NotificationTarget.Profile -> ProfileRoute(target.username)
                             is NotificationTarget.Achievements -> ProfileRoute(target.username, ProfileTab.Achievements.name)
+                            NotificationTarget.Subscription -> PremiumRoute
                         },
                     )
                 },
             )
         }
-        composable<AccountSettingsRoute> { AccountSettingsScreen(onBack = goBack) }
+        composable<AccountSettingsRoute> { AccountSettingsScreen(onBack = goBack, onOpenPremium = openPremium) }
+        composable<PremiumRoute> { PremiumScreen(onBack = goBack, onLogin = goToLogin) }
+        composable<SubscriptionReturnRoute>(
+            // e.g. adb shell am start -d "reviewapp://subscription/success"
+            deepLinks = listOf(navDeepLink<SubscriptionReturnRoute>(basePath = "reviewapp://subscription")),
+        ) {
+            SubscriptionReturnScreen(
+                onOpenPremium = {
+                    navController.navigate(PremiumRoute) {
+                        popUpTo<SubscriptionReturnRoute> { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
+                onHome = { navController.navigateToTab(TopLevelTab.Home, reselect = false) },
+                onLogin = goToLogin,
+            )
+        }
         composable<UserSearchRoute> {
             UserSearchScreen(onBack = goBack, onOpenProfile = openProfile)
         }

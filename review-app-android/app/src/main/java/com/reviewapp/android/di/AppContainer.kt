@@ -22,6 +22,7 @@ import com.reviewapp.android.data.remote.NotificationApi
 import com.reviewapp.android.data.remote.ReviewApi
 import com.reviewapp.android.data.remote.ReviewReplyApi
 import com.reviewapp.android.data.remote.SecurityApi
+import com.reviewapp.android.data.remote.SubscriptionApi
 import com.reviewapp.android.data.remote.UserApi
 import com.reviewapp.android.data.repository.AccountRepository
 import com.reviewapp.android.data.repository.AchievementRepository
@@ -31,6 +32,7 @@ import com.reviewapp.android.data.repository.MediaRepository
 import com.reviewapp.android.data.repository.NotificationRepository
 import com.reviewapp.android.data.repository.ReplyRepository
 import com.reviewapp.android.data.repository.ReviewRepository
+import com.reviewapp.android.data.repository.SubscriptionRepository
 import com.reviewapp.android.data.repository.UserRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -61,6 +63,8 @@ class AppContainer(context: Context) {
         .addInterceptor { chain ->
             val response = chain.proceed(chain.request())
             if (response.code == 401) sessionManager.onUnauthorized()
+            // A Premium feature (or the subscription just ended): the root shows the upsell
+            if (response.code == 402) subscriptionRepository.onPremiumRequired()
             response
         }
         // Unlocked achievements come with the response that earned them, and the user's own changes
@@ -96,6 +100,7 @@ class AppContainer(context: Context) {
     private val notificationApi: NotificationApi = retrofit.create(NotificationApi::class.java)
     private val achievementApi: AchievementApi = retrofit.create(AchievementApi::class.java)
     private val securityApi: SecurityApi = retrofit.create(SecurityApi::class.java)
+    private val subscriptionApi: SubscriptionApi = retrofit.create(SubscriptionApi::class.java)
 
     val sessionManager = SessionManager(authApi, cookieJar)
     val authRepository = AuthRepository(authApi, sessionManager)
@@ -107,6 +112,7 @@ class AppContainer(context: Context) {
     val notificationRepository = NotificationRepository(notificationApi, sessionManager, appScope)
     val achievementRepository = AchievementRepository(achievementApi)
     val accountRepository = AccountRepository(userApi, securityApi, authApi, sessionManager)
+    val subscriptionRepository = SubscriptionRepository(subscriptionApi, sessionManager, appScope)
 }
 
 /** For ViewModel factories: `initializer { val c = appContainer(); ... }` */

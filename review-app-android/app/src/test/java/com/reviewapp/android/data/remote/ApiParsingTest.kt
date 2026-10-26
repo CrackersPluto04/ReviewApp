@@ -27,15 +27,19 @@ import com.reviewapp.android.data.remote.dto.TwoFactorCodeRequest
 import com.reviewapp.android.data.remote.dto.UnseenCountDto
 import com.reviewapp.android.data.remote.dto.UpdateCollectionRequest
 import com.reviewapp.android.data.remote.dto.UserCompactDto
+import com.reviewapp.android.data.remote.dto.PlanDto
+import com.reviewapp.android.data.remote.dto.SubscriptionStatusDto
 import com.reviewapp.android.data.remote.dto.UserProfileDto
 import com.reviewapp.android.data.remote.dto.UserUpdateRequest
 import com.reviewapp.android.data.remote.dto.toDto
 import com.reviewapp.android.data.repository.AchievementRepository
 import com.reviewapp.android.domain.model.AchievementCategory
 import com.reviewapp.android.domain.model.AchievementTier
+import com.reviewapp.android.domain.model.FeatureKeys
 import com.reviewapp.android.domain.model.MediaType
 import com.reviewapp.android.domain.model.NotificationType
 import com.reviewapp.android.domain.model.ReviewDraft
+import com.reviewapp.android.domain.model.SubscriptionStatus
 import com.reviewapp.android.domain.model.UnlockedAchievement
 import com.reviewapp.android.domain.model.Visibility
 import kotlinx.serialization.decodeFromString
@@ -84,6 +88,49 @@ class ApiParsingTest {
         assertTrue(twoFactor.twoFactorRequired)
         assertEquals("abc", twoFactor.challengeToken)
         assertNull(twoFactor.user)
+
+        // Older payloads without the subscription fields are Free
+        val user = loggedIn.user!!.toDomain()
+        assertFalse(user.isPremium)
+        assertTrue(user.entitlements.isEmpty())
+    }
+
+    @Test
+    fun authUser_readsTierAndEntitlements() {
+        val user = json.decodeFromString<LoginResponse>(
+            """{"message":"Logged in successfully","user":{"id":3,"username":"bob","profilePictureUrl":null,
+               "isEmailConfirmed":false,"tier":"Premium","isPremium":true,"entitlements":["profile-badge","entitlement-preview"]}}""",
+        ).user!!.toDomain()
+
+        assertTrue(user.isPremium)
+        assertTrue(user.hasFeature(FeatureKeys.ENTITLEMENT_PREVIEW))
+        assertFalse(user.hasFeature("offline-mode"))
+    }
+
+    @Test
+    fun subscriptionStatus_andPlan_parse() {
+        val status = json.decodeFromString<SubscriptionStatusDto>(
+            """{"tier":"Premium","status":"PastDue","isPremium":true,"willRenew":false,"cancelAtPeriodEnd":false,
+               "hasPaymentProblem":true,"currentPeriodEnd":"2026-11-25T15:23:21.58Z","accessEndsAt":"2026-10-31T15:23:22.38Z"}""",
+        ).toDomain()
+        assertEquals(SubscriptionStatus.PastDue, status.status)
+        assertTrue(status.hasPaymentProblem)
+        assertEquals("2026-10-31T15:23:22.38Z", status.accessEndsAt)
+
+        val free = json.decodeFromString<SubscriptionStatusDto>(
+            """{"tier":"Free","status":"None","isPremium":false,"willRenew":false,"cancelAtPeriodEnd":false,
+               "hasPaymentProblem":false,"currentPeriodEnd":null,"accessEndsAt":null}""",
+        ).toDomain()
+        assertEquals(SubscriptionStatus.None, free.status)
+        assertNull(free.accessEndsAt)
+
+        val plan = json.decodeFromString<PlanDto>(
+            """{"tier":"Premium","priceAmount":4.99,"currency":"EUR","interval":"month","features":[
+               {"key":"profile-badge","title":"Premium badge","description":"A badge.","comingSoon":false},
+               {"key":"offline-mode","title":"Offline mode","description":"Offline.","comingSoon":true}]}""",
+        ).toDomain()
+        assertEquals(4.99, plan.priceAmount, 0.0)
+        assertEquals(listOf(false, true), plan.features.map { it.comingSoon })
     }
 
     @Test
@@ -142,13 +189,14 @@ class ApiParsingTest {
     fun profile_parsesCountsAndFollowState() {
         val profile = json.decodeFromString<UserProfileDto>(
             """{"id":3,"username":"bob","bio":null,"profilePictureUrl":"","createdAt":"2026-01-02",
-               "followersCount":4,"followingCount":1,"isFollowedByCurrentUser":true}""",
+               "followersCount":4,"followingCount":1,"isFollowedByCurrentUser":true,"isPremium":true}""",
         ).toDomain()
 
         assertEquals("", profile.bio)
         assertNull(profile.profilePictureUrl)
         assertEquals(4, profile.followersCount)
         assertTrue(profile.isFollowed)
+        assertTrue(profile.isPremium)
     }
 
     @Test

@@ -21,13 +21,16 @@
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.ReviewApp"
+            android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- reviewapp://review/{reviewId}?replyId={replyId}, handled by the navigation graph -->
+            <!-- reviewapp://review/{reviewId}?replyId={replyId} and reviewapp://subscription/{result} (back from
+                 checkout in the browser), handled by the navigation graph. singleTask: returning from the browser
+                 reuses the running activity instead of stacking a new one. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
 
@@ -35,6 +38,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data android:scheme="reviewapp" android:host="review" />
+                <data android:scheme="reviewapp" android:host="subscription" />
             </intent-filter>
         </activity>
     </application>
