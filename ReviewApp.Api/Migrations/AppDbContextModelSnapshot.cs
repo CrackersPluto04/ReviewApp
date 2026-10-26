@@ -17,7 +17,7 @@ namespace ReviewApp.Api.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.31")
+                .HasAnnotation("ProductVersion", "8.0.33")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -628,6 +628,38 @@ namespace ReviewApp.Api.Migrations
                     b.ToTable("SecurityTokens");
                 });
 
+            modelBuilder.Entity("ReviewApp.Api.DAL.Entities.SubscriptionEvent", b =>
+                {
+                    b.Property<int>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ProviderEventID")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("ReceivedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("ProviderEventID")
+                        .IsUnique();
+
+                    b.ToTable("SubscriptionEvents");
+                });
+
             modelBuilder.Entity("ReviewApp.Api.DAL.Entities.User", b =>
                 {
                     b.Property<int>("ID")
@@ -726,6 +758,67 @@ namespace ReviewApp.Api.Migrations
                     b.HasIndex("FollowingID");
 
                     b.ToTable("UserFollowers");
+                });
+
+            modelBuilder.Entity("ReviewApp.Api.DAL.Entities.UserSubscription", b =>
+                {
+                    b.Property<int>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
+
+                    b.Property<bool>("CancelAtPeriodEnd")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CurrentPeriodEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("PastDueSince")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Provider")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProviderCustomerID")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ProviderSubscriptionID")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Tier")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserID")
+                        .HasColumnType("int");
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("ProviderCustomerID")
+                        .IsUnique();
+
+                    b.HasIndex("ProviderSubscriptionID")
+                        .IsUnique()
+                        .HasFilter("[ProviderSubscriptionID] IS NOT NULL");
+
+                    b.HasIndex("UserID")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "CurrentPeriodEnd");
+
+                    b.ToTable("UserSubscriptions");
                 });
 
             modelBuilder.Entity("ReviewApp.Api.DAL.Entities.Movie", b =>
@@ -889,6 +982,17 @@ namespace ReviewApp.Api.Migrations
                     b.Navigation("Follower");
 
                     b.Navigation("Following");
+                });
+
+            modelBuilder.Entity("ReviewApp.Api.DAL.Entities.UserSubscription", b =>
+                {
+                    b.HasOne("ReviewApp.Api.DAL.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("ReviewApp.Api.DAL.Entities.Collection", b =>
