@@ -7,7 +7,8 @@ export interface UserProfileDto {
     createdAt: string,
     followersCount: number,
     followingCount: number,
-    isFollowedByCurrentUser: boolean
+    isFollowedByCurrentUser: boolean,
+    isPremium: boolean // public Premium badge
 }
 
 export interface UserCompactDto {
@@ -122,7 +123,8 @@ export interface UnlockedAchievementDto {
 }
 
 // Notification related DTOs
-export type NotificationType = 'System' | 'ReviewReply' | 'ReplyReply' | 'AchievementUnlocked' | 'NewFollower';
+export type NotificationType = 'System' | 'ReviewReply' | 'ReplyReply' | 'AchievementUnlocked' | 'NewFollower'
+    | 'SubscriptionStarted' | 'PaymentFailed' | 'SubscriptionCancelled' | 'SubscriptionEnded';
 export type NotificationStatusFilter = 'all' | 'seen' | 'unseen';
 export type NotificationSort = 'newest' | 'oldest';
 
@@ -161,6 +163,36 @@ export interface SecurityStatusDto {
     isEmailConfirmed: boolean;
     isTwoFactorEnabled: boolean;
     pendingEmail?: string | null;
+}
+
+// Subscription
+export type SubscriptionTier = 'Free' | 'Premium';
+export type SubscriptionStatus = 'None' | 'Active' | 'PastDue' | 'Ended';
+
+export interface SubscriptionStatusDto {
+    tier: SubscriptionTier;
+    status: SubscriptionStatus;
+    isPremium: boolean;
+    willRenew: boolean;
+    cancelAtPeriodEnd: boolean; // cancelled, Premium runs until accessEndsAt
+    hasPaymentProblem: boolean; // a renewal failed, Premium runs until accessEndsAt (grace period)
+    currentPeriodEnd?: string | null; // ISO date, UTC
+    accessEndsAt?: string | null;
+}
+
+export interface PlanFeatureDto {
+    key: string;
+    title: string;
+    description: string;
+    comingSoon: boolean;
+}
+
+export interface PlanDto {
+    tier: SubscriptionTier;
+    priceAmount: number;
+    currency: string;
+    interval: string;
+    features: PlanFeatureDto[];
 }
 
 // Filter & sort related parameter dtos

@@ -8,6 +8,8 @@ import { UnlockedAchievementDto } from "../types/types";
  * which is passed to the registered handler (AchievementToastContext) to show a toast.
  * Every successful change (non-GET request) is reported to the mutation handler (NotificationContext),
  * since the user's own actions can create notifications for them (achievements, account changes).
+ * A 402 means the endpoint is a Premium feature (or the subscription just ended): the registered handler
+ * (PremiumUpsellContext) refreshes the user and offers the plans page. The caller still gets the response.
  */
 
 const UNLOCKED_ACHIEVEMENTS_HEADER = 'X-Unlocked-Achievements';
@@ -15,9 +17,14 @@ const UNLOCKED_ACHIEVEMENTS_HEADER = 'X-Unlocked-Achievements';
 let unauthorizedHandler: (() => void) | null = null;
 let unlockHandler: ((unlocked: UnlockedAchievementDto[]) => void) | null = null;
 let mutationHandler: (() => void) | null = null;
+let premiumRequiredHandler: (() => void) | null = null;
 
 export function setUnauthorizedHandler(handler: (() => void) | null) {
     unauthorizedHandler = handler;
+}
+
+export function setPremiumRequiredHandler(handler: (() => void) | null) {
+    premiumRequiredHandler = handler;
 }
 
 export function setUnlockHandler(handler: ((unlocked: UnlockedAchievementDto[]) => void) | null) {
@@ -33,6 +40,9 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
 
     if (response.status === 401)
         unauthorizedHandler?.();
+
+    if (response.status === 402)
+        premiumRequiredHandler?.();
 
     const unlockedHeader = response.headers.get(UNLOCKED_ACHIEVEMENTS_HEADER);
     if (unlockedHeader)
