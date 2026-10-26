@@ -199,6 +199,10 @@ public class AppDbContext : DbContext
 
             // Expiry job: running subscriptions whose period is over
             entity.HasIndex(s => new { s.Status, s.CurrentPeriodEnd });
+
+            // Every change sets UpdatedAt, so two concurrent updates (e.g. two webhook deliveries) can't both
+            // apply the same state change and notify twice: the second one fails and retries on fresh data
+            entity.Property(s => s.UpdatedAt).IsConcurrencyToken();
         });
 
         modelBuilder.Entity<SubscriptionEvent>()

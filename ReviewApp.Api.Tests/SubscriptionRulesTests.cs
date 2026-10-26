@@ -91,6 +91,17 @@ public class SubscriptionRulesTests
     }
 
     [Fact]
+    public void AccessEndsAt_IsPeriodEndOrGraceEnd()
+    {
+        var end = Now.AddDays(4);
+        var pastDue = new SubscriptionState(SubscriptionStatus.PastDue, false, Now.AddDays(-1), Now);
+
+        Assert.Equal(end, SubscriptionRules.AccessEndsAt(Active(end)));
+        Assert.Equal(Now + SubscriptionRules.PastDueGrace, SubscriptionRules.AccessEndsAt(pastDue));
+        Assert.Null(SubscriptionRules.AccessEndsAt(SubscriptionState.Empty));
+    }
+
+    [Fact]
     public void Apply_PastDue_StartsGraceOnFirstFailureOnly()
     {
         var first = SubscriptionRules.Apply(Active(Now), Snapshot(SubscriptionStatus.PastDue), Now);

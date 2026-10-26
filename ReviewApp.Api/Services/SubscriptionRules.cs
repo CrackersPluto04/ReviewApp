@@ -66,6 +66,15 @@ public static class SubscriptionRules
     public static bool WillRenew(SubscriptionState state) =>
         state.Status == SubscriptionStatus.Active && !state.CancelAtPeriodEnd;
 
+    // When Premium stops unless something changes: the period end, or the end of the grace period after a failed payment.
+    // Shown to the user, so it leaves out the renewal slack.
+    public static DateTime? AccessEndsAt(SubscriptionState state) => state.Status switch
+    {
+        SubscriptionStatus.Active => state.CurrentPeriodEnd,
+        SubscriptionStatus.PastDue => (state.PastDueSince ?? state.CurrentPeriodEnd) + PastDueGrace,
+        _ => null
+    };
+
     // Builds the new stored state from what the provider reports.
     public static SubscriptionState Apply(SubscriptionState current, ProviderSubscriptionSnapshot snapshot, DateTime now)
     {

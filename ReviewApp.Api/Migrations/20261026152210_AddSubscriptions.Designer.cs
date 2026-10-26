@@ -12,7 +12,7 @@ using ReviewApp.Api.DAL;
 namespace ReviewApp.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261026151238_AddSubscriptions")]
+    [Migration("20261026152210_AddSubscriptions")]
     partial class AddSubscriptions
     {
         /// <inheritdoc />
@@ -802,6 +802,7 @@ namespace ReviewApp.Api.Migrations
                         .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
+                        .IsConcurrencyToken()
                         .HasColumnType("datetime2");
 
                     b.Property<int>("UserID")

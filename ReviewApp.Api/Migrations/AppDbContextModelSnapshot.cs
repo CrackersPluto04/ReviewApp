@@ -799,6 +799,7 @@ namespace ReviewApp.Api.Migrations
                         .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
+                        .IsConcurrencyToken()
                         .HasColumnType("datetime2");
 
                     b.Property<int>("UserID")
