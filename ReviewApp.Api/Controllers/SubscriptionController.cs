@@ -1,8 +1,12 @@
 using System.Net;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using ReviewApp.Api.DTOs;
+using ReviewApp.Api.Filters;
+using ReviewApp.Api.Services;
 using ReviewApp.Api.Services.Interfaces;
 using ReviewApp.Api.Services.Payments;
 
@@ -13,6 +17,13 @@ namespace ReviewApp.Api.Controllers;
 public class SubscriptionController : ControllerBase
 {
     private static readonly HashSet<string> AndroidReturnResults = ["success", "cancelled", "portal"];
+
+    private const string AndroidReturnStyle =
+        "body{font-family:system-ui,sans-serif;text-align:center;padding:48px 16px;color:#1f1f1f;background:#fafafa}" +
+        "a{display:inline-block;margin-top:24px;padding:12px 24px;border-radius:24px;background:#1976d2;color:#fff;text-decoration:none}";
+
+    private static readonly string AndroidReturnStyleHash =
+        "sha256-" + Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(AndroidReturnStyle)));
 
     private readonly ISubscriptionService _subscriptionService;
     private readonly IUserAuthHelper _userAuthHelper;
@@ -112,14 +123,15 @@ public class SubscriptionController : ControllerBase
     // Not rate limited: the provider retries rejected deliveries, which would only delay them.
     [HttpPost("webhook")]
     [DisableRateLimiting]
-    public async Task<IActionResult> Webhook()
+    public async Task<IActionResult> Webhook([FromHeader(Name = "Stripe-Signature")] string? signature)
     {
+        // The signature is over the exact bytes, so the body is read raw instead of model bound
         using var reader = new StreamReader(Request.Body);
         var payload = await reader.ReadToEndAsync();
 
         try
         {
-            if (!await _subscriptionService.HandleWebhookAsync(payload, Request.Headers["Stripe-Signature"]))
+            if (!await _subscriptionService.HandleWebhookAsync(payload, signature))
                 return BadRequest(new { error = "Invalid signature." });
 
             return Ok();
@@ -145,7 +157,8 @@ public class SubscriptionController : ControllerBase
             _ => "Checkout cancelled"
         };
 
-        Response.Headers.ContentSecurityPolicy = "default-src 'none'; style-src 'unsafe-inline'";
+        // Nothing but the one inline style block may run on this page
+        Response.Headers.ContentSecurityPolicy = $"default-src 'none'; style-src '{AndroidReturnStyleHash}'";
         return Content($$"""
             <!doctype html>
             <html lang="en">
@@ -154,10 +167,7 @@ public class SubscriptionController : ControllerBase
               <meta name="viewport" content="width=device-width, initial-scale=1">
               <meta http-equiv="refresh" content="0;url={{appLink}}">
               <title>THE Review App</title>
-              <style>
-                body { font-family: system-ui, sans-serif; text-align: center; padding: 48px 16px; color: #1f1f1f; background: #fafafa; }
-                a { display: inline-block; margin-top: 24px; padding: 12px 24px; border-radius: 24px; background: #1976d2; color: #fff; text-decoration: none; }
-              </style>
+              <style>{{AndroidReturnStyle}}</style>
             </head>
             <body>
               <h1>{{title}}</h1>
@@ -169,9 +179,10 @@ public class SubscriptionController : ControllerBase
     }
 
     // Placeholder Premium endpoint that only proves the paywall works end to end (FeatureKeys.EntitlementPreview).
-    // Locked in a later step, remove it when the first real Premium feature exists.
+    // Remove it when the first real Premium feature exists.
     [HttpGet("entitlement-preview")]
     [Authorize]
+    [RequiresFeature(FeatureKeys.EntitlementPreview)]
     public IActionResult EntitlementPreview() =>
         Ok(new { message = "You have access to Premium features." });
 

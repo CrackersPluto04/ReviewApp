@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using ReviewApp.Api.DAL;
 using ReviewApp.Api.DAL.Entities;
 using ReviewApp.Api.DTOs;
+using ReviewApp.Api.Enums;
+using ReviewApp.Api.Services;
 using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Controllers;
@@ -20,13 +22,16 @@ public class AuthController : ControllerBase
     private readonly IUserAuthHelper _userAuthHelper;
     private readonly ITokenService _tokenService;
     private readonly ISecurityService _securityService;
+    private readonly IEntitlementService _entitlementService;
 
-    public AuthController(AppDbContext context, IUserAuthHelper userAuthHelper, ITokenService tokenService, ISecurityService securityService)
+    public AuthController(AppDbContext context, IUserAuthHelper userAuthHelper, ITokenService tokenService,
+        ISecurityService securityService, IEntitlementService entitlementService)
     {
         _context = context;
         _userAuthHelper = userAuthHelper;
         _tokenService = tokenService;
         _securityService = securityService;
+        _entitlementService = entitlementService;
     }
 
     [HttpPost("register")]
@@ -112,7 +117,7 @@ public class AuthController : ControllerBase
 
         _tokenService.IssueAuthCookie(user);
 
-        return Ok(new { message = "Logged in successfully", user = ToAuthUser(user) });
+        return Ok(new { message = "Logged in successfully", user = await ToAuthUserAsync(user) });
     }
 
     // Second step of a 2FA login: the session cookie is only issued here
@@ -126,7 +131,7 @@ public class AuthController : ControllerBase
 
         _tokenService.IssueAuthCookie(User!);
 
-        return Ok(new { message = Message, user = ToAuthUser(User!) });
+        return Ok(new { message = Message, user = await ToAuthUserAsync(User!) });
     }
 
     [HttpPost("login/2fa/resend")]
@@ -182,7 +187,7 @@ public class AuthController : ControllerBase
             if (user == null)
                 return NotFound();
 
-            return Ok(ToAuthUser(user));
+            return Ok(await ToAuthUserAsync(user));
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -190,12 +195,20 @@ public class AuthController : ControllerBase
         }
     }
 
-    // The logged-in user as the frontend's AuthContext stores it
-    private static object ToAuthUser(User user) => new
+    // The logged-in user as the frontend's AuthContext stores it. The tier and features are read fresh
+    // here; clients refresh this after subscription changes.
+    private async Task<object> ToAuthUserAsync(User user)
     {
-        id = user.ID,
-        username = user.Username,
-        profilePictureUrl = user.ProfilePictureUrl,
-        isEmailConfirmed = user.IsEmailConfirmed
-    };
+        var tier = await _entitlementService.GetTierAsync(user.ID);
+        return new
+        {
+            id = user.ID,
+            username = user.Username,
+            profilePictureUrl = user.ProfilePictureUrl,
+            isEmailConfirmed = user.IsEmailConfirmed,
+            tier = tier.ToString(),
+            isPremium = tier == SubscriptionTier.Premium,
+            entitlements = Entitlements.FeaturesFor(tier)
+        };
+    }
 }

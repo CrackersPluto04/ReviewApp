@@ -34,6 +34,7 @@ public static class SubscriptionSetup
             builder.Services.AddScoped<IPaymentProvider, StripePaymentProvider>();
         }
 
+        builder.Services.AddScoped<IEntitlementService, EntitlementService>();
         builder.Services.AddScoped<ISubscriptionNotifier, SubscriptionNotifier>();
         builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
         builder.Services.AddHostedService<SubscriptionExpiryService>();
