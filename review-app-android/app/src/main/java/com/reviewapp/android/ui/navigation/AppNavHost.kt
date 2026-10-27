@@ -313,7 +313,11 @@ private fun AppNavHost(navController: NavHostController, unseenNotifications: In
                         launchSingleTop = true
                     }
                 },
-                onHome = { navController.navigateToTab(TopLevelTab.Home, reselect = false) },
+                onHome = {
+                    // Otherwise the tab's saved back stack would reopen on this screen later
+                    navController.popBackStack<SubscriptionReturnRoute>(inclusive = true)
+                    navController.navigateToTab(TopLevelTab.Home, reselect = false)
+                },
                 onLogin = goToLogin,
             )
         }
