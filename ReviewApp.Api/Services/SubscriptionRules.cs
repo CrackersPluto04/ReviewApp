@@ -132,6 +132,11 @@ public static class SubscriptionRules
         _ => SubscriptionStatus.None // "incomplete": the first payment hasn't gone through yet
     };
 
+    // Stripe reports a cancellation in two ways: cancel_at_period_end (our cancel endpoint) or a cancel_at date
+    // (the customer portal on newer API versions). A cancel_at after the current period means it renews once more.
+    public static bool StripeEndsAtPeriodEnd(bool cancelAtPeriodEnd, DateTime? cancelAt, DateTime? periodEnd) =>
+        cancelAtPeriodEnd || (cancelAt is { } at && periodEnd is { } end && at <= end);
+
     public static SubscriptionState ToState(this UserSubscription? subscription) =>
         subscription == null
             ? SubscriptionState.Empty

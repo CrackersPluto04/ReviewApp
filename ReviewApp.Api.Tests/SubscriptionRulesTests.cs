@@ -242,4 +242,17 @@ public class SubscriptionRulesTests
     {
         Assert.Equal(expected, SubscriptionRules.MapStripeStatus(stripeStatus));
     }
+
+    [Fact]
+    public void StripeEndsAtPeriodEnd_ReadsFlagOrCancelAtDate()
+    {
+        var periodEnd = Now.AddDays(30);
+
+        Assert.True(SubscriptionRules.StripeEndsAtPeriodEnd(true, null, periodEnd));
+        Assert.True(SubscriptionRules.StripeEndsAtPeriodEnd(false, periodEnd, periodEnd)); // portal cancel
+        Assert.True(SubscriptionRules.StripeEndsAtPeriodEnd(false, Now.AddDays(5), periodEnd));
+        Assert.False(SubscriptionRules.StripeEndsAtPeriodEnd(false, periodEnd.AddDays(30), periodEnd)); // renews once more
+        Assert.False(SubscriptionRules.StripeEndsAtPeriodEnd(false, null, periodEnd));
+        Assert.False(SubscriptionRules.StripeEndsAtPeriodEnd(false, periodEnd, null));
+    }
 }

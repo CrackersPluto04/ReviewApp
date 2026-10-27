@@ -135,7 +135,7 @@ public class StripePaymentProvider : IPaymentProvider
             subscription.CustomerId,
             subscription.Id,
             SubscriptionRules.MapStripeStatus(subscription.Status),
-            subscription.CancelAtPeriodEnd,
+            SubscriptionRules.StripeEndsAtPeriodEnd(subscription.CancelAtPeriodEnd, subscription.CancelAt, periodEnd),
             periodEnd is { } end ? DateTime.SpecifyKind(end, DateTimeKind.Utc) : null);
     }
 
