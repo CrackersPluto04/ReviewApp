@@ -19,8 +19,8 @@ public sealed class TestData : IDisposable
 
     private readonly AppDbContext _context = TestDatabase.CreateContext();
 
-    // Unique per run; short enough for the 20 character username limit
-    public static string Unique(string prefix = "u") => $"{prefix}{Interlocked.Increment(ref _counter)}";
+    // Unique per run; with the default prefix always between the 3 and 20 characters a username needs
+    public static string Unique(string prefix = "user") => $"{prefix}{Interlocked.Increment(ref _counter)}";
 
     public async Task<User> UserAsync(Action<User>? configure = null)
     {
