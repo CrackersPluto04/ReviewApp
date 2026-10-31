@@ -43,7 +43,8 @@ public class DataCleanupService : BackgroundService
         while (await timer.WaitForNextTickAsync(stoppingToken));
     }
 
-    private async Task CleanupAsync(CancellationToken cancellationToken)
+    // Internal so the tests can run one cleanup pass directly
+    internal async Task CleanupAsync(CancellationToken cancellationToken)
     {
         using var scope = _scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
