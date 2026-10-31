@@ -3,7 +3,7 @@
 Bugs and oddities found while writing the backend test suite (`feature/backend-tests`).
 Small, clearly wrong ones were fixed on the branch; the test that found them stays as a regression test.
 The others are open: each has a skipped test (`Skip = "Known issue Fx (FINDINGS.md) ..."`) that describes the correct behavior.
-Un-skipping that test is the first step of the fix.
+Un-skipping that test is the first step of the fix. Each skipped test was checked to fail against the current code (except the timing-dependent media race in F5).
 
 ## Fixed
 
@@ -27,7 +27,7 @@ Un-skipping that test is the first step of the fix.
 | F2 | `GET api/User/{username}/followers` and `/following` answer 200 `[]` for an unknown user, the other profile lists answer 404 | Changes the API contract; the clients may rely on the empty list | `ControllerSmokeTests.User_FollowerListsOfAnUnknownUser_Are404` |
 | F3 | `search` is a valid username, but `GET api/User/search` is the user search route, so that profile can't be opened (usernames have no character rules either, so `/`, `?` or `.` break routing) | Needs reserved names / allowed characters at registration and a plan for existing accounts | `ControllerSmokeTests.User_NamedSearch_HasAReachableProfile` |
 | F4 | 429 responses never carry `Retry-After`: the sliding window leases have no `RetryAfter` metadata, so that part of `OnRejected` never runs | Low impact; the header would need to be computed from the policy's window | `RateLimitTests.Rejection_SaysWhenToRetry` |
-| F5 | One review per user and media, and one media row per external ID and type, are only checked in code: parallel requests can store duplicates (no unique index) | Needs a migration with unique indexes and a cleanup of possible existing duplicates | `ReviewServiceTests.Create_ConcurrentRequestsForTheSameMedia_StoreOneReview`, `MediaServiceTests.GetOrCreate_ConcurrentFirstRequests_StoreOneRow` |
+| F5 | One review per user and media, and one media row per external ID and type, are only checked in code: parallel requests can store duplicates (no unique index). The review race reproduces locally; the media one is timing-dependent and didn't in the runs so far | Needs a migration with unique indexes and a cleanup of possible existing duplicates | `ReviewServiceTests.Create_ConcurrentRequestsForTheSameMedia_StoreOneReview`, `MediaServiceTests.GetOrCreate_ConcurrentFirstRequests_StoreOneRow` |
 | F6 | A parallel duplicate follow hits the primary key: one request succeeds, the other throws (a 500) instead of answering "You already follow this user." | Small, but needs a decision on catching `DbUpdateException` in the service layer generally (collections have the same pattern) | `FollowerServiceTests.Follow_ConcurrentDuplicates_OneSucceedsNoneThrows` |
 
 ## Observations (no test)

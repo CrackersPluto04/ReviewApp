@@ -289,6 +289,26 @@ public class ControllerSmokeTests : HttpTest
         (await ExpectAsync(await client.GetAsync("api/Security/status"), HttpStatusCode.OK)).Bool("isTwoFactorEnabled").ShouldBeTrue();
     }
 
+    [Fact]
+    public async Task Security_ResendVerificationAndTwoFactorDisableOverHttp()
+    {
+        var unverified = await Data.UserAsync(u => u.IsEmailConfirmed = false);
+        var unverifiedClient = As(unverified);
+        await ExpectAsync(await unverifiedClient.PostAsync("api/Security/resend-verification", null), HttpStatusCode.OK);
+        (await ErrorAsync(await unverifiedClient.PostAsync("api/Security/resend-verification", null), HttpStatusCode.BadRequest))
+            .ShouldBe("Please wait a minute before requesting another email.");
+
+        var user = await Data.UserAsync(u => u.IsTwoFactorEnabled = true);
+        var client = As(user);
+        await ExpectAsync(await client.PostAsJsonAsync("api/Security/2fa/disable/request", new { currentPassword = TestData.Password }), HttpStatusCode.OK);
+        var code = CapturingEmailSender.Code(await App.Mail.WaitForAsync(user.Email, "disable two-factor"));
+        (await ErrorAsync(await client.PostAsJsonAsync("api/Security/2fa/disable/confirm", new { code = code == "000000" ? "000001" : "000000" }), HttpStatusCode.BadRequest))
+            .ShouldBe("The code is invalid or has expired.");
+        await ExpectAsync(await client.PostAsJsonAsync("api/Security/2fa/disable/confirm", new { code }), HttpStatusCode.OK);
+        (await ErrorAsync(await Anonymous().PostAsJsonAsync("api/Security/confirm-email-change", new { token = "wrong" }), HttpStatusCode.BadRequest))
+            .ShouldBe("This confirmation link is invalid or has expired.");
+    }
+
     /* Achievements */
 
     [Fact]

@@ -295,6 +295,18 @@ public class AuthPipelineTests : HttpTest
     }
 
     [Fact]
+    public async Task TwoFactorLoginResend_RespectsTheCooldown()
+    {
+        var user = await Data.UserAsync(u => u.IsTwoFactorEnabled = true);
+        var challenge = (await ExpectAsync(await LoginAsync(Browser(), user), HttpStatusCode.OK)).Str("challengeToken");
+
+        (await ErrorAsync(await PostJsonAsync(Anonymous(), "api/Auth/login/2fa/resend", new { challengeToken = challenge }), HttpStatusCode.BadRequest))
+            .ShouldBe("Please wait a minute before requesting another code.");
+        (await ErrorAsync(await PostJsonAsync(Anonymous(), "api/Auth/login/2fa/resend", new { challengeToken = "expired-or-forged" }), HttpStatusCode.BadRequest))
+            .ShouldBe("Your login attempt has expired. Please log in again.");
+    }
+
+    [Fact]
     public async Task TwoFactorLogin_WrongPassword_NeverRevealsThatTwoFactorIsOn()
     {
         var user = await Data.UserAsync(u => u.IsTwoFactorEnabled = true);
