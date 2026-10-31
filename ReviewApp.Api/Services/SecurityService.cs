@@ -377,9 +377,10 @@ public class SecurityService : ISecurityService
 
         if (!SecurityTokens.Matches(code, token.TokenHash))
         {
-            // Too many wrong tries burn the code, the user has to request a new one
+            // Too many wrong tries burn the code, the user has to request a new one.
+            // Only while it's unused: the right code may have consumed it since it was read, and that must stay.
             await _context.SecurityTokens
-                .Where(t => t.ID == token.ID)
+                .Where(t => t.ID == token.ID && !t.IsUsed)
                 .ExecuteUpdateAsync(s => s
                     .SetProperty(t => t.FailedAttempts, t => t.FailedAttempts + 1)
                     .SetProperty(t => t.IsUsed, t => t.FailedAttempts + 1 >= SecurityTokens.MaxCodeAttempts));
