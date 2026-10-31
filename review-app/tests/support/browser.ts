@@ -42,6 +42,11 @@ export function stubMatchMedia(matches: (query: string) => boolean) {
     }));
 }
 
+// The services log every failure with console.error; tests of failure paths mute it (and can assert on it)
+export function muteConsoleError() {
+    return vi.spyOn(console, 'error').mockImplementation(() => {});
+}
+
 // document.visibilityState is read-only in jsdom
 export function setVisibility(state: DocumentVisibilityState) {
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state });
