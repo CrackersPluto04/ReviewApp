@@ -61,7 +61,7 @@ function TestProviders({ route, children }: { route: string | { pathname: string
 }
 
 interface RenderOptions {
-    // Logged-in user (check-auth answers with it), anonymous when omitted
+    // Logged-in user (check-auth answers with it), null = anonymous; omitted = the current check-auth handler (anonymous by default)
     user?: AuthUser | null;
     // The URL the router starts at, may carry router state
     route?: string | { pathname: string; state?: unknown };
@@ -73,8 +73,8 @@ interface RenderOptions {
  * Renders a component inside the same providers as the app (theme, auth, notifications, toasts, router, upsell).
  * Other paths render nothing, so navigation away is visible through currentLocation().
  */
-export function renderWithApp(ui: ComponentChildren, { user = null, route = '/', path }: RenderOptions = {}) {
-    loginAs(user);
+export function renderWithApp(ui: ComponentChildren, { user, route = '/', path }: RenderOptions = {}) {
+    if (user !== undefined) loginAs(user);
 
     const result = render(
         <TestProviders route={route}>
@@ -89,8 +89,8 @@ export function renderWithApp(ui: ComponentChildren, { user = null, route = '/',
 }
 
 // The whole app (real route table and page chrome) at the given URL, like App but with a memory router
-export function renderApp(route: string | { pathname: string; state?: unknown }, { user = null }: { user?: AuthUser | null } = {}) {
-    loginAs(user);
+export function renderApp(route: string | { pathname: string; state?: unknown }, { user }: { user?: AuthUser | null } = {}) {
+    if (user !== undefined) loginAs(user);
 
     function Tree() {
         const { mode, toggleTheme } = useThemeMode();
