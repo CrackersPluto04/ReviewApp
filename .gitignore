@@ -5,6 +5,8 @@ dist/
 # .NET
 [Oo]bj/
 [Bb]in/
+[Tt]est[Rr]esults/
+coverage-report/
 appsettings.Development.json
 
 # IDEs

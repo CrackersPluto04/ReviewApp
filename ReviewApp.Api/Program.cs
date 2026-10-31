@@ -95,6 +95,8 @@ builder.Services.AddAuthorization();
 // Rate limiting: a generous global limit for every request, plus stricter policies (applied with
 // [EnableRateLimiting("<name>")]) for endpoints that are sensitive or proxy to third-party APIs.
 // Both the global limit and the endpoint policy must pass.
+// RateLimiting:PermitMultiplier (default 1) scales every limit; only the tests raise it, so they don't use up the shared counters.
+var permitMultiplier = Math.Max(1, builder.Configuration.GetValue("RateLimiting:PermitMultiplier", 1));
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -105,9 +107,9 @@ builder.Services.AddRateLimiter(options =>
             ? $"user:{id}"
             : $"ip:{httpContext.Connection.RemoteIpAddress}";
 
-    static SlidingWindowRateLimiterOptions Sliding(int permitLimit, TimeSpan window) => new()
+    SlidingWindowRateLimiterOptions Sliding(int permitLimit, TimeSpan window) => new()
     {
-        PermitLimit = permitLimit,
+        PermitLimit = permitLimit * permitMultiplier,
         Window = window,
         SegmentsPerWindow = 5,
         QueueLimit = 0
@@ -244,3 +246,6 @@ app.UseRateLimiter();
 app.MapControllers();
 
 app.Run();
+
+// Lets the test project host the app in-process (WebApplicationFactory<Program>)
+public partial class Program { }

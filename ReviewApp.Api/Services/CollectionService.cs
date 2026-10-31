@@ -66,8 +66,9 @@ public class CollectionService : ICollectionService
 
         if (collection.Name != dto.Name)
         {
+            // Excludes this collection, so a case-only rename isn't blocked by its own (case-insensitive) name
             var nameTaken = await _context.Collections
-                .AnyAsync(c => c.UserID == userId && c.Name == dto.Name);
+                .AnyAsync(c => c.UserID == userId && c.Name == dto.Name && c.ID != collection.ID);
 
             if (nameTaken) return (false, false, "You already have a collection with this name.", null);
         }
@@ -77,13 +78,16 @@ public class CollectionService : ICollectionService
 
         await _context.SaveChangesAsync();
 
+        // The media items aren't loaded, so they are counted in the database
+        var mediaCount = await _context.CollectionMedias.CountAsync(cm => cm.CollectionID == collection.ID);
+
         return (true, false, "Collection updated successfully!", new CollectionDto
         {
             ID = collection.ID,
             Name = collection.Name,
             VisibilityLevel = collection.VisibilityLevel,
             CreatedAt = collection.CreatedAt.ToString("yyyy-MM-dd"),
-            MediaCount = collection.CollectionMedias.Count,
+            MediaCount = mediaCount,
             IsOwner = true
         });
     }
@@ -206,11 +210,11 @@ public class CollectionService : ICollectionService
         return true;
     }
 
-    public async Task<List<CollectionDto>> GetUserCollectionsAsync(string targetUsername, int? requestingUserId, string sortBy = "createdAt_asc")
+    public async Task<List<CollectionDto>?> GetUserCollectionsAsync(string targetUsername, int? requestingUserId, string sortBy = "createdAt_asc")
     {
-        // Find target user by username
+        // Find target user by username, null if there is none
         var targetUser = await _context.Users.FirstOrDefaultAsync(u => u.Username == targetUsername);
-        if (targetUser == null) return null!;
+        if (targetUser == null) return null;
 
         // Check if requesting user is the owner of the collections
         // or a follower of the owner

@@ -41,6 +41,7 @@ public class NotificationQueryParams
 
 public record SetNotificationSeenDto
 {
+    // Nullable so [Required] can reject a missing value; a plain bool would silently become false (= unseen)
     [Required]
-    public bool IsSeen { get; init; }
+    public bool? IsSeen { get; init; }
 }

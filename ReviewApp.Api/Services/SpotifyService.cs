@@ -36,7 +36,7 @@ public class SpotifyService : ISpotifyService
 
         var queryString = string.Join(" ", queryParts);
 
-        var url = $"https://api.spotify.com/v1/search?q={Uri.EscapeDataString(queryString)}&type=track&market={p.Market}&limit=10&offset={(p.Page - 1) * 10}";
+        var url = $"https://api.spotify.com/v1/search?q={Uri.EscapeDataString(queryString)}&type=track&market={Uri.EscapeDataString(p.Market)}&limit=10&offset={(p.Page - 1) * 10}";
         var result = await FetchFromSpotifyAsync<SpotifySearchResponseDto>(url);
         return result.Tracks;
     }

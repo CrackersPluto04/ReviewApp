@@ -12,6 +12,7 @@ public class PagedResponse<T>
         Items = items;
         TotalCount = totalCount;
         CurrentPage = currentPage;
-        TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+        // No valid page size (e.g. an empty search/all response) means no pages, not (int)NaN
+        TotalPages = pageSize > 0 ? (int)Math.Ceiling(totalCount / (double)pageSize) : 0;
     }
 }

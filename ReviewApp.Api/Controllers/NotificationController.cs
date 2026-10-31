@@ -53,7 +53,7 @@ public class NotificationController : ControllerBase
     {
         try
         {
-            var success = await _notificationService.SetSeenAsync(_userAuthHelper.GetSecureUserID(), id, dto.IsSeen);
+            var success = await _notificationService.SetSeenAsync(_userAuthHelper.GetSecureUserID(), id, dto.IsSeen!.Value);
             if (!success) return NotFound(new { error = "Notification not found." });
 
             return NoContent();
