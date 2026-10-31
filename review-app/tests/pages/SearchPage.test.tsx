@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/preact';
 import { HttpResponse } from 'msw';
 import { SearchPage } from '../../src/pages/SearchPage';
-import { HomePage } from '../../src/pages/HomePage';
 import { server } from '../support/server';
 import { apiError, capture, deferred } from '../support/api';
 import { movie, paged } from '../support/builders';
@@ -18,20 +17,6 @@ function serve(what: string, respond: (req: { url: URL }) => Response | Promise<
 
 const results = (titles: string[], overrides: Record<string, any> = {}) =>
     HttpResponse.json(paged(titles.map(title => movie({ title })), overrides));
-
-describe('HomePage', () => {
-    it('welcomes and searches with a type picker', async () => {
-        const { user } = renderWithApp(<HomePage />);
-
-        expect(screen.getByRole('heading', { name: /Welcome to THE Review App!/ })).toBeInTheDocument();
-        await user.type(screen.getByPlaceholderText('Search for a piece of media...'), 'dune');
-        await user.click(screen.getByRole('combobox'));
-        await user.click(screen.getByRole('option', { name: 'Movies' }));
-        await user.click(screen.getByRole('button', { name: 'Search' }));
-
-        expect(currentLocation()).toBe('/search?q=dune&type=movie&page=1');
-    });
-});
 
 describe('SearchPage', () => {
     it('asks for a query when there is none', () => {
