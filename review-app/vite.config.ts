@@ -8,9 +8,9 @@ export default defineConfig({
 		preact(),
 		basicSsl(),
 	],
+	// basicSsl() turns on HTTPS with its self-signed certificate
 	server: {
 		port: 5173,
-		https: true,
 		open: true,
 	}
 });
