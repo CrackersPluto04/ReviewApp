@@ -30,6 +30,10 @@ export default defineConfig({
 		environment: 'jsdom',
 		include: ['tests/**/*.test.{ts,tsx}'],
 		setupFiles: ['tests/setup.ts'],
+		// One jsdom per worker is heavy: all cores at once overload a laptop and slow CI runners down
+		maxWorkers: '50%',
+		// Generous for slow CI runners; a test that waits on something that never happens still fails
+		testTimeout: 15_000,
 		restoreMocks: true,
 		unstubGlobals: true,
 		server: {

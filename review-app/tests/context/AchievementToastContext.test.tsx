@@ -20,7 +20,7 @@ describe('AchievementToastContext', () => {
         render(<AchievementToastProvider><p>page</p></AchievementToastProvider>);
         serveUnlocks(unlocked({ title: 'Critic', tier: 'Silver' }));
 
-        await act(() => apiFetch(apiUrl('Review'), { method: 'POST' }));
+        await act(async () => void await apiFetch(apiUrl('Review'), { method: 'POST' }));
 
         const alert = await screen.findByRole('alert');
         expect(alert).toHaveTextContent('Achievement unlocked!');
@@ -33,23 +33,23 @@ describe('AchievementToastContext', () => {
         render(<AchievementToastProvider><p>page</p></AchievementToastProvider>);
         serveUnlocks(unlocked({ title: 'Critic', tier: 'Bronze' }), unlocked({ title: 'Critic', tier: 'Silver' }));
 
-        await act(() => apiFetch(apiUrl('Review'), { method: 'POST' }));
+        await act(async () => void await apiFetch(apiUrl('Review'), { method: 'POST' }));
         expect(await screen.findByRole('alert')).toHaveTextContent('Critic (Bronze)');
 
         // 5 s on screen, then the exit transition
-        await act(() => vi.advanceTimersByTimeAsync(5_000));
-        await act(() => vi.advanceTimersByTimeAsync(1_000));
+        await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
+        await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
 
         await waitFor(() => expect(toast()).toHaveTextContent('Critic (Silver)'));
 
-        await act(() => vi.advanceTimersByTimeAsync(6_000));
+        await act(async () => { await vi.advanceTimersByTimeAsync(6_000); });
         await waitFor(() => expect(toast()).not.toBeInTheDocument());
     });
 
     it('closes with the close button', async () => {
         render(<AchievementToastProvider><p>page</p></AchievementToastProvider>);
         serveUnlocks(unlocked());
-        await act(() => apiFetch(apiUrl('Review'), { method: 'POST' }));
+        await act(async () => void await apiFetch(apiUrl('Review'), { method: 'POST' }));
         await screen.findByRole('alert');
 
         await setupUser().click(screen.getByRole('button', { name: /close/i }));
@@ -60,7 +60,7 @@ describe('AchievementToastContext', () => {
     it('stays open on a click elsewhere', async () => {
         render(<AchievementToastProvider><p>page</p></AchievementToastProvider>);
         serveUnlocks(unlocked());
-        await act(() => apiFetch(apiUrl('Review'), { method: 'POST' }));
+        await act(async () => void await apiFetch(apiUrl('Review'), { method: 'POST' }));
         await screen.findByRole('alert');
 
         await setupUser().click(screen.getByText('page'));

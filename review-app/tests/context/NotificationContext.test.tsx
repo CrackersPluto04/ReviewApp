@@ -61,10 +61,10 @@ describe('NotificationContext', () => {
         await waitFor(() => expect(count()).toBe('1'));
 
         unseen.set(4);
-        await act(() => vi.advanceTimersByTimeAsync(44_000));
+        await act(async () => { await vi.advanceTimersByTimeAsync(44_000); });
         expect(count()).toBe('1');
 
-        await act(() => vi.advanceTimersByTimeAsync(1_000));
+        await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
         await waitFor(() => expect(count()).toBe('4'));
         expect(unseen.endpoint.calls).toHaveLength(2);
     });
@@ -77,7 +77,7 @@ describe('NotificationContext', () => {
         await waitFor(() => expect(count()).toBe('1'));
 
         act(() => setVisibility('hidden'));
-        await act(() => vi.advanceTimersByTimeAsync(3 * 45_000));
+        await act(async () => { await vi.advanceTimersByTimeAsync(3 * 45_000); });
         expect(unseen.endpoint.calls).toHaveLength(1);
 
         unseen.set(7);
@@ -96,12 +96,12 @@ describe('NotificationContext', () => {
 
         unseen.set(2);
         await apiFetch(apiUrl('Review'), { method: 'POST' });
-        await act(() => vi.advanceTimersByTimeAsync(500));
+        await act(async () => { await vi.advanceTimersByTimeAsync(500); });
         await apiFetch(apiUrl('Review'), { method: 'POST' });
-        await act(() => vi.advanceTimersByTimeAsync(799));
+        await act(async () => { await vi.advanceTimersByTimeAsync(799); });
         expect(unseen.endpoint.calls).toHaveLength(1);
 
-        await act(() => vi.advanceTimersByTimeAsync(1));
+        await act(async () => { await vi.advanceTimersByTimeAsync(1); });
         await waitFor(() => expect(count()).toBe('2'));
         expect(unseen.endpoint.calls).toHaveLength(2);
     });
@@ -119,7 +119,7 @@ describe('NotificationContext', () => {
 
         await apiFetch(apiUrl('Review/1'));
         await apiFetch(apiUrl('Review'), { method: 'POST' });
-        await act(() => vi.advanceTimersByTimeAsync(2_000));
+        await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });
 
         expect(unseen.endpoint.calls).toHaveLength(1);
     });
@@ -135,7 +135,7 @@ describe('NotificationContext', () => {
         await setupUser().click(screen.getByRole('button', { name: 'logout' }));
         await waitFor(() => expect(count()).toBe('0'));
 
-        await act(() => vi.advanceTimersByTimeAsync(2 * 45_000));
+        await act(async () => { await vi.advanceTimersByTimeAsync(2 * 45_000); });
         expect(unseen.endpoint.calls).toHaveLength(1);
     });
 
@@ -166,7 +166,7 @@ describe('NotificationContext', () => {
         await waitFor(() => expect(count()).toBe('3'));
 
         fail = true;
-        await act(() => vi.advanceTimersByTimeAsync(45_000));
+        await act(async () => { await vi.advanceTimersByTimeAsync(45_000); });
 
         expect(count()).toBe('3');
     });

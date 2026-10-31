@@ -43,7 +43,7 @@ export async function flush() {
 
 // With frozen fake timers: Preact runs effects after the next frame or 35 ms at the latest; this lets them run (their timers start then)
 export async function paint() {
-    await act(() => vi.advanceTimersByTimeAsync(50));
+    await act(async () => { await vi.advanceTimersByTimeAsync(50); });
     await flush();
 }
 

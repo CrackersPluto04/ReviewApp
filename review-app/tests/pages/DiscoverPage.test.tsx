@@ -10,7 +10,7 @@ import { album, movie, paged, series } from '../support/builders';
 import { currentLocation, renderWithApp } from '../support/render';
 import { serveStats } from '../support/handlers';
 
-function serve(what: 'movie' | 'series' | 'music', respond: (req: { url: URL }) => Response) {
+function serve(what: 'movie' | 'series' | 'music', respond: (req: { url: URL }) => Response | Promise<Response>) {
     const endpoint = capture('get', `Media/discover/${what}`, respond);
     server.use(endpoint.handler);
     return endpoint;

@@ -21,11 +21,11 @@ describe('UserSearchBar', () => {
         await user.type(screen.getByPlaceholderText('Find users...'), 'bo');
         // The 300 ms start when the effect runs, somewhere within paint()'s 50 ms
         await paint();
-        await act(() => vi.advanceTimersByTimeAsync(250));
+        await act(async () => { await vi.advanceTimersByTimeAsync(250); });
         await flush();
         expect(search.calls).toHaveLength(0);
 
-        await act(() => vi.advanceTimersByTimeAsync(50));
+        await act(async () => { await vi.advanceTimersByTimeAsync(50); });
         await flush();
         expect(search.calls).toHaveLength(1);
         expect(search.last.url.searchParams.get('q')).toBe('bo');
@@ -39,7 +39,7 @@ describe('UserSearchBar', () => {
 
         await user.type(screen.getByPlaceholderText('Find users...'), 'bobby');
         await paint();
-        await act(() => vi.advanceTimersByTimeAsync(300));
+        await act(async () => { await vi.advanceTimersByTimeAsync(300); });
         await flush();
 
         expect(search.calls).toHaveLength(1);
@@ -53,7 +53,7 @@ describe('UserSearchBar', () => {
 
         await user.type(screen.getByPlaceholderText('Find users...'), '   ');
         await paint();
-        await act(() => vi.advanceTimersByTimeAsync(1_000));
+        await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
         await flush();
 
         expect(search.calls).toHaveLength(0);

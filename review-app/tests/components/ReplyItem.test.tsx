@@ -210,7 +210,7 @@ describe('ReplyItem', () => {
 
             await user.click(screen.getByRole('button', { name: 'View 1 reply' }));
             await screen.findByText('Only child');
-            await user.click(screen.getAllByRole('button', { name: 'Delete reply' }).at(-1)!);
+            await user.click(screen.getAllByRole('button', { name: 'Delete reply' }).slice(-1)[0]);
 
             await waitFor(() => expect(screen.queryByText('Only child')).not.toBeInTheDocument());
             expect(onEmptied).not.toHaveBeenCalled();

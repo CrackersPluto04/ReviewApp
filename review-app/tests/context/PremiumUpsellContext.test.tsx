@@ -26,7 +26,7 @@ describe('PremiumUpsellContext', () => {
         renderWithApp(<p>page</p>);
         await waitFor(() => expect(checks).toBe(1));
 
-        await act(() => apiFetch(apiUrl('Subscription/entitlement-preview')));
+        await act(async () => void await apiFetch(apiUrl('Subscription/entitlement-preview')));
 
         expect(await screen.findByRole('dialog', { name: 'This is a Premium feature' })).toBeInTheDocument();
         await waitFor(() => expect(checks).toBe(2));

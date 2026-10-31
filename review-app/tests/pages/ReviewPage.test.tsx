@@ -69,7 +69,7 @@ describe('ReviewPage', () => {
             expect(await screen.findByText('An older reply')).toBeInTheDocument();
             expect(replies.last.url.searchParams.get('reviewId')).toBe('12');
             await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled());
-            expect(vi.mocked(Element.prototype.scrollIntoView).mock.contexts.at(-1)).toContainElement(shown);
+            expect(vi.mocked(Element.prototype.scrollIntoView).mock.contexts.slice(-1)[0]).toContainElement(shown);
         });
 
         it('opens a layer 3 reply inside its expanded parent', async () => {

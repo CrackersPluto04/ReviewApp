@@ -10,7 +10,7 @@ import { currentLocation, renderWithApp } from '../support/render';
 import { serveStats } from '../support/handlers';
 import { knownIssue } from '../support/known-issue';
 
-function serve(what: string, respond: (req: { url: URL }) => Response) {
+function serve(what: string, respond: (req: { url: URL }) => Response | Promise<Response>) {
     const endpoint = capture('get', `Media/search/${what}`, respond);
     server.use(endpoint.handler);
     return endpoint;
