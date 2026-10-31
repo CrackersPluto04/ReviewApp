@@ -13,6 +13,9 @@ Un-skipping that test is the first step of the fix.
 | Spotify discover put `market` into the URL unescaped, so a crafted value could add query parameters | Escaped like the other values | `ExternalApiClientTests.Spotify_DiscoverEscapesEveryUserValue` |
 | A wrong 2FA code racing the right one could mark the just used code unused again (second use possible) | The failed-attempt update only touches unused codes | `SecurityServiceTests.TwoFactorCode_WrongTriesRacingTheRightOne_NeverReviveIt` |
 | Review lists failed with a 500 for `page <= 0` or `pageSize <= 0` (negative `Skip`) and had no page size limit | Page is at least 1, page size is clamped to 1-50 (like replies and notifications) | `ReviewServiceTests.Paging_*` |
+| Updating a collection always answered `MediaCount = 0` (the items were never loaded) | Counted in the database | `CollectionServiceTests.Update_RenamesAndKeepsTheMediaCount` |
+| A case-only collection rename (`sci-fi` -> `Sci-Fi`) was rejected, the name check matched the collection itself (case-insensitive collation) | The check excludes the collection being renamed, like the username check does | `CollectionServiceTests.Update_CaseOnlyRename_IsAllowed` |
+| `GetUserCollectionsAsync` returned `null!` for an unknown user behind a non-nullable return type | The return type is nullable, so callers see the not found case | `CollectionServiceTests.List_UnknownUser_IsNull` |
 
 ## Open
 
