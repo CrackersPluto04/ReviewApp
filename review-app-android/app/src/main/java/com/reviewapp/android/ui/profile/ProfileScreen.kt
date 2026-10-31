@@ -89,6 +89,7 @@ import com.reviewapp.android.ui.components.InfiniteListEffect
 import com.reviewapp.android.ui.components.LimitedTextField
 import com.reviewapp.android.ui.components.ListFooter
 import com.reviewapp.android.ui.components.LoadingState
+import com.reviewapp.android.ui.components.PremiumBadge
 import com.reviewapp.android.ui.components.ProfileReviewCard
 import com.reviewapp.android.ui.components.ReviewFilterChips
 import com.reviewapp.android.ui.components.ReviewsTitle
@@ -151,7 +152,10 @@ fun ProfileScreen(
                 title = {
                     if (profile != null && !state.showLoginPrompt) {
                         Column {
-                            Text(profile.username, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(profile.username, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                                if (profile.isPremium) PremiumBadge()
+                            }
                             formatDate(profile.joinedAt)?.let {
                                 Text(
                                     "Joined $it",

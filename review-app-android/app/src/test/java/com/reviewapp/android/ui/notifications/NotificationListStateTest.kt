@@ -105,4 +105,17 @@ class NotificationListStateTest {
         assertNull(notificationTarget(notification(1, NotificationType.AchievementUnlocked, actor = null), null))
         assertNull(notificationTarget(notification(1, NotificationType.NewFollower, actor = null), "me"))
     }
+
+    @Test
+    fun target_subscriptionChangesOpenPremium() {
+        listOf(
+            NotificationType.SubscriptionStarted,
+            NotificationType.PaymentFailed,
+            NotificationType.SubscriptionCancelled,
+            NotificationType.SubscriptionEnded,
+        ).forEach { type ->
+            assertEquals(NotificationTarget.Subscription, notificationTarget(notification(1, type, actor = null), "me"))
+        }
+        assertEquals(NotificationType.PaymentFailed, NotificationType.fromName("PaymentFailed"))
+    }
 }

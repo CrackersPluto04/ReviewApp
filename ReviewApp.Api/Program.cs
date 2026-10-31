@@ -140,6 +140,10 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("external-api", httpContext =>
         RateLimitPartition.GetSlidingWindowLimiter(ClientKey(httpContext), _ => Sliding(60, TimeSpan.FromMinutes(1))));
 
+    // Subscription actions that call the payment provider (checkout, payment settings, cancel / resume, sync): 15 per 10 minutes per user
+    options.AddPolicy("billing", httpContext =>
+        RateLimitPartition.GetSlidingWindowLimiter(ClientKey(httpContext), _ => Sliding(15, TimeSpan.FromMinutes(10))));
+
     options.OnRejected = async (context, cancellationToken) =>
     {
         var response = context.HttpContext.Response;
@@ -211,6 +215,9 @@ builder.Services.AddHostedService<EmailDispatcherService>();
 
 builder.Services.AddHostedService<DataCleanupService>();
 
+// Subscriptions: Stripe, or the Fake provider (no payment at all) that is only allowed in Development
+builder.AddSubscriptions();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -225,7 +232,7 @@ else
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+app.UseHttpsRedirectionForApi();
 
 app.UseCors("FrontendPolicy");
 

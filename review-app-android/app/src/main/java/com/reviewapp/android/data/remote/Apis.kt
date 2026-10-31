@@ -19,7 +19,11 @@ import com.reviewapp.android.data.remote.dto.MediaReviewDto
 import com.reviewapp.android.data.remote.dto.MessageResponse
 import com.reviewapp.android.data.remote.dto.NotificationPageDto
 import com.reviewapp.android.data.remote.dto.PagedResponse
+import com.reviewapp.android.data.remote.dto.PlanDto
 import com.reviewapp.android.data.remote.dto.ProfileReviewDto
+import com.reviewapp.android.data.remote.dto.SubscriptionRedirectRequest
+import com.reviewapp.android.data.remote.dto.SubscriptionStatusDto
+import com.reviewapp.android.data.remote.dto.SubscriptionUrlDto
 import com.reviewapp.android.data.remote.dto.RegisterRequest
 import com.reviewapp.android.data.remote.dto.ReorderMediaRequest
 import com.reviewapp.android.data.remote.dto.ReplyContextDto
@@ -301,6 +305,42 @@ interface AchievementApi {
     /** Every achievement card with the user's progress, public. */
     @GET("Achievement/{username}")
     suspend fun getAchievements(@Path("username") username: String): List<AchievementDto>
+}
+
+/**
+ * The Premium subscription. Payment happens on the provider's pages in the browser: checkout and portal
+ * return the URL to open, which sends the user back through `reviewapp://subscription/{result}`.
+ */
+interface SubscriptionApi {
+    /** Anonymous. */
+    @GET("Subscription/plan")
+    suspend fun getPlan(): PlanDto
+
+    @GET("Subscription/status")
+    suspend fun getStatus(): SubscriptionStatusDto
+
+    /** 400 when the user already has Premium. */
+    @POST("Subscription/checkout")
+    suspend fun startCheckout(@Body body: SubscriptionRedirectRequest): SubscriptionUrlDto
+
+    /** The provider's page for payment details and invoices. */
+    @POST("Subscription/portal")
+    suspend fun openPortal(@Body body: SubscriptionRedirectRequest): SubscriptionUrlDto
+
+    /** Stops the renewal, Premium stays until the period end. */
+    @POST("Subscription/cancel")
+    suspend fun cancel(): MessageResponse
+
+    @POST("Subscription/resume")
+    suspend fun resume(): MessageResponse
+
+    /** Makes the API check with the payment provider (after returning from checkout). */
+    @POST("Subscription/sync")
+    suspend fun sync(): SubscriptionStatusDto
+
+    /** Placeholder Premium endpoint that proves the paywall: 402 for Free users. */
+    @GET("Subscription/entitlement-preview")
+    suspend fun entitlementPreview(): MessageResponse
 }
 
 /** Email verification, the pending email change and two-factor authentication of the current user. */

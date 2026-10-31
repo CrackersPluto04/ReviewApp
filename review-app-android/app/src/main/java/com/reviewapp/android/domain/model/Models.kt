@@ -41,7 +41,13 @@ data class AuthUser(
     val username: String,
     val profilePictureUrl: String?,
     val isEmailConfirmed: Boolean,
-)
+    /** Subscription state at the last check-auth; the API checks access on every request anyway (402 when missing). */
+    val isPremium: Boolean = false,
+    val entitlements: Set<String> = emptySet(),
+) {
+    /** For showing or hiding UI only, see [FeatureKeys]. */
+    fun hasFeature(key: String) = key in entitlements
+}
 
 data class ScoreStats(val averageScore: Double, val reviewCount: Int)
 
@@ -104,6 +110,8 @@ data class UserProfile(
     val followingCount: Int,
     /** Whether the current user follows them, always false for a logged-out viewer and the owner. */
     val isFollowed: Boolean,
+    /** The public Premium badge. */
+    val isPremium: Boolean = false,
 )
 
 /** A user in search results and follower lists. */
@@ -185,7 +193,11 @@ enum class NotificationType(val label: String) {
     ReviewReply("Reply"),
     ReplyReply("Reply"),
     AchievementUnlocked("Achievement"),
-    NewFollower("Follower");
+    NewFollower("Follower"),
+    SubscriptionStarted("Premium"),
+    PaymentFailed("Premium"),
+    SubscriptionCancelled("Premium"),
+    SubscriptionEnded("Premium");
 
     companion object {
         /** The API sends the enum's name; anything unknown is shown as a system message. */
@@ -288,3 +300,36 @@ data class SecurityStatus(
     /** A new address waiting for its confirmation link to be opened. */
     val pendingEmail: String?,
 )
+
+/** Keys of the features that need a subscription, same as the API's `FeatureKeys`. */
+object FeatureKeys {
+    const val PROFILE_BADGE = "profile-badge"
+    const val ENTITLEMENT_PREVIEW = "entitlement-preview"
+}
+
+/** Same names as the API's `SubscriptionStatus`. */
+enum class SubscriptionStatus {
+    None, Active, PastDue, Ended;
+
+    companion object {
+        fun fromName(name: String?): SubscriptionStatus = entries.firstOrNull { it.name == name } ?: None
+    }
+}
+
+/** `GET Subscription/status`: the current user's subscription, never provider details. */
+data class SubscriptionSummary(
+    val status: SubscriptionStatus,
+    val isPremium: Boolean,
+    val willRenew: Boolean,
+    /** Cancelled, Premium runs until [accessEndsAt]. */
+    val cancelAtPeriodEnd: Boolean,
+    /** A renewal failed, Premium runs until [accessEndsAt] (the grace period). */
+    val hasPaymentProblem: Boolean,
+    /** ISO instant, null when not Premium. */
+    val accessEndsAt: String?,
+)
+
+data class PlanFeature(val key: String, val title: String, val description: String, val comingSoon: Boolean)
+
+/** The Premium plan; the price is for display, the payment provider charges the real one. */
+data class Plan(val priceAmount: Double, val currency: String, val interval: String, val features: List<PlanFeature>)

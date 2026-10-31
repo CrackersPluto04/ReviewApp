@@ -83,6 +83,52 @@ public class AccountEmailService : IAccountEmailService
             ],
             footnote: NotYouHint);
 
+    public void SendPremiumStarted(string email, string username, DateTime? renewsOn) =>
+        Enqueue(email, "Welcome to Premium",
+            "Welcome to Premium!",
+            [
+                $"Hi {username}, thanks for subscribing. Your Premium features are unlocked.",
+                renewsOn is { } date
+                    ? $"Your subscription renews automatically every month, next on {SubscriptionText.Date(date)}. You can cancel any time."
+                    : "Your subscription renews automatically every month. You can cancel any time."
+            ],
+            ManageSubscriptionButton());
+
+    public void SendPaymentFailed(string email, string username, DateTime? accessEndsAt) =>
+        Enqueue(email, "We couldn't renew your Premium subscription",
+            "Your payment didn't go through",
+            [
+                $"Hi {username}, we couldn't charge your payment method for the next month of Premium.",
+                accessEndsAt is { } date
+                    ? $"Please update your payment details. You keep Premium until {SubscriptionText.Date(date)}; if the payment still fails by then, your account switches back to Free."
+                    : "Please update your payment details, otherwise your account switches back to Free."
+            ],
+            ManageSubscriptionButton(),
+            footnote: "Nothing you created is deleted when Premium ends.");
+
+    public void SendSubscriptionCancelled(string email, string username, DateTime? accessEndsAt) =>
+        Enqueue(email, "Your Premium subscription was cancelled",
+            "Subscription cancelled",
+            [
+                $"Hi {username}, your Premium subscription won't renew.",
+                accessEndsAt is { } date
+                    ? $"You keep every Premium feature until {SubscriptionText.Date(date)}. Changed your mind? You can resume it until then."
+                    : "Changed your mind? You can resume it before it ends."
+            ],
+            ManageSubscriptionButton(),
+            footnote: "If you didn't cancel it, change your password and check your subscription in the app.");
+
+    public void SendSubscriptionEnded(string email, string username) =>
+        Enqueue(email, "Your Premium subscription has ended",
+            "Premium has ended",
+            [
+                $"Hi {username}, your Premium subscription has ended and your account is on the Free plan now.",
+                "Everything you created stays as it is. You can subscribe again any time."
+            ],
+            new EmailTemplates.Button("See Premium", $"{_frontendBaseUrl}/premium"));
+
+    private EmailTemplates.Button ManageSubscriptionButton() => new("Manage subscription", $"{_frontendBaseUrl}/premium");
+
     private string VerificationUrl(string token) => $"{_frontendBaseUrl}/verify-email?token={Uri.EscapeDataString(token)}";
 
     private void Enqueue(string to, string subject, string heading, IEnumerable<string> paragraphs,

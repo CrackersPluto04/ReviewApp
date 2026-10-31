@@ -11,12 +11,15 @@ public class UserService : IUserService
     private readonly AppDbContext _context;
     private readonly IAccountEmailService _accountEmailService;
     private readonly INotificationService _notificationService;
+    private readonly IEntitlementService _entitlementService;
 
-    public UserService(AppDbContext context, IAccountEmailService accountEmailService, INotificationService notificationService)
+    public UserService(AppDbContext context, IAccountEmailService accountEmailService, INotificationService notificationService,
+        IEntitlementService entitlementService)
     {
         _context = context;
         _accountEmailService = accountEmailService;
         _notificationService = notificationService;
+        _entitlementService = entitlementService;
     }
 
     public async Task<List<UserCompactDto>> SearchUsersAsync(string query)
@@ -63,7 +66,8 @@ public class UserService : IUserService
             IsFollowedByCurrentUser = currentUserId.HasValue && !isOwner &&
                 _context.UserFollowers.Any(check =>
                     check.FollowerID == currentUserId.Value &&
-                    check.FollowingID == targetUser.ID)
+                    check.FollowingID == targetUser.ID),
+            IsPremium = await _entitlementService.HasFeatureAsync(targetUser.ID, FeatureKeys.ProfileBadge)
         };
     }
 

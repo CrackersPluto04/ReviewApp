@@ -9,6 +9,7 @@ import { followerService } from "../services/FollowerService";
 import { FollowerListDialog } from "../components/FollowerListDialog";
 import { EditAvatarDialog } from "../components/EditAvatarDialog";
 import { AccountSettingsMenu } from "../components/AccountSettingsMenu";
+import { PremiumBadge } from "../components/PremiumBadge";
 
 export function ProfileLayout() {
     const { user, setUser, isLoggedIn } = useAuth();
@@ -171,6 +172,7 @@ export function ProfileLayout() {
                         <Typography variant="h5" fontWeight="bold">
                             {username}
                         </Typography>
+                        {profileData.isPremium && <PremiumBadge />}
                         {isOwner && (
                             <AccountSettingsMenu username={username!} onChangeUsername={handleChangeUsername} />
                         )}

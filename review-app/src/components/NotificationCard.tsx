@@ -7,6 +7,8 @@ import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import PersonAddAlt1Icon from "@mui/icons-material/PersonAddAlt1";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import WorkspacePremiumIcon from "@mui/icons-material/WorkspacePremium";
+import CreditCardOffOutlinedIcon from "@mui/icons-material/CreditCardOffOutlined";
 import { NotificationDto } from "../types/types";
 import { formatNotificationDate, NOTIFICATION_TYPE_LABELS } from "../utils/notifications";
 
@@ -28,6 +30,10 @@ function TypeIcon({ notification }: { notification: NotificationDto }) {
         ReviewReply: <ChatBubbleOutlineIcon />,
         ReplyReply: <ChatBubbleOutlineIcon />,
         NewFollower: <PersonAddAlt1Icon />,
+        SubscriptionStarted: <WorkspacePremiumIcon />,
+        PaymentFailed: <CreditCardOffOutlinedIcon />,
+        SubscriptionCancelled: <WorkspacePremiumIcon />,
+        SubscriptionEnded: <WorkspacePremiumIcon />,
         System: <InfoOutlinedIcon />
     }[notification.type] ?? <InfoOutlinedIcon />;
 

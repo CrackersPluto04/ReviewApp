@@ -34,6 +34,17 @@ data object NotificationsRoute
 @Serializable
 data object AccountSettingsRoute
 
+/** Plans page with the current user's subscription. */
+@Serializable
+data object PremiumRoute
+
+/**
+ * Where the payment provider sends the user back: `reviewapp://subscription/{result}` (opened by the API's
+ * return page in the browser), [result] being `success`, `cancelled` or `portal`.
+ */
+@Serializable
+data class SubscriptionReturnRoute(val result: String)
+
 @Serializable
 data class FollowListRoute(val username: String, val showFollowing: Boolean)
 
