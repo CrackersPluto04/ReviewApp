@@ -8,7 +8,7 @@ This is a three-project repo with no shared root tooling — each part is built/
 
 - `ReviewApp.Api/` — ASP.NET Core 8 Web API (C#), EF Core + SQL Server backend.
 - `ReviewApp.Api.Tests/` — the backend test suite (xUnit + Shouldly + NSubstitute): unit, service integration (real SQL Server) and in-process HTTP tests, see "Backend tests" below. A sibling folder because the web SDK project would compile any `.cs` below `ReviewApp.Api/`. It is in `ReviewApp.Api/ReviewApp.Api.sln`, so `dotnet test ReviewApp.Api.sln` from `ReviewApp.Api/` runs it.
-- `review-app/` — Preact + TypeScript frontend (built with Vite), using MUI for components and react-router-dom for routing.
+- `review-app/` — Preact + TypeScript frontend (built with Vite), using MUI for components and react-router-dom for routing. Its test suite (Vitest) is in `review-app/tests/`, see "Frontend tests" below.
 - `review-app-android/` — native Android client (Kotlin, Jetpack Compose + Material 3), being brought up to the web app's feature set milestone by milestone. Mobile wireframes are in `wireframes_mobile/` (gitignored, local only).
 
 ## Common commands
@@ -59,7 +59,36 @@ Run all commands from `review-app/`.
 npm start      # vite dev server, https on port 5173, opens browser
 npm run build  # production build
 npm run preview
+npm run typecheck  # tsc --noEmit over src/ and tests/
 ```
+
+- The dev server uses `@vitejs/plugin-basic-ssl`, so it always serves over HTTPS on `https://localhost:5173` — this must match the CORS origin allowed by the API.
+- Node is pinned in `review-app/.nvmrc` (24) and `engines`; Vitest 5, jsdom and MSW need Node 22.22+ / 24.15+. No linter is configured.
+
+### Frontend tests (`review-app/tests/`)
+
+Run from `review-app/`. The only prerequisite is Node (no backend, no browser, no network).
+
+```
+npm test                                   # everything (vitest run)
+npm test -- tests/pages/LoginPage.test.tsx # one file; -t "<name>" for one test
+npm run test:watch                         # watch mode
+npm run test:coverage                      # + coverage (coverage/index.html, cobertura) and test-results/junit.xml
+KNOWN_ISSUES=1 npm test                    # runs the known-issue tests as expected failures (see Findings)
+npm test -- --sequence.shuffle             # random order, to catch tests that depend on each other
+```
+
+- **Stack**: Vitest + jsdom + Testing Library for Preact (`@testing-library/preact`, `user-event`, `jest-dom`) + MSW for the network. Config in `vitest.config.ts`, separate from `vite.config.ts`. `globals: false`, so tests import `describe`/`it`/`expect`/`vi` from `vitest`.
+- **Preact as React**: the config aliases `react`/`react-dom`/`react/jsx-runtime` to `preact/compat`, inlines MUI, Emotion, react-router, dnd-kit and react-transition-group (`server.deps.inline`) and resolves their ESM builds (`mainFields` / `conditions`). Real `react` 19 is installed as their peer dependency; any CJS build that `require()`s it brings in a second renderer ("object is not extensible", "Invalid hook call"). `tests/support/environment.test.tsx` guards this, look there first if MUI suddenly fails to render.
+- **Layout** mirrors `src/`: `utils/`, `hooks/`, `services/`, `context/`, `components/`, `pages/` with one `Foo.test.tsx` per source file, plus `App.test.tsx` (the route table of `src/App.tsx`). `src/index.tsx` only calls `render(<App />)`; `App.tsx` exports `App`, `AppProviders` (theme, auth, notifications, toasts) and `AppRoutes` (upsell + route table) so tests can mount them under a `MemoryRouter`.
+- **Support** (`tests/support/`): `server.ts` (the MSW server, default handlers: anonymous `check-auth`, unseen count 0), `api.ts` (`apiUrl`, `capture(method, path, response)` records what was sent (URL, body, `credentials`, headers), response helpers `ok`/`apiError`/`validationProblem`/`htmlError`/`networkError`/`paymentRequired`, `deferred()` for loading states), `builders.ts` (DTO builders), `handlers.ts` (endpoints many components hit: media stats, replies, collections), `render.tsx` (`renderWithApp(ui, { user, route, path })` = the app's providers + router, `renderApp(route)` = the whole app, `currentLocation()`, `loginAs`, `useFakeTimers`), `browser.ts` (stubs for `location`, `confirm`/`alert`, `matchMedia`, visibility, `muteConsoleError`). `services/endpoint.ts` generates the standard tests of a service method (request, success, `{ error }`, fallback, network failure, non-JSON error).
+- **Network rule**: every request needs a handler; one without fails the test after it ends (the services swallow fetch errors, so MSW's own error mode wouldn't). Requests still running at the end of a test are awaited, and after the file the network is closed, so nothing ever reaches `localhost:7140`.
+- **Timers**: `useFakeTimers()` fakes timers that still move with real time (findBy / waitFor keep working); `useFakeTimers(undefined, { frozen: true })` + `paint()` / `flush()` for exact timing (debounce). Preact runs effects after the next frame (or 35 ms): advance timers **outside** `act()` when a chain of effects must run (inside `act` it holds every effect until it ends).
+- **Locale / time zone**: the app formats with the browser's default locale; the setup pins `en-US` and UTC (`tests/support/locale.ts`) because Node on Windows ignores `LANG`, so results are the same on every machine and CI.
+- **jsdom gaps**: no layout (dnd-kit drops are simulated by capturing `onDragEnd`, see `CollectionDetails.reorder.test.tsx`), `scrollIntoView`/`scrollTo` are mocks, `confirm`/`alert`/`location.href` are stubbed per test. MUI Dialogs hide the rest of the page from role queries while open; several selects have no accessible name, query them by the value they show.
+- **Findings**: `review-app/tests/FINDINGS.md` lists the bugs the suite found (W1-W19, none fixed by decision), each with skipped tests written with `knownIssue('Wx', ...)` that describe the correct behaviour. Fixing one = turn it into a plain `it`, make it pass, move the finding to "Fixed".
+- **CI**: `.github/workflows/frontend-tests.yml` runs on pushes and pull requests touching `review-app/`: `npm ci`, type check, tests with coverage, production build; results and coverage are uploaded as the `frontend-test-results` artifact. No secrets. Half the cores are used (`maxWorkers: '50%'`, each jsdom worker is heavy), the full run takes about 3 minutes.
+- **New frontend features come with tests**: new service methods through `describeEndpoint`, components and pages with their happy path, failure path, logged-out / not-owner state and loading / empty states, new routes in `App.test.tsx`.
 
 ### Android (`review-app-android/`)
 
@@ -83,9 +112,6 @@ adb reverse tcp:5062 tcp:5062 # same, for the checkout return page in the browse
   ```
   Release builds trust only the system CAs.
 - `libs.versions.toml` holds all dependency versions. AGP 9 has built-in Kotlin, so the `kotlin-android` plugin entry is not applied.
-
-- The dev server uses `@vitejs/plugin-basic-ssl`, so it always serves over HTTPS on `https://localhost:5173` — this must match the CORS origin allowed by the API.
-- No lint or test scripts are currently configured in `package.json`.
 
 ## Architecture
 
@@ -123,7 +149,7 @@ adb reverse tcp:5062 tcp:5062 # same, for the checkout return page in the browse
 ### Frontend
 
 - **Preact, not React**: the project uses `preact/compat` aliased to `react`/`react-dom` (see `tsconfig.json` paths and `vite.config.ts`'s `@preact/preset-vite`). Write components using standard React/JSX patterns and hooks from `preact/hooks` — they compile through the compat layer.
-- **Routing**: all routes are declared in `src/index.tsx` using `react-router-dom`. Most top-level pages are wrapped in `PageContainer` (shared header/footer/theme chrome). The `/profile/:username` route is a layout route (`ProfileLayout`) with nested tab routes (`overview`, `reviews`, `collections`, etc.) rendered inside it.
+- **Routing**: all routes are declared in `src/App.tsx` (`AppRoutes`) using `react-router-dom`; `src/index.tsx` only renders `App`. Most top-level pages are wrapped in `PageContainer` (shared header/footer/theme chrome). The `/profile/:username` route is a layout route (`ProfileLayout`) with nested tab routes (`overview`, `reviews`, `collections`, etc.) rendered inside it.
 - **Auth state**: global auth state is provided by `AuthContext`/`AuthProvider` (`src/context/AuthContext.tsx`), backed by `AuthService` (`src/services/AuthService.ts`), which calls the API with `credentials: 'include'` so the httpOnly JWT cookie is sent automatically. Do not attempt to read or store the JWT in JS — the cookie is httpOnly by design. `AuthContext` registers a handler with `apiClient.ts` so that any 401 response clears the logged-in user (e.g. after the session was revoked from another device). `AuthUser.isEmailConfirmed` drives the non-blocking `EmailVerificationBanner` (in `PageContainer`); call `refreshUser()` after anything that changes it. `LoginPage` has a second step for 2FA logins (code, resend with cooldown, back).
 - **Services layer**: each backend controller has a matching `src/services/*.ts` file (`AuthService`, `MediaService`, `ReviewService`, `CollectionService`, `FollowerService`, `UserService`, `ReviewReplyService`, `AchievementService`, `NotificationService`, `SecurityService`, `SubscriptionService`) that wraps the API calls. They use `apiFetch` from `src/services/apiClient.ts` (a thin `fetch` wrapper that reports 401s to `AuthContext`) — use `apiFetch`, not plain `fetch`. New backend endpoints should get a corresponding method here rather than calling the API directly from components/pages.
 - **Review replies UI**: `ReviewCard` renders a collapsed `ReplyThread` (layer 2) whose `ReplyItem`s load their own layer-3 children; both lists use the `useReplyList` hook (`src/hooks/`). `ReplyForm` validates with `isValidReply`/`MAX_REPLY_LENGTH` from `src/utils/validation.ts`. Counts and placeholders are updated locally after create/delete instead of refetching.
@@ -132,7 +158,7 @@ adb reverse tcp:5062 tcp:5062 # same, for the checkout return page in the browse
 - **Email links**: `EmailLinkPage` serves `/verify-email` and `/confirm-email-change`; it POSTs the `token` query param once on mount.
 - **Premium**: `PremiumPage` (`/premium`, also for anonymous visitors) shows Free vs Premium from `GET Subscription/plan`, the Subscribe button (redirects to the provider's checkout URL), the placeholder "early access" preview and, for subscribers, `SubscriptionPanel` (status chips, dates, cancel with `CancelSubscriptionDialog`, resume, "Manage payment details" = the provider's portal). The same panel is the `SubscriptionDialog` of `AccountSettingsMenu`. `SubscriptionReturnPage` (`/subscription/return?status=`) never trusts the redirect: it calls `sync` once, then polls the status (2 s, max 30 s) and `refreshUser()`. `AuthUser` has `tier`, `isPremium`, `entitlements` (`hasFeature` in `src/utils/subscription.ts`, UI only). Any 402 from `apiFetch` goes to `PremiumUpsellContext` (inside the router), which refreshes the user and opens the "This is a Premium feature" dialog; `PremiumUpsell` is the inline variant for locked features. `PremiumBadge` (gold, `PREMIUM_COLOR`) shows on profiles with `isPremium`; the header has a Premium link and a gold avatar ring for subscribers. Locale-formatted dates can end with a dot, so they never end a sentence in the UI.
 - **Account settings**: the owner-only `AccountSettingsMenu` on the profile header (rendered by `ProfileLayout`) opens the `ChangeUsernameDialog`, `ChangeEmailDialog`, `ChangePasswordDialog`, `SecurityDialog` (verification state + resend, pending email change + cancel, 2FA enable/disable) and `LogoutAllDialog`. Change email/password require the current password; client-side validation helpers (`isValidEmail`, password length limits) live in `src/utils/validation.ts`.
-- **Theming**: light/dark mode is managed in `src/index.tsx` via MUI's `ThemeProvider`/`createTheme`, persisted to `localStorage`, and toggled through `PageContainer`.
+- **Theming**: light/dark mode is managed in `src/App.tsx` (`useThemeMode`, `AppProviders`) via MUI's `ThemeProvider`/`createTheme`, persisted to `localStorage`, and toggled through `PageContainer`.
 
 ### Android
 

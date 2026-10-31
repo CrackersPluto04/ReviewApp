@@ -1,0 +1,60 @@
+name: Frontend tests
+
+on:
+  push:
+    paths:
+      - "review-app/**"
+      - ".github/workflows/frontend-tests.yml"
+  pull_request:
+    paths:
+      - "review-app/**"
+      - ".github/workflows/frontend-tests.yml"
+
+# A newer push to the same branch makes the running check pointless
+concurrency:
+  group: frontend-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: review-app
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: review-app/.nvmrc
+          cache: npm
+          cache-dependency-path: review-app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      # The whole network is faked (MSW), no backend or secrets are needed
+      - name: Run the frontend tests
+        run: npm run test:coverage
+
+      # Proves the app still bundles; dist/ is not deployed anywhere
+      - name: Production build
+        run: npm run build
+
+      - name: Upload test results and coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-test-results
+          path: |
+            review-app/test-results
+            review-app/coverage
+          if-no-files-found: ignore
