@@ -8,13 +8,14 @@ import { ChangeEmailDialog } from "./ChangeEmailDialog";
 import { ChangePasswordDialog } from "./ChangePasswordDialog";
 import { LogoutAllDialog } from "./LogoutAllDialog";
 import { SecurityDialog } from "./SecurityDialog";
+import { SubscriptionDialog } from "./SubscriptionDialog";
 
 type AccountSettingsMenuProps = {
     username: string;
     onChangeUsername: (newUsername: string) => Promise<{ success: boolean, message?: string }>;
 };
 
-type AccountDialog = 'username' | 'email' | 'password' | 'security' | 'logoutAll' | null;
+type AccountDialog = 'username' | 'email' | 'password' | 'security' | 'subscription' | 'logoutAll' | null;
 
 export function AccountSettingsMenu({ username, onChangeUsername }: AccountSettingsMenuProps) {
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -76,6 +77,7 @@ export function AccountSettingsMenu({ username, onChangeUsername }: AccountSetti
             <MenuItem onClick={() => handleOpenDialog('email')}>Change email</MenuItem>
             <MenuItem onClick={() => handleOpenDialog('password')}>Change password</MenuItem>
             <MenuItem onClick={() => handleOpenDialog('security')}>Security</MenuItem>
+            <MenuItem onClick={() => handleOpenDialog('subscription')}>Subscription</MenuItem>
             <Divider />
             <MenuItem onClick={() => handleOpenDialog('logoutAll')} sx={{ color: 'error.main' }}>Log out of all devices</MenuItem>
         </Menu>
@@ -101,6 +103,11 @@ export function AccountSettingsMenu({ username, onChangeUsername }: AccountSetti
 
         <SecurityDialog
             open={openDialog === 'security'}
+            onClose={() => setOpenDialog(null)}
+        />
+
+        <SubscriptionDialog
+            open={openDialog === 'subscription'}
             onClose={() => setOpenDialog(null)}
         />
 

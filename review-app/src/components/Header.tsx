@@ -1,6 +1,8 @@
-import { AppBar, Toolbar, Typography, Button, IconButton, Box, Container, Avatar, Divider, Menu, MenuItem, CircularProgress } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button, IconButton, Box, Container, Avatar, Badge, Divider, Menu, MenuItem, CircularProgress } from '@mui/material';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
+import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
+import { PREMIUM_COLOR } from '../utils/subscription';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'preact/hooks';
 import { useAuth } from '../context/AuthContext';
@@ -56,6 +58,9 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
                     <Button color="inherit" onClick={() => navigate('/discover?type=movie')}>Movies</Button>
                     <Button color="inherit" onClick={() => navigate('/discover?type=series')}>Series</Button>
                     <Button color="inherit" onClick={() => navigate('/discover/music')}>Music</Button>
+                    <Button color="inherit" startIcon={<WorkspacePremiumIcon sx={{ color: PREMIUM_COLOR }} />} onClick={() => navigate('/premium')}>
+                        Premium
+                    </Button>
                 </Box>
 
                 {/* User Search Bar */}
@@ -73,11 +78,20 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
                         <>
                             <NotificationBell />
 
-                            <IconButton onClick={handleProfileClick} sx={{ p: 0, ml: 2 }}>
-                                <Avatar
-                                    alt="Profile Picture"
-                                    src={user?.profilePictureUrl}
-                                />
+                            <IconButton onClick={handleProfileClick} sx={{ p: 0, ml: 2 }} aria-label={user?.isPremium ? 'Account menu (Premium)' : 'Account menu'}>
+                                {/* Small gold ring + badge for subscribers */}
+                                <Badge
+                                    overlap="circular"
+                                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                                    invisible={!user?.isPremium}
+                                    badgeContent={<WorkspacePremiumIcon sx={{ fontSize: 16, color: PREMIUM_COLOR, bgcolor: 'background.paper', borderRadius: '50%' }} />}
+                                >
+                                    <Avatar
+                                        alt="Profile Picture"
+                                        src={user?.profilePictureUrl}
+                                        sx={user?.isPremium ? { outline: `2px solid ${PREMIUM_COLOR}` } : undefined}
+                                    />
+                                </Badge>
                             </IconButton>
 
                             {/* Dropdown Menu */}
@@ -95,6 +109,12 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
                                 <MenuItem onClick={() => handleNavigate(`/profile/${encodeURIComponent(user?.username ?? '')}/reviews`)}>Reviews</MenuItem>
                                 <MenuItem onClick={() => handleNavigate(`/profile/${encodeURIComponent(user?.username ?? '')}/collections`)}>Collections</MenuItem>
                                 <MenuItem onClick={() => handleNavigate(`/profile/${encodeURIComponent(user?.username ?? '')}/achievements`)}>Achievements</MenuItem>
+
+                                <Divider />
+
+                                <MenuItem onClick={() => handleNavigate('/premium')}>
+                                    {user?.isPremium ? 'Manage subscription' : 'Get Premium'}
+                                </MenuItem>
 
                                 <Divider />
 

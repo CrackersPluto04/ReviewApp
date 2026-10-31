@@ -15,4 +15,7 @@ public record UserProfileDto
     public int FollowersCount { get; init; }
     public int FollowingCount { get; init; }
     public bool IsFollowedByCurrentUser { get; init; }
+
+    // Public Premium badge: only this flag, never any subscription details
+    public bool IsPremium { get; init; }
 }

@@ -22,6 +22,8 @@ public class AppDbContext : DbContext
     public DbSet<UserAchievement> UserAchievements { get; set; }
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<SecurityToken> SecurityTokens { get; set; }
+    public DbSet<UserSubscription> UserSubscriptions { get; set; }
+    public DbSet<SubscriptionEvent> SubscriptionEvents { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -179,5 +181,32 @@ public class AppDbContext : DbContext
                   .HasForeignKey(t => t.UserID)
                   .OnDelete(DeleteBehavior.Cascade);
         });
+
+        /* Configure Subscriptions */
+        modelBuilder.Entity<UserSubscription>(entity =>
+        {
+            entity.HasOne(s => s.User)
+                  .WithMany()
+                  .HasForeignKey(s => s.UserID)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // One record per user, resubscribing reuses it
+            entity.HasIndex(s => s.UserID).IsUnique();
+
+            // Provider notifications are matched by these (the subscription ID index is filtered to non-null values)
+            entity.HasIndex(s => s.ProviderCustomerID).IsUnique();
+            entity.HasIndex(s => s.ProviderSubscriptionID).IsUnique();
+
+            // Expiry job: running subscriptions whose period is over
+            entity.HasIndex(s => new { s.Status, s.CurrentPeriodEnd });
+
+            // Every change sets UpdatedAt, so two concurrent updates (e.g. two webhook deliveries) can't both
+            // apply the same state change and notify twice: the second one fails and retries on fresh data
+            entity.Property(s => s.UpdatedAt).IsConcurrencyToken();
+        });
+
+        modelBuilder.Entity<SubscriptionEvent>()
+            .HasIndex(e => e.ProviderEventID)
+            .IsUnique();
     }
 }

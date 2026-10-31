@@ -3,12 +3,17 @@ import { useContext, useState, useEffect } from 'preact/hooks';
 import { authService } from '../services/AuthService';
 import { setUnauthorizedHandler } from '../services/apiClient';
 import { ReactNode } from 'preact/compat';
+import { SubscriptionTier } from '../types/types';
 
 export interface AuthUser {
     id: number;
     username: string;
     profilePictureUrl?: string;
     isEmailConfirmed: boolean;
+    // Subscription state at the last check-auth; the backend checks access on every request anyway
+    tier: SubscriptionTier;
+    isPremium: boolean;
+    entitlements: string[]; // feature keys, see FEATURE_KEYS in utils/subscription.ts
 }
 
 interface AuthContextType {

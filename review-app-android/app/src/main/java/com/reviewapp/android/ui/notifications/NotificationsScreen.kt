@@ -24,6 +24,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.CreditCardOff
+import androidx.compose.material.icons.outlined.WorkspacePremium
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.DoneAll
@@ -300,6 +302,9 @@ private fun NotificationIcon(notification: AppNotification) {
         NotificationType.AchievementUnlocked -> Icons.Filled.EmojiEvents
         NotificationType.ReviewReply, NotificationType.ReplyReply -> Icons.Outlined.ChatBubbleOutline
         NotificationType.NewFollower -> Icons.Outlined.PersonAdd
+        NotificationType.SubscriptionStarted, NotificationType.SubscriptionCancelled, NotificationType.SubscriptionEnded ->
+            Icons.Outlined.WorkspacePremium
+        NotificationType.PaymentFailed -> Icons.Outlined.CreditCardOff
         NotificationType.System -> Icons.Outlined.Info
     }
     Box(

@@ -16,6 +16,8 @@ import com.reviewapp.android.domain.model.MediaType
 import com.reviewapp.android.domain.model.NotificationPage
 import com.reviewapp.android.domain.model.NotificationType
 import com.reviewapp.android.domain.model.Page
+import com.reviewapp.android.domain.model.Plan
+import com.reviewapp.android.domain.model.PlanFeature
 import com.reviewapp.android.domain.model.ProfileReview
 import com.reviewapp.android.domain.model.Reply
 import com.reviewapp.android.domain.model.ReplyContext
@@ -24,6 +26,8 @@ import com.reviewapp.android.domain.model.ReviewDetail
 import com.reviewapp.android.domain.model.ReviewDraft
 import com.reviewapp.android.domain.model.ScoreStats
 import com.reviewapp.android.domain.model.SecurityStatus
+import com.reviewapp.android.domain.model.SubscriptionStatus
+import com.reviewapp.android.domain.model.SubscriptionSummary
 import com.reviewapp.android.domain.model.UnlockedAchievement
 import com.reviewapp.android.domain.model.UserProfile
 import com.reviewapp.android.domain.model.UserSummary
@@ -64,8 +68,11 @@ data class UserDto(
     val username: String,
     val profilePictureUrl: String? = null,
     val isEmailConfirmed: Boolean = false,
+    val isPremium: Boolean = false,
+    /** Feature keys the user may use, see `FeatureKeys`. */
+    val entitlements: List<String> = emptyList(),
 ) {
-    fun toDomain() = AuthUser(id, username, profilePictureUrl, isEmailConfirmed)
+    fun toDomain() = AuthUser(id, username, profilePictureUrl, isEmailConfirmed, isPremium, entitlements.toSet())
 }
 
 @Serializable
@@ -215,6 +222,7 @@ data class UserProfileDto(
     val followersCount: Int = 0,
     val followingCount: Int = 0,
     val isFollowedByCurrentUser: Boolean = false,
+    val isPremium: Boolean = false,
 ) {
     fun toDomain() = UserProfile(
         id = id,
@@ -225,6 +233,7 @@ data class UserProfileDto(
         followersCount = followersCount,
         followingCount = followingCount,
         isFollowed = isFollowedByCurrentUser,
+        isPremium = isPremium,
     )
 }
 
@@ -532,3 +541,55 @@ data class CurrentPasswordRequest(val currentPassword: String)
 
 @Serializable
 data class TwoFactorCodeRequest(val code: String)
+
+// Subscription
+
+@Serializable
+data class SubscriptionStatusDto(
+    val status: String = "None",
+    val isPremium: Boolean = false,
+    val willRenew: Boolean = false,
+    val cancelAtPeriodEnd: Boolean = false,
+    val hasPaymentProblem: Boolean = false,
+    val currentPeriodEnd: String? = null,
+    val accessEndsAt: String? = null,
+) {
+    fun toDomain() = SubscriptionSummary(
+        status = SubscriptionStatus.fromName(status),
+        isPremium = isPremium,
+        willRenew = willRenew,
+        cancelAtPeriodEnd = cancelAtPeriodEnd,
+        hasPaymentProblem = hasPaymentProblem,
+        accessEndsAt = accessEndsAt?.takeIf { it.isNotBlank() },
+    )
+}
+
+@Serializable
+data class PlanFeatureDto(
+    val key: String,
+    val title: String = "",
+    val description: String = "",
+    val comingSoon: Boolean = false,
+)
+
+@Serializable
+data class PlanDto(
+    val priceAmount: Double = 0.0,
+    val currency: String = "",
+    val interval: String = "",
+    val features: List<PlanFeatureDto> = emptyList(),
+) {
+    fun toDomain() = Plan(
+        priceAmount = priceAmount,
+        currency = currency,
+        interval = interval,
+        features = features.map { PlanFeature(it.key, it.title, it.description, it.comingSoon) },
+    )
+}
+
+/** Tells the API where the payment provider's pages send the user back to (the Android return page). */
+@Serializable
+data class SubscriptionRedirectRequest(val platform: String = "android")
+
+@Serializable
+data class SubscriptionUrlDto(val url: String)

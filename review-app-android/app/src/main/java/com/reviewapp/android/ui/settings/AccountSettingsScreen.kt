@@ -20,6 +20,7 @@ import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.MarkEmailRead
 import androidx.compose.material.icons.outlined.Password
 import androidx.compose.material.icons.outlined.Security
+import androidx.compose.material.icons.outlined.WorkspacePremium
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -55,6 +56,8 @@ import com.reviewapp.android.domain.model.SecurityStatus
 import com.reviewapp.android.ui.components.BackButton
 import com.reviewapp.android.ui.components.ErrorState
 import com.reviewapp.android.ui.components.LoadingState
+import com.reviewapp.android.ui.components.PremiumBadge
+import com.reviewapp.android.ui.components.PremiumUpsell
 import com.reviewapp.android.ui.theme.AppTheme
 
 /** The owner's account settings, opened from the profile's settings icon. */
@@ -62,6 +65,7 @@ import com.reviewapp.android.ui.theme.AppTheme
 @Composable
 fun AccountSettingsScreen(
     onBack: () -> Unit,
+    onOpenPremium: () -> Unit,
     viewModel: AccountSettingsViewModel = viewModel(factory = AccountSettingsViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -93,7 +97,7 @@ fun AccountSettingsScreen(
             status == null -> Box(modifier) {
                 ErrorState(state.error ?: "Could not load your account settings.", { viewModel.loadStatus() }, Modifier.fillMaxWidth())
             }
-            else -> SettingsList(state, status, viewModel, modifier)
+            else -> SettingsList(state, status, viewModel, onOpenPremium, modifier)
         }
     }
 
@@ -105,6 +109,7 @@ private fun SettingsList(
     state: AccountSettingsUiState,
     status: SecurityStatus,
     viewModel: AccountSettingsViewModel,
+    onOpenPremium: () -> Unit,
     modifier: Modifier,
 ) {
     LazyColumn(modifier, contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -141,6 +146,27 @@ private fun SettingsList(
             item { PendingEmailCard(pending, enabled = !state.isSubmitting, onCancel = viewModel::cancelPendingEmail) }
         }
         item { TwoFactorItem(status, onOpen = viewModel::openTwoFactor) }
+
+        item { SectionDivider() }
+        item { SectionHeader("Subscription") }
+        item {
+            if (state.isPremium) {
+                SettingsItem(
+                    icon = Icons.Outlined.WorkspacePremium,
+                    title = "Premium",
+                    subtitle = "Manage your subscription and payment details",
+                    onClick = onOpenPremium,
+                    trailing = { PremiumBadge() },
+                )
+            } else {
+                PremiumUpsell(
+                    onSeePremium = onOpenPremium,
+                    title = "You're on the Free plan",
+                    message = "Subscribe to Premium to unlock exclusive features.",
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+        }
 
         item { SectionDivider() }
         item { SectionHeader("Sessions") }
