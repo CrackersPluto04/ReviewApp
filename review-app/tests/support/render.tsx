@@ -1,4 +1,4 @@
-import { render } from '@testing-library/preact';
+import { act, render } from '@testing-library/preact';
 import userEvent from '@testing-library/user-event';
 import { ComponentChildren } from 'preact';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
@@ -20,10 +20,31 @@ export function setupUser() {
     });
 }
 
-// Fake timers that still move with real time, so Testing Library's polling and MSW keep working
-export function useFakeTimers(now?: string | number | Date) {
-    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
+/**
+ * Fake timers that still move with real time, so Testing Library's polling (findBy / waitFor) keeps working.
+ * `frozen` stops the clock completely, for exact timing assertions ("nothing before 300 ms"): then only
+ * vi.advanceTimersByTimeAsync moves it, and findBy / waitFor can't be used (they would wait on the frozen clock).
+ * Frozen also fakes requestAnimationFrame, which Preact runs effects after: call paint() after an interaction.
+ */
+export function useFakeTimers(now?: string | number | Date, { frozen = false } = {}) {
+    vi.useFakeTimers({
+        shouldAdvanceTime: !frozen,
+        toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date',
+            ...(frozen ? ['requestAnimationFrame', 'cancelAnimationFrame'] as const : [])],
+    });
     if (now !== undefined) vi.setSystemTime(now);
+}
+
+// With frozen fake timers: lets pending responses and renders through without moving the clock
+export async function flush() {
+    for (let i = 0; i < 5; i++)
+        await act(() => new Promise<void>(resolve => setImmediate(resolve)));
+}
+
+// With frozen fake timers: Preact runs effects after the next frame or 35 ms at the latest; this lets them run (their timers start then)
+export async function paint() {
+    await act(() => vi.advanceTimersByTimeAsync(50));
+    await flush();
 }
 
 // The user AuthProvider gets from check-auth (null = anonymous)
