@@ -43,7 +43,8 @@ export function capture(method: Method, path: string, respond: Response | Respon
         };
         calls.push(captured);
 
-        return typeof respond === 'function' ? respond(captured, params) : respond.clone();
+        // Cloned: a responder may hand out the same Response (e.g. one deferred) to several requests
+        return (typeof respond === 'function' ? await respond(captured, params) : respond).clone();
     });
 
     return {
