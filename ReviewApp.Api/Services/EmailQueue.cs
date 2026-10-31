@@ -10,9 +10,11 @@ public class EmailQueue
 {
     private const int Capacity = 500;
 
+    // Wait mode only so that TryWrite reports a full queue (DropWrite drops silently and still returns true);
+    // nothing awaits a write, a full queue drops the email either way
     private readonly Channel<EmailMessage> _channel = Channel.CreateBounded<EmailMessage>(new BoundedChannelOptions(Capacity)
     {
-        FullMode = BoundedChannelFullMode.DropWrite,
+        FullMode = BoundedChannelFullMode.Wait,
         SingleReader = true
     });
 
