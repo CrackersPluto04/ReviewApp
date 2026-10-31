@@ -9,6 +9,8 @@ namespace ReviewApp.Api.Services;
 
 public class ReviewService : IReviewService
 {
+    private const int MaxPageSize = 50;
+
     private readonly AppDbContext _context;
     private readonly IMediaService _mediaService;
     private readonly IAchievementService _achievementService;
@@ -20,8 +22,14 @@ public class ReviewService : IReviewService
         _achievementService = achievementService;
     }
 
+    // Paging values come straight from the query string: out of range ones are clamped (a negative Skip is a SQL error)
+    private static ReviewFilterParams ClampPaging(ReviewFilterParams p) =>
+        p with { Page = Math.Max(1, p.Page), PageSize = Math.Clamp(p.PageSize, 1, MaxPageSize) };
+
     public async Task<PagedResponse<object>> GetMediaReviewsAsync(MediaType mediaType, string externalApiId, ReviewFilterParams p)
     {
+        p = ClampPaging(p);
+
         // Find Media ID, if null, nobody has reviewed it yet
         var media = await _context.Media.FirstOrDefaultAsync(m => m.ExternalApiID == externalApiId && m.MediaType == mediaType);
         if (media == null)
@@ -287,6 +295,8 @@ public class ReviewService : IReviewService
 
     public async Task<(bool Success, PagedResponse<object>? Reviews)> GetUserReviewsAsync(string username, int? requestingUserId, ReviewFilterParams p)
     {
+        p = ClampPaging(p);
+
         // Find target user by username
         var targetUser = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
         if (targetUser == null)
