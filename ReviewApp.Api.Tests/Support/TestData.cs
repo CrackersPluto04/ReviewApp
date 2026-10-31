@@ -139,6 +139,25 @@ public sealed class TestData : IDisposable
         return notification;
     }
 
+    // Many at once (one round trip), in creation order, so their IDs grow like real ones
+    public async Task<List<Notification>> NotificationsAsync(User recipient, int count, bool seen = false)
+    {
+        var notifications = Enumerable.Range(0, count)
+            .Select(i => new Notification
+            {
+                RecipientUserID = recipient.ID,
+                Type = NotificationType.System,
+                Title = $"Title {i}",
+                Message = $"Message {i}",
+                IsSeen = seen
+            })
+            .ToList();
+
+        _context.Notifications.AddRange(notifications);
+        await SaveAsync();
+        return notifications.OrderBy(n => n.ID).ToList();
+    }
+
     // Stores a token the way SecurityService does (hash only) and returns the raw value a test can submit
     public async Task<(SecurityToken Token, string Raw)> SecurityTokenAsync(User user, SecurityTokenType type, string? raw = null,
         DateTime? expiresAt = null, DateTime? createdAt = null, bool used = false, int failedAttempts = 0)

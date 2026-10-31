@@ -25,6 +25,12 @@ public static class TestDatabase
     public static AppDbContext CreateContext() =>
         new(new DbContextOptionsBuilder<AppDbContext>().UseSqlServer(ConnectionString).Options);
 
+    // Points to a database that doesn't exist, so every query fails: for "a failure never escapes" tests
+    public static AppDbContext CreateBrokenContext() =>
+        new(new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlServer(new SqlConnectionStringBuilder(ConnectionString) { InitialCatalog = NamePrefix + "DoesNotExist" }.ConnectionString)
+            .Options);
+
     private static string Create()
     {
         var server = new SqlConnectionStringBuilder(Environment.GetEnvironmentVariable(ServerEnvironmentVariable) ?? DefaultServer)
