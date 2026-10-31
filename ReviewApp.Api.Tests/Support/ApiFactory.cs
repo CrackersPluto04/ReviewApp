@@ -76,7 +76,31 @@ public class ApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<IPaymentProvider>();
             services.AddSingleton<TestPaymentProvider>();
             services.AddSingleton<IPaymentProvider>(sp => sp.GetRequiredService<TestPaymentProvider>());
+
+            // Test-only endpoints (PremiumProbeController)
+            services.AddControllers().AddApplicationPart(typeof(ApiFactory).Assembly);
         });
+    }
+
+    // HTTPS like the real clients, so the Secure __Host- cookie is kept and sent back
+    public HttpClient CreateBrowser() => CreateClient(new WebApplicationFactoryClientOptions
+    {
+        BaseAddress = new Uri("https://localhost"),
+        AllowAutoRedirect = false,
+        HandleCookies = true
+    });
+
+    // Logged in without the login endpoint: a valid session cookie for the user's current token version
+    public HttpClient CreateClientFor(DAL.Entities.User user)
+    {
+        var client = CreateClient(new WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri("https://localhost"),
+            AllowAutoRedirect = false,
+            HandleCookies = false
+        });
+        client.DefaultRequestHeaders.Add("Cookie", $"{TokenService.CookieName}={TestTokens.Session(user.ID, user.TokenVersion)}");
+        return client;
     }
 }
 

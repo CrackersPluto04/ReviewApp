@@ -66,6 +66,17 @@ public class MediaServiceTests : IntegrationTest
         series.ShouldNotBe(movie);
     }
 
+    [Fact(Skip = "Known issue F5 (FINDINGS.md): there is no unique index on Media (ExternalApiID, MediaType)")]
+    public async Task GetOrCreate_ConcurrentFirstRequests_StoreOneRow()
+    {
+        var externalId = TestData.Unique("7");
+
+        var ids = await Task.WhenAll(Enumerable.Range(0, 5).Select(_ => Service<IMediaService>().GetOrCreateMediaAsync(MediaType.Movie, externalId)));
+
+        ids.Distinct().Count().ShouldBe(1);
+        (await Query().Media.CountAsync(m => m.ExternalApiID == externalId && m.MediaType == MediaType.Movie)).ShouldBe(1);
+    }
+
     [Fact]
     public async Task GetOrCreate_InvalidMediaType_Fails()
     {

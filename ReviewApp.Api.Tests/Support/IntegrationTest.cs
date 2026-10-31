@@ -25,11 +25,13 @@ public abstract class IntegrationTest : IDisposable
         return scope.ServiceProvider.GetRequiredService<T>();
     }
 
-    protected AppDbContext Query()
+    protected AppDbContext Query() => Track(TestDatabase.CreateContext());
+
+    // Disposed with the test
+    protected T Track<T>(T disposable) where T : IDisposable
     {
-        var context = TestDatabase.CreateContext();
-        _disposables.Add(context);
-        return context;
+        _disposables.Add(disposable);
+        return disposable;
     }
 
     public void Dispose()

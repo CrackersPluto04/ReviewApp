@@ -65,6 +65,17 @@ public class ReviewServiceTests : IntegrationTest
         (await Query().Reviews.CountAsync(r => r.UserID == user.ID)).ShouldBe(1);
     }
 
+    [Fact(Skip = "Known issue F5 (FINDINGS.md): one review per user and media is only checked in code, there is no unique index")]
+    public async Task Create_ConcurrentRequestsForTheSameMedia_StoreOneReview()
+    {
+        var user = await Data.UserAsync();
+        var media = await Data.MediaAsync();
+
+        await Task.WhenAll(Enumerable.Range(0, 5).Select(_ => Reviews.CreateReviewAsync(user.ID, Request(media))));
+
+        (await Query().Reviews.CountAsync(r => r.UserID == user.ID && r.MediaID == media.ID)).ShouldBe(1);
+    }
+
     [Fact]
     public async Task Create_InvalidMediaType_Fails()
     {
