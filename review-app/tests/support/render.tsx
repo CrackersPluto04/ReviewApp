@@ -93,20 +93,22 @@ interface RenderOptions {
 /**
  * Renders a component inside the same providers as the app (theme, auth, notifications, toasts, router, upsell).
  * Other paths render nothing, so navigation away is visible through currentLocation().
+ * rerender(ui) keeps the providers (and their state), only the element changes.
  */
 export function renderWithApp(ui: ComponentChildren, { user, route = '/', path }: RenderOptions = {}) {
     if (user !== undefined) loginAs(user);
 
-    const result = render(
+    const wrap = (element: ComponentChildren) =>
         <TestProviders route={route}>
             <Routes>
-                <Route path={path ?? '*'} element={ui} />
+                <Route path={path ?? '*'} element={element} />
                 {path && <Route path="*" element={null} />}
             </Routes>
-        </TestProviders>
-    );
+        </TestProviders>;
 
-    return { ...result, user: setupUser() };
+    const result = render(wrap(ui));
+
+    return { ...result, rerender: (next: ComponentChildren) => result.rerender(wrap(next)), user: setupUser() };
 }
 
 // The whole app (real route table and page chrome) at the given URL, like App but with a memory router
