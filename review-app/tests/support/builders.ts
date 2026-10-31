@@ -80,24 +80,49 @@ export const movie = (overrides: Partial<MediaDto> = {}) => media({ mediaType: M
 export const series = (overrides: Partial<MediaDto> = {}) => media({ mediaType: SERIES, title: `Series ${nextId}`, ...overrides });
 export const album = (overrides: Partial<MediaDto> = {}) => media({ mediaType: MUSIC, title: `Album ${nextId}`, creator: 'Some Artist', ...overrides });
 
-// A review as the list endpoints return it (author and media included)
+// A review in a media's review list (GET Review/media/...): the author, no media, only public ones, no visibility
 export function review(overrides: Record<string, any> = {}) {
+    return {
+        id: id(),
+        score: 8,
+        reviewText: 'Really good.',
+        pros: null,
+        cons: null,
+        username: 'bob',
+        profilePictureUrl: null,
+        createdAt: '2026-03-10T12:00:00Z',
+        updatedAt: '2026-03-10T12:00:00Z',
+        replyCount: 0,
+        ...overrides,
+    };
+}
+
+// A review in a user's review list or GET Review/{id}: the media, dates as yyyy-MM-dd, visibility and ownership
+export function profileReview(overrides: Record<string, any> = {}) {
     const n = id();
     return {
         id: n,
+        username: 'bob',
+        profilePictureUrl: null,
+        title: `Movie ${n}`,
+        posterUrl: `https://img.example/poster-${n}.jpg`,
+        mediaType: MOVIE,
+        externalApiID: `ext-${n}`,
         score: 8,
         reviewText: 'Really good.',
-        pros: undefined,
-        cons: undefined,
+        pros: null,
+        cons: null,
         visibilityLevel: PUBLIC,
-        createdAt: '2026-03-10T12:00:00Z',
-        updatedAt: '2026-03-10T12:00:00Z',
-        username: 'bob',
-        profilePictureUrl: undefined,
+        isOwner: false,
+        createdAt: '2026-03-10',
+        updatedAt: '2026-03-10',
         replyCount: 0,
-        media: movie(),
         ...overrides,
     };
+}
+
+export function paged<T>(items: T[], overrides: Record<string, any> = {}) {
+    return { items, totalCount: items.length, currentPage: 1, totalPages: 1, ...overrides };
 }
 
 export function reply(overrides: Partial<ReplyDto> = {}): ReplyDto {
