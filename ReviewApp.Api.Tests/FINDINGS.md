@@ -16,6 +16,7 @@ Un-skipping that test is the first step of the fix.
 | Updating a collection always answered `MediaCount = 0` (the items were never loaded) | Counted in the database | `CollectionServiceTests.Update_RenamesAndKeepsTheMediaCount` |
 | A case-only collection rename (`sci-fi` -> `Sci-Fi`) was rejected, the name check matched the collection itself (case-insensitive collation) | The check excludes the collection being renamed, like the username check does | `CollectionServiceTests.Update_CaseOnlyRename_IsAllowed` |
 | `GetUserCollectionsAsync` returned `null!` for an unknown user behind a non-nullable return type | The return type is nullable, so callers see the not found case | `CollectionServiceTests.List_UnknownUser_IsNull` |
+| The "email queue is full" error was never logged: with `DropWrite` the channel drops silently and `TryWrite` still returns true | `Wait` mode, so `TryWrite` reports the full queue (nothing awaits a write, so dropping is unchanged) | `EmailPipelineTests.Queue_WhenFull_DropsAndLogsTheEmail` |
 
 ## Open
 
