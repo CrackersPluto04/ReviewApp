@@ -140,7 +140,7 @@ describe('useReplyList', () => {
         const { result } = renderHook(() => useReplyList(7));
 
         // e.g. a double click: both calls see the same `loading === false` from the closure
-        await act(() => Promise.all([result.current.loadMore(), result.current.loadMore()]));
+        await act(async () => { await Promise.all([result.current.loadMore(), result.current.loadMore()]); });
 
         expect(replies.calls).toHaveLength(1);
     });
