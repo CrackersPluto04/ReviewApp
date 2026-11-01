@@ -1,7 +1,9 @@
 name: Backend tests
 
+# Feature branches are tested through their pull request, main after each merge
 on:
   push:
+    branches: [main]
     paths:
       - "ReviewApp.Api/**"
       - "ReviewApp.Api.Tests/**"
@@ -11,6 +13,7 @@ on:
       - "ReviewApp.Api/**"
       - "ReviewApp.Api.Tests/**"
       - ".github/workflows/backend-tests.yml"
+  workflow_dispatch:
 
 # A newer push to the same branch makes the running check pointless
 concurrency:
