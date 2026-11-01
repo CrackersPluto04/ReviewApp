@@ -1,7 +1,9 @@
 name: Frontend tests
 
+# Feature branches are tested through their pull request, main after each merge
 on:
   push:
+    branches: [main]
     paths:
       - "review-app/**"
       - ".github/workflows/frontend-tests.yml"
@@ -9,6 +11,7 @@ on:
     paths:
       - "review-app/**"
       - ".github/workflows/frontend-tests.yml"
+  workflow_dispatch:
 
 # A newer push to the same branch makes the running check pointless
 concurrency:
