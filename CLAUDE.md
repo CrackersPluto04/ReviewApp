@@ -110,7 +110,8 @@ adb reverse tcp:5062 tcp:5062 # same, for the checkout return page in the browse
   copy %TEMP%\aspnet_dev_cert.pem app\src\debug\res\raw\
   del %TEMP%\aspnet_dev_cert.pem %TEMP%\aspnet_dev_cert.key
   ```
-  Release builds trust only the system CAs.
+  Release builds trust only the system CAs. Without the file the debug build fails (`resource raw/aspnet_dev_cert not found`).
+- **CI**: `.github/workflows/android-tests.yml` runs on pull requests and pushes to `main` touching `review-app-android/` (or by hand, `workflow_dispatch`): JDK 25 (the daemon JVM in `gradle/gradle-daemon-jvm.properties`), Gradle cache (`cache-provider: basic`), a throwaway self-signed `aspnet_dev_cert.pem` (key discarded) so the debug resources link, then `testDebugUnitTest assembleDebug`; test results and the HTML report are uploaded as the `android-test-results` artifact. No emulator (`androidTest` only has the template test), no secrets.
 - `libs.versions.toml` holds all dependency versions. AGP 9 has built-in Kotlin, so the `kotlin-android` plugin entry is not applied.
 
 ## Architecture

@@ -1,0 +1,68 @@
+name: Android tests
+
+# Feature branches are tested through their pull request, main after each merge
+on:
+  push:
+    branches: [main]
+    paths:
+      - "review-app-android/**"
+      - ".github/workflows/android-tests.yml"
+  pull_request:
+    paths:
+      - "review-app-android/**"
+      - ".github/workflows/android-tests.yml"
+  workflow_dispatch:
+
+# A newer push to the same branch makes the running check pointless
+concurrency:
+  group: android-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: review-app-android
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # The Gradle daemon asks for JDK 25 (gradle/gradle-daemon-jvm.properties)
+      - name: Set up JDK
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+
+      # The open-source cache over actions/cache, not the default proprietary one
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      # The debug network security config references the developer's ASP.NET dev certificate,
+      # which is gitignored, so the debug resources don't link without one. A throwaway
+      # certificate stands in for it; its key is discarded and nothing is installed anywhere.
+      - name: Create placeholder dev certificate
+        run: |
+          mkdir -p app/src/debug/res/raw
+          openssl req -x509 -newkey rsa:2048 -nodes -keyout /dev/null -days 1 -subj "/CN=localhost" \
+            -out app/src/debug/res/raw/aspnet_dev_cert.pem
+
+      # JVM unit tests only, no emulator; the APK build proves the app still packages
+      - name: Run the unit tests and build the debug APK
+        run: ./gradlew testDebugUnitTest assembleDebug
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-test-results
+          path: |
+            review-app-android/app/build/test-results/testDebugUnitTest
+            review-app-android/app/build/reports/tests/testDebugUnitTest
+          if-no-files-found: ignore
