@@ -5,6 +5,7 @@ import {
 import WorkspacePremiumIcon from "@mui/icons-material/WorkspacePremium";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import ScheduleIcon from "@mui/icons-material/Schedule";
+import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import { useLocation, useNavigate } from "react-router-dom";
 import { PlanDto } from "../types/types";
 import { subscriptionService } from "../services/SubscriptionService";
@@ -29,7 +30,6 @@ export function PremiumPage() {
     const [loadError, setLoadError] = useState('');
     const [checkoutError, setCheckoutError] = useState('');
     const [redirecting, setRedirecting] = useState(false);
-    const [previewResult, setPreviewResult] = useState<{ success: boolean, message: string }>();
 
     useEffect(() => {
         const load = async () => {
@@ -56,14 +56,6 @@ export function PremiumPage() {
         }
         setCheckoutError(result.message ?? 'Something went wrong.');
         setRedirecting(false);
-    };
-
-    // A Free user gets a 402 here, which opens the upsell dialog by itself
-    const handleTryPreview = async () => {
-        const result = await subscriptionService.tryEntitlementPreview();
-        setPreviewResult(result.success || result.status !== 402
-            ? { success: result.success, message: result.message ?? 'Something went wrong.' }
-            : undefined);
     };
 
     const isPremium = user?.isPremium ?? false;
@@ -155,16 +147,13 @@ export function PremiumPage() {
         {isLoggedIn && <>
             <Divider />
             <Box>
-                <Typography variant="h5" component="h2" fontWeight="bold">Early access</Typography>
+                <Typography variant="h5" component="h2" fontWeight="bold">Camera recognition</Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.5 }}>
-                    Premium members can try new features before anyone else.
+                    Take a photo of a figure, poster, album cover or other collectible and get the movies, series and music it relates to.
                 </Typography>
-                <Button variant="outlined" onClick={handleTryPreview}>Open the early access preview</Button>
-                {previewResult && (
-                    <Alert severity={previewResult.success ? 'success' : 'error'} sx={{ mt: 1.5 }} onClose={() => setPreviewResult(undefined)}>
-                        {previewResult.message}
-                    </Alert>
-                )}
+                <Button variant="outlined" startIcon={<CameraAltIcon />} onClick={() => navigate('/recognize')}>
+                    {isPremium ? 'Try camera recognition' : 'See how it works'}
+                </Button>
             </Box>
         </>}
 

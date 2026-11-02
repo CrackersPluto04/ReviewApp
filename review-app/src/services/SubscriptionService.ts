@@ -33,11 +33,6 @@ class SubscriptionService {
         return this.send(`${this.baseUrl}/sync`, 'POST', 'Something went wrong while checking your subscription.');
     }
 
-    // Placeholder Premium endpoint, proves the paywall end to end (a Free user gets a 402)
-    async tryEntitlementPreview() {
-        return this.send(`${this.baseUrl}/entitlement-preview`, 'GET', 'Something went wrong while opening the preview.');
-    }
-
     /* Helper methods */
 
     private async send(url: string, method: string, fallback: string, body?: any) {

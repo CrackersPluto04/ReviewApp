@@ -4,7 +4,7 @@ import { HttpResponse } from 'msw';
 import { App } from '../src/App';
 import { server } from './support/server';
 import { capture, ok } from './support/api';
-import { activeSubscription, authUser, movie, paged, plan, profileReview, unlocked, userProfile } from './support/builders';
+import { authUser, movie, paged, plan, premiumAuthUser, profileReview, recognitionAllowance, unlocked, userProfile } from './support/builders';
 import { currentLocation, renderApp } from './support/render';
 import { serveMediaReviews, serveStats } from './support/handlers';
 
@@ -81,6 +81,14 @@ describe('App routes', () => {
         expect(screen.getByRole('tab', { selected: true })).toHaveTextContent(new RegExp(tab, 'i'));
     });
 
+    it('/recognize', async () => {
+        server.use(capture('get', 'Recognition/allowance', ok(recognitionAllowance())).handler);
+        renderApp('/recognize', { user: premiumAuthUser() });
+
+        expect(await screen.findByRole('heading', { name: 'Camera recognition' })).toBeInTheDocument();
+        expect(await screen.findByRole('button', { name: 'Choose a photo' })).toBeInTheDocument();
+    });
+
     it.each(['/', '/nope', '/profile'])('sends %s to /home', async route => {
         renderApp(route);
 
@@ -136,14 +144,13 @@ describe('App', () => {
     it('drops the session everywhere on a 401', async () => {
         server.use(
             capture('get', 'Subscription/plan', ok(plan())).handler,
-            capture('get', 'Subscription/status', ok(activeSubscription())).handler,
-            capture('get', 'Subscription/entitlement-preview', HttpResponse.json({ error: 'Unauthorized' }, { status: 401 })).handler,
+            capture('post', 'Subscription/checkout', HttpResponse.json({ error: 'Unauthorized' }, { status: 401 })).handler,
         );
         const { user } = renderApp('/premium', { user: authUser() });
 
-        await user.click(await screen.findByRole('button', { name: 'Open the early access preview' }));
+        await user.click(await screen.findByRole('button', { name: /Subscribe for/ }));
 
         await waitFor(() => expect(screen.getByRole('button', { name: 'Login' })).toBeInTheDocument());
-        expect(screen.queryByRole('button', { name: 'Open the early access preview' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Recognize' })).not.toBeInTheDocument();
     });
 });

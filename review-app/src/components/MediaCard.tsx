@@ -1,4 +1,4 @@
-import { Card, CardMedia, CardContent, Typography, Box, IconButton, Divider, CircularProgress, Tooltip, Menu, MenuItem, Alert, Snackbar } from '@mui/material';
+import { Card, CardMedia, CardContent, Typography, Box, IconButton, Divider, CircularProgress, Tooltip, Menu, MenuItem, Alert, Snackbar, Chip } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
@@ -15,9 +15,11 @@ type MediaCardProps = {
     collectionId?: number;
     onRemove?: (mediaType: number, externalApiId: string) => void;
     isOwner?: boolean;
+    // A short label next to the year (e.g. how a recognition suggestion relates to the photo)
+    badge?: string;
 }
 
-export function MediaCard({ media, collectionId, onRemove, isOwner }: MediaCardProps) {
+export function MediaCard({ media, collectionId, onRemove, isOwner, badge }: MediaCardProps) {
     // Get 'global' variables
     const navigate = useNavigate();
     const { user, isLoggedIn } = useAuth();
@@ -151,9 +153,12 @@ export function MediaCard({ media, collectionId, onRemove, isOwner }: MediaCardP
                     <Typography variant="h5" fontWeight="bold" noWrap onClick={handleCardClick} sx={{ cursor: 'pointer' }}>
                         {media.title}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        {media.releaseDate ? media.releaseDate : 'Unknown Year'}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body2" color="text.secondary">
+                            {media.releaseDate ? media.releaseDate : 'Unknown Year'}
+                        </Typography>
+                        {badge && <Chip label={badge} size="small" color="primary" variant="outlined" />}
+                    </Box>
                 </Box>
 
                 <Typography variant="body2" sx={{ mb: 1, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>

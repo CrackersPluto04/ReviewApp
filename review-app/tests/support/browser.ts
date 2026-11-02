@@ -47,6 +47,38 @@ export function muteConsoleError() {
     return vi.spyOn(console, 'error').mockImplementation(() => {});
 }
 
+/**
+ * A webcam for getUserMedia (jsdom has none). `error` makes access fail with that DOMException name
+ * (e.g. 'NotAllowedError'), `cameras` is how many enumerateDevices lists. Undo it with removeCamera().
+ */
+export function stubCamera({ error, cameras = 1 }: { error?: string, cameras?: number } = {}) {
+    const track = { stop: vi.fn() };
+    const stream = { getTracks: () => [track] };
+    const getUserMedia = vi.fn(async () => {
+        if (error) throw new DOMException('Camera failed', error);
+        return stream;
+    });
+    const enumerateDevices = vi.fn(async () =>
+        Array.from({ length: cameras }, (_, i) => ({ kind: 'videoinput', deviceId: `camera-${i}`, label: `Camera ${i}` })));
+
+    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia, enumerateDevices } });
+    vi.stubGlobal('isSecureContext', true);
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+    return { getUserMedia, enumerateDevices, track };
+}
+
+export function removeCamera() {
+    delete (navigator as any).mediaDevices;
+}
+
+// URL.createObjectURL / revokeObjectURL (photo previews) are missing from jsdom
+export function stubObjectUrls() {
+    const create = vi.fn(() => 'blob:photo-preview');
+    const revoke = vi.fn();
+    Object.assign(URL, { createObjectURL: create, revokeObjectURL: revoke });
+    return { create, revoke };
+}
+
 // document.visibilityState is read-only in jsdom
 export function setVisibility(state: DocumentVisibilityState) {
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state });

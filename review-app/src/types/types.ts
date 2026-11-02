@@ -180,6 +180,39 @@ export interface SubscriptionStatusDto {
     accessEndsAt?: string | null;
 }
 
+// Camera recognition (Premium)
+export type RecognitionTier = 'direct' | 'universe' | 'people' | 'similar';
+export type RecognitionOutcome = 'recognised' | 'nothing_recognised' | 'not_media_related' | 'person_not_identified';
+
+export interface RecognizedMediaDto {
+    media: MediaDto;
+    tier: RecognitionTier;
+}
+
+export interface RecognitionAllowanceDto {
+    enabled: boolean; // false: the feature is switched off
+    premium: boolean; // the counters are null when false
+    limit?: number | null;
+    remaining?: number | null;
+    resetsAt?: string | null; // ISO date, UTC
+}
+
+export interface RecognitionItemsDto {
+    items: RecognizedMediaDto[];
+    total: number;
+    hasMore: boolean;
+    nextOffset: number;
+}
+
+export interface RecognitionResponseDto extends RecognitionItemsDto {
+    recognitionId?: string | null; // null when there is nothing to page through
+    outcome: RecognitionOutcome;
+    summary: string;
+    subject?: { label: string, kind: string } | null;
+    incomplete: boolean; // some lookups failed, the list may miss items
+    allowance: RecognitionAllowanceDto;
+}
+
 export interface PlanFeatureDto {
     key: string;
     title: string;

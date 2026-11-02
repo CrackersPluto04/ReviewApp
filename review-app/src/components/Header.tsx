@@ -2,6 +2,7 @@ import { AppBar, Toolbar, Typography, Button, IconButton, Box, Container, Avatar
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
+import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import { PREMIUM_COLOR } from '../utils/subscription';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'preact/hooks';
@@ -58,6 +59,10 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
                     <Button color="inherit" onClick={() => navigate('/discover?type=movie')}>Movies</Button>
                     <Button color="inherit" onClick={() => navigate('/discover?type=series')}>Series</Button>
                     <Button color="inherit" onClick={() => navigate('/discover/music')}>Music</Button>
+                    {/* Camera recognition (Premium): the page itself shows the upsell or the "unavailable" state */}
+                    {isLoggedIn && <Button color="inherit" startIcon={<CameraAltIcon />} onClick={() => navigate('/recognize')}>
+                        Recognize
+                    </Button>}
                     <Button color="inherit" startIcon={<WorkspacePremiumIcon sx={{ color: PREMIUM_COLOR }} />} onClick={() => navigate('/premium')}>
                         Premium
                     </Button>

@@ -34,6 +34,20 @@ describe('Header', () => {
         expect(currentLocation()).toBe('/');
     });
 
+    it('links logged-in users to camera recognition', async () => {
+        const { user } = renderHeader({ user: authUser() });
+
+        await user.click(await screen.findByRole('button', { name: 'Recognize' }));
+
+        expect(currentLocation()).toBe('/recognize');
+    });
+
+    it('has no camera recognition link for visitors', () => {
+        renderHeader({ user: null });
+
+        expect(screen.queryByRole('button', { name: 'Recognize' })).not.toBeInTheDocument();
+    });
+
     it('shows a spinner while the session is being checked', async () => {
         const response = deferred(() => HttpResponse.json({}, { status: 401 }));
         server.use(capture('get', 'Auth/check-auth', () => response.promise).handler);
