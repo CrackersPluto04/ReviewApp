@@ -21,6 +21,9 @@ import com.reviewapp.android.data.remote.dto.NotificationPageDto
 import com.reviewapp.android.data.remote.dto.PagedResponse
 import com.reviewapp.android.data.remote.dto.PlanDto
 import com.reviewapp.android.data.remote.dto.ProfileReviewDto
+import com.reviewapp.android.data.remote.dto.RecognitionAllowanceDto
+import com.reviewapp.android.data.remote.dto.RecognitionItemsDto
+import com.reviewapp.android.data.remote.dto.RecognitionResponseDto
 import com.reviewapp.android.data.remote.dto.SubscriptionRedirectRequest
 import com.reviewapp.android.data.remote.dto.SubscriptionStatusDto
 import com.reviewapp.android.data.remote.dto.SubscriptionUrlDto
@@ -43,12 +46,15 @@ import com.reviewapp.android.data.remote.dto.UserCompactDto
 import com.reviewapp.android.data.remote.dto.UserDto
 import com.reviewapp.android.data.remote.dto.UserProfileDto
 import com.reviewapp.android.data.remote.dto.UserUpdateRequest
+import okhttp3.MultipartBody
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.PUT
+import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -337,10 +343,25 @@ interface SubscriptionApi {
     /** Makes the API check with the payment provider (after returning from checkout). */
     @POST("Subscription/sync")
     suspend fun sync(): SubscriptionStatusDto
+}
 
-    /** Placeholder Premium endpoint that proves the paywall: 402 for Free users. */
-    @GET("Subscription/entitlement-preview")
-    suspend fun entitlementPreview(): MessageResponse
+/**
+ * Camera recognition (Premium, 402 for Free users except the allowance). Errors carry a `code`: `busy` (409),
+ * `daily_limit` (429), `recognition_unavailable` / `source_unavailable` (503), `not_found` (404).
+ */
+interface RecognitionApi {
+    /** Whether the feature is on and the daily allowance; also for Free users (premium = false). */
+    @GET("Recognition/allowance")
+    suspend fun getAllowance(): RecognitionAllowanceDto
+
+    /** The photo (JPEG) in the multipart part "image". One paid AI call. */
+    @Multipart
+    @POST("Recognition")
+    suspend fun recognize(@Part image: MultipartBody.Part): RecognitionResponseDto
+
+    /** "Show more": the next items of a stored recognition, no new AI call. */
+    @GET("Recognition/{id}/items")
+    suspend fun getItems(@Path("id") id: String, @Query("offset") offset: Int, @Query("count") count: Int? = null): RecognitionItemsDto
 }
 
 /** Email verification, the pending email change and two-factor authentication of the current user. */

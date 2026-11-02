@@ -19,6 +19,9 @@ import com.reviewapp.android.data.remote.CollectionApi
 import com.reviewapp.android.data.remote.FollowerApi
 import com.reviewapp.android.data.remote.MediaApi
 import com.reviewapp.android.data.remote.NotificationApi
+import com.reviewapp.android.data.remote.RecognitionApi
+import com.reviewapp.android.data.local.RecognitionPhotos
+import com.reviewapp.android.data.repository.RecognitionRepository
 import com.reviewapp.android.data.remote.ReviewApi
 import com.reviewapp.android.data.remote.ReviewReplyApi
 import com.reviewapp.android.data.remote.SecurityApi
@@ -102,6 +105,18 @@ class AppContainer(context: Context) {
     private val securityApi: SecurityApi = retrofit.create(SecurityApi::class.java)
     private val subscriptionApi: SubscriptionApi = retrofit.create(SubscriptionApi::class.java)
 
+    // A recognition uploads a photo and waits for the AI and the media lookups: longer timeouts than the other
+    // calls, with the same cookie jar and interceptors (401 / 402 / unlock / notification handling)
+    private val recognitionApi: RecognitionApi = retrofit.newBuilder()
+        .client(
+            okHttpClient.newBuilder()
+                .writeTimeout(60, TimeUnit.SECONDS)
+                .readTimeout(90, TimeUnit.SECONDS)
+                .build(),
+        )
+        .build()
+        .create(RecognitionApi::class.java)
+
     val sessionManager = SessionManager(authApi, cookieJar)
     val authRepository = AuthRepository(authApi, sessionManager)
     val mediaRepository = MediaRepository(mediaApi)
@@ -113,6 +128,8 @@ class AppContainer(context: Context) {
     val achievementRepository = AchievementRepository(achievementApi)
     val accountRepository = AccountRepository(userApi, securityApi, authApi, sessionManager)
     val subscriptionRepository = SubscriptionRepository(subscriptionApi, sessionManager, appScope)
+    val recognitionRepository = RecognitionRepository(recognitionApi, mediaRepository)
+    val recognitionPhotos = RecognitionPhotos(context)
 }
 
 /** For ViewModel factories: `initializer { val c = appContainer(); ... }` */

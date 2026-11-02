@@ -121,16 +121,6 @@ class PremiumViewModel(
 
     fun resume() = change { repository.resume() }
 
-    /** The placeholder Premium feature; for a Free user the 402 opens the upsell by itself. */
-    fun tryPreview() {
-        viewModelScope.launch {
-            when (val result = repository.tryEntitlementPreview()) {
-                is ApiResult.Success -> _events.send(PremiumEvent.Message(result.data))
-                is ApiResult.Error -> if (result.code != 402) _events.send(PremiumEvent.Message(result.message))
-            }
-        }
-    }
-
     private fun openProviderPage(request: suspend () -> ApiResult<String>) {
         if (_state.value.isBusy) return
         _state.update { it.copy(isBusy = true) }

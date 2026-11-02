@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PersonSearch
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -58,6 +59,7 @@ fun HomeScreen(
     /** Null while logged out, then there is no bell. */
     unseenNotifications: Int?,
     onOpenNotifications: () -> Unit,
+    onOpenRecognition: () -> Unit,
     viewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory),
     bannerViewModel: VerificationBannerViewModel = viewModel(factory = VerificationBannerViewModel.Factory),
 ) {
@@ -70,6 +72,12 @@ fun HomeScreen(
             TopAppBar(
                 title = { AppLogo() },
                 actions = {
+                    // Camera recognition (Premium; the screen shows the upsell to Free users), for logged-in users
+                    if (unseenNotifications != null) {
+                        IconButton(onClick = onOpenRecognition) {
+                            Icon(Icons.Filled.PhotoCamera, contentDescription = "Camera recognition")
+                        }
+                    }
                     IconButton(onClick = onOpenUserSearch) {
                         Icon(Icons.Filled.PersonSearch, contentDescription = "Find users")
                     }

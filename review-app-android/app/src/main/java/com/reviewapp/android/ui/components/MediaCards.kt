@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,6 +42,8 @@ fun MediaCard(
     onNeedStats: (Media) -> Unit,
     onClick: (Media) -> Unit,
     modifier: Modifier = Modifier,
+    /** A short label next to the year, e.g. how a recognition suggestion relates to the photo. */
+    badge: String? = null,
 ) {
     LaunchedEffect(media.key) { onNeedStats(media) }
 
@@ -63,11 +66,23 @@ fun MediaCard(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Text(
-                        formatDate(media.releaseDate) ?: "Unknown year",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            formatDate(media.releaseDate) ?: "Unknown year",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (badge != null) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                shape = MaterialTheme.shapes.small,
+                                modifier = Modifier.padding(start = 8.dp),
+                            ) {
+                                Text(badge, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(6.dp))
                     val description = if (media.mediaType == MediaType.Music) media.creator else media.overview
                     if (description.isNotBlank()) {

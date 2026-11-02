@@ -38,6 +38,10 @@ data object AccountSettingsRoute
 @Serializable
 data object PremiumRoute
 
+/** Camera recognition (Premium): a photo in, related media out. */
+@Serializable
+data object RecognitionRoute
+
 /**
  * Where the payment provider sends the user back: `reviewapp://subscription/{result}` (opened by the API's
  * return page in the browser), [result] being `success`, `cancelled` or `portal`.
