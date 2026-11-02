@@ -24,10 +24,13 @@ public class ApiFactory : WebApplicationFactory<Program>
     private static readonly Lazy<ApiFactory> SharedInstance = new(() => new ApiFactory());
 
     private readonly int _permitMultiplier;
+    private readonly IReadOnlyDictionary<string, string> _settings;
 
-    public ApiFactory(int permitMultiplier = RelaxedPermitMultiplier)
+    // settings: extra or overridden configuration values for a host of its own (e.g. a switched-off feature)
+    public ApiFactory(int permitMultiplier = RelaxedPermitMultiplier, IReadOnlyDictionary<string, string>? settings = null)
     {
         _permitMultiplier = permitMultiplier;
+        _settings = settings ?? new Dictionary<string, string>();
     }
 
     // One host for the whole run: the integration tests resolve services from it, the HTTP tests send requests to it
@@ -36,6 +39,7 @@ public class ApiFactory : WebApplicationFactory<Program>
     public FakeTmdbService Tmdb { get; } = new();
     public FakeSpotifyService Spotify { get; } = new();
     public CapturingEmailSender Mail { get; } = new();
+    public TestRecognitionProvider Recognition { get; } = new();
     public TestPaymentProvider Payments => Services.GetRequiredService<TestPaymentProvider>();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -58,6 +62,13 @@ public class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Tmdb:ApiKey", "dummy");
         builder.UseSetting("Spotify:ClientId", "dummy");
         builder.UseSetting("Spotify:ClientSecret", "dummy");
+        // Same as with Stripe: the real provider registers with a dummy key, then it is replaced below
+        builder.UseSetting("Recognition:Enabled", "true");
+        builder.UseSetting("Recognition:Provider", "Gemini");
+        builder.UseSetting("Gemini:ApiKey", "dummy");
+
+        foreach (var (key, value) in _settings)
+            builder.UseSetting(key, value);
 
         builder.ConfigureTestServices(services =>
         {
@@ -72,6 +83,8 @@ public class ApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<ISpotifyService>(Spotify);
             services.RemoveAll<IEmailSender>();
             services.AddSingleton<IEmailSender>(Mail);
+            services.RemoveAll<IRecognitionProvider>();
+            services.AddSingleton<IRecognitionProvider>(Recognition);
 
             services.RemoveAll<IPaymentProvider>();
             services.AddSingleton<TestPaymentProvider>();

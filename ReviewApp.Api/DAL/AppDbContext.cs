@@ -24,6 +24,7 @@ public class AppDbContext : DbContext
     public DbSet<SecurityToken> SecurityTokens { get; set; }
     public DbSet<UserSubscription> UserSubscriptions { get; set; }
     public DbSet<SubscriptionEvent> SubscriptionEvents { get; set; }
+    public DbSet<RecognitionUsage> RecognitionUsages { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -208,5 +209,17 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<SubscriptionEvent>()
             .HasIndex(e => e.ProviderEventID)
             .IsUnique();
+
+        /* Configure camera recognition usage (daily allowance) */
+        modelBuilder.Entity<RecognitionUsage>(entity =>
+        {
+            entity.HasOne(u => u.User)
+                  .WithMany()
+                  .HasForeignKey(u => u.UserID)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // Counting a user's recognitions since the start of the day
+            entity.HasIndex(u => new { u.UserID, u.CreatedAt });
+        });
     }
 }

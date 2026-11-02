@@ -496,6 +496,27 @@ namespace ReviewApp.Api.Migrations
                     b.ToTable("Notifications");
                 });
 
+            modelBuilder.Entity("ReviewApp.Api.DAL.Entities.RecognitionUsage", b =>
+                {
+                    b.Property<int>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserID")
+                        .HasColumnType("int");
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("UserID", "CreatedAt");
+
+                    b.ToTable("RecognitionUsages");
+                });
+
             modelBuilder.Entity("ReviewApp.Api.DAL.Entities.Review", b =>
                 {
                     b.Property<int>("ID")
@@ -889,6 +910,17 @@ namespace ReviewApp.Api.Migrations
                     b.Navigation("ActorUser");
 
                     b.Navigation("RecipientUser");
+                });
+
+            modelBuilder.Entity("ReviewApp.Api.DAL.Entities.RecognitionUsage", b =>
+                {
+                    b.HasOne("ReviewApp.Api.DAL.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("ReviewApp.Api.DAL.Entities.Review", b =>

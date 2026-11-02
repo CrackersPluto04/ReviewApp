@@ -3,13 +3,15 @@ using ReviewApp.Api.DAL;
 
 namespace ReviewApp.Api.Services;
 
-// Daily housekeeping: old seen notifications and spent security tokens
+// Daily housekeeping: old seen notifications, spent security tokens and old recognition usage rows
 public class DataCleanupService : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromDays(1);
     private static readonly TimeSpan SeenNotificationRetention = TimeSpan.FromDays(90);
     // Kept a little longer than needed, so "already used" / "expired" answers stay accurate for a while
     private static readonly TimeSpan SpentTokenRetention = TimeSpan.FromDays(1);
+    // The daily allowance only looks at the current day; a few days are kept for debugging
+    internal static readonly TimeSpan RecognitionUsageRetention = TimeSpan.FromDays(7);
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<DataCleanupService> _logger;
@@ -60,7 +62,13 @@ public class DataCleanupService : BackgroundService
             .Where(t => t.ExpiresAt < tokenCutoff || (t.IsUsed && t.CreatedAt < tokenCutoff))
             .ExecuteDeleteAsync(cancellationToken);
 
-        if (notifications > 0 || tokens > 0)
-            _logger.LogInformation("Data cleanup removed {Notifications} notifications and {Tokens} security tokens", notifications, tokens);
+        var usageCutoff = now - RecognitionUsageRetention;
+        var usages = await context.RecognitionUsages
+            .Where(u => u.CreatedAt < usageCutoff)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        if (notifications > 0 || tokens > 0 || usages > 0)
+            _logger.LogInformation("Data cleanup removed {Notifications} notifications, {Tokens} security tokens and {Usages} recognition usage rows",
+                notifications, tokens, usages);
     }
 }

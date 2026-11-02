@@ -5,6 +5,7 @@ using Microsoft.OpenApi.Models;
 using ReviewApp.Api.DAL;
 using ReviewApp.Api.Services;
 using ReviewApp.Api.Services.Interfaces;
+using ReviewApp.Api.Services.Recognition;
 using System.Text;
 using System.Threading.RateLimiting;
 
@@ -146,6 +147,10 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("billing", httpContext =>
         RateLimitPartition.GetSlidingWindowLimiter(ClientKey(httpContext), _ => Sliding(15, TimeSpan.FromMinutes(10))));
 
+    // Camera recognition uploads (each one is a paid AI call): 5 per 10 minutes per user, on top of the daily allowance
+    options.AddPolicy("recognition", httpContext =>
+        RateLimitPartition.GetSlidingWindowLimiter(ClientKey(httpContext), _ => Sliding(5, TimeSpan.FromMinutes(10))));
+
     options.OnRejected = async (context, cancellationToken) =>
     {
         var response = context.HttpContext.Response;
@@ -193,6 +198,7 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddHttpClient<ITmdbService, TmdbService>();
+builder.Services.AddSingleton<SpotifyTokenCache>();
 builder.Services.AddHttpClient<ISpotifyService, SpotifyService>();
 builder.Services.AddScoped<IMediaService, MediaService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
@@ -219,6 +225,9 @@ builder.Services.AddHostedService<DataCleanupService>();
 
 // Subscriptions: Stripe, or the Fake provider (no payment at all) that is only allowed in Development
 builder.AddSubscriptions();
+
+// Camera recognition: Gemini, or the Fake provider (canned answer, no AI call) that is only allowed in Development
+builder.AddRecognition();
 
 var app = builder.Build();
 

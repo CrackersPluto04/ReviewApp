@@ -36,7 +36,82 @@ public class TmdbItemDto
     [JsonPropertyName("overview")]
     public string? Overview { get; set; }
 
+    // Used by camera recognition for ranking and filtering
+    [JsonPropertyName("popularity")]
+    public double Popularity { get; set; }
+
+    [JsonPropertyName("vote_count")]
+    public int VoteCount { get; set; }
+
+    [JsonPropertyName("adult")]
+    public bool Adult { get; set; }
+
+    [JsonPropertyName("genre_ids")]
+    public List<int> GenreIds { get; set; } = [];
+
+    // Movie details only: the film series the movie belongs to
+    [JsonPropertyName("belongs_to_collection")]
+    public TmdbCollectionRefDto? BelongsToCollection { get; set; }
+
 
     public string DisplayTitle => Title ?? Name ?? "Unknown Title";
     public string DisplayReleaseDate => ReleaseDate ?? FirstAirDate ?? "Unkown Release Date";
+}
+
+public class TmdbCollectionRefDto
+{
+    [JsonPropertyName("id")]
+    public int ID { get; set; }
+}
+
+public class TmdbCollectionDto
+{
+    [JsonPropertyName("parts")]
+    public List<TmdbItemDto> Parts { get; set; } = [];
+}
+
+public class TmdbPersonSearchResponseDto
+{
+    [JsonPropertyName("results")]
+    public List<TmdbPersonDto> Results { get; set; } = [];
+}
+
+public class TmdbPersonDto
+{
+    [JsonPropertyName("id")]
+    public int ID { get; set; }
+
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("popularity")]
+    public double Popularity { get; set; }
+
+    [JsonPropertyName("adult")]
+    public bool Adult { get; set; }
+}
+
+// GET person/{id}/combined_credits
+public class TmdbPersonCreditsDto
+{
+    [JsonPropertyName("cast")]
+    public List<TmdbCreditDto> Cast { get; set; } = [];
+
+    [JsonPropertyName("crew")]
+    public List<TmdbCreditDto> Crew { get; set; } = [];
+}
+
+public class TmdbCreditDto : TmdbItemDto
+{
+    // "movie" or "tv"
+    [JsonPropertyName("media_type")]
+    public string? MediaType { get; set; }
+
+    // Crew only, e.g. "Director"
+    [JsonPropertyName("job")]
+    public string? Job { get; set; }
+
+    // Series only: how many episodes the person was in (a guest appearance is one or two)
+    [JsonPropertyName("episode_count")]
+    public int? EpisodeCount { get; set; }
 }
