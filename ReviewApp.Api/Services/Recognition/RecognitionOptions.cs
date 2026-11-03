@@ -17,6 +17,9 @@ public class RecognitionOptions
 
     public RecognitionProvider Provider { get; set; } = RecognitionProvider.Gemini;
     public string Model { get; set; } = "gemini-3.8-flash";
+    // Tried in order when the model can't answer right now (overloaded, out of quota, timed out, server error), with
+    // the same request and thinking level, so they must be models that accept both (Gemini 3 family)
+    public string[] FallbackModels { get; set; } = [];
     // Empty = the model's default
     public string ThinkingLevel { get; set; } = "low";
 
@@ -37,8 +40,13 @@ public class RecognitionOptions
     // The Similar tier is only used when the closer tiers hold fewer items than this
     public int SimilarFillThreshold { get; set; } = 10;
 
+    // One call to one model
     public int ProviderTimeoutSeconds { get; set; } = 30;
+    // Extra attempts of the last model in the chain (the others are swapped for the next model at once)
     public int ProviderRetries { get; set; } = 1;
+    // Every attempt of one recognition together, fallbacks included. Together with ResolveDeadlineSeconds it must
+    // stay below the clients' timeouts (the Android app waits 90 s for the answer).
+    public int ProviderBudgetSeconds { get; set; } = 60;
 
     // TMDb / Spotify lookups of one recognition: total time, number of calls, parallel calls
     public int ResolveDeadlineSeconds { get; set; } = 15;

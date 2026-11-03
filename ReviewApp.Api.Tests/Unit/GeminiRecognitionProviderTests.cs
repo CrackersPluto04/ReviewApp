@@ -14,9 +14,12 @@ public class GeminiRecognitionProviderTests
 
     private static readonly byte[] Image = TestImages.Jpeg("gemini");
 
-    private static GeminiRecognitionProvider Provider(StubHttpHandler handler, string thinkingLevel = "low") =>
+    private static GeminiRecognitionProvider Provider(StubHttpHandler handler, string thinkingLevel = "low", string[]? fallbacks = null) =>
         new(new HttpClient(handler),
-            Options.Create(new RecognitionOptions { Model = "gemini-3.8-flash", ThinkingLevel = thinkingLevel, ProviderRetries = 1, ProviderTimeoutSeconds = 5 }),
+            Options.Create(new RecognitionOptions
+            {
+                Model = "gemini-3.8-flash", FallbackModels = fallbacks ?? [], ThinkingLevel = thinkingLevel, ProviderRetries = 1, ProviderTimeoutSeconds = 5
+            }),
             Options.Create(new GeminiOptions { ApiKey = "secret-key", BaseUrl = "https://gemini.test/v1beta" }),
             NullLogger<GeminiRecognitionProvider>.Instance);
 
@@ -137,6 +140,59 @@ public class GeminiRecognitionProviderTests
         var error = await Should.ThrowAsync<RecognitionProviderException>(() => Provider(handler).RecognizeAsync(Image, "image/jpeg", CancellationToken.None));
 
         error.Error.ShouldBe(RecognitionProviderError.Unavailable);
+        handler.Requests.Count.ShouldBe(1);
+    }
+
+    private static string ModelOf(HttpRequestMessage request) =>
+        request.RequestUri!.AbsolutePath.Split('/')[^1].Replace(":generateContent", "");
+
+    [Theory]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    [InlineData(HttpStatusCode.TooManyRequests)]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    public async Task ModelThatCantAnswer_IsSwappedForTheFallbackAtOnce(HttpStatusCode status)
+    {
+        var handler = new StubHttpHandler(request => ModelOf(request) == "gemini-3.8-flash" ? new HttpResponseMessage(status) : Answer(AnswerJson));
+
+        var answer = await Provider(handler, fallbacks: ["gemini-3.5-flash"]).RecognizeAsync(Image, "image/jpeg", CancellationToken.None);
+
+        answer.ShouldBe(AnswerJson);
+        handler.Requests.Select(ModelOf).ShouldBe(["gemini-3.8-flash", "gemini-3.5-flash"]);
+        // The same request, only the model differs
+        handler.Requests[1].Headers.GetValues("x-goog-api-key").Single().ShouldBe("secret-key");
+    }
+
+    [Fact]
+    public async Task TimedOutModel_IsSwappedForTheFallback()
+    {
+        var handler = new StubHttpHandler(request => ModelOf(request) == "gemini-3.8-flash" ? throw new TaskCanceledException() : Answer(AnswerJson));
+
+        (await Provider(handler, fallbacks: ["gemini-3.5-flash"]).RecognizeAsync(Image, "image/jpeg", CancellationToken.None)).ShouldBe(AnswerJson);
+        handler.Requests.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task FallbacksAreTriedInOrder_AndOnlyTheLastOneIsRetried()
+    {
+        var handler = new StubHttpHandler(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+
+        var error = await Should.ThrowAsync<RecognitionProviderException>(() =>
+            Provider(handler, fallbacks: ["gemini-3.5-flash", " ", "gemini-3.8-flash", "gemini-3.5-flash-lite"])
+                .RecognizeAsync(Image, "image/jpeg", CancellationToken.None));
+
+        error.Error.ShouldBe(RecognitionProviderError.Unavailable);
+        // Blank and repeated models are skipped
+        handler.Requests.Select(ModelOf).ShouldBe(["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.5-flash-lite"]);
+    }
+
+    [Fact]
+    public async Task ClientError_DoesNotFallBack()
+    {
+        var handler = new StubHttpHandler(_ => new HttpResponseMessage(HttpStatusCode.Forbidden));
+
+        await Should.ThrowAsync<RecognitionProviderException>(() =>
+            Provider(handler, fallbacks: ["gemini-3.5-flash"]).RecognizeAsync(Image, "image/jpeg", CancellationToken.None));
+
         handler.Requests.Count.ShouldBe(1);
     }
 

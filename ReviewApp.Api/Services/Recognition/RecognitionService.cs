@@ -72,9 +72,8 @@ public class RecognitionService : IRecognitionService
         string? raw;
         try
         {
-            // The provider retries on its own; this bounds all of its attempts together
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(
-                Math.Max(1, _options.ProviderTimeoutSeconds) * (Math.Max(0, _options.ProviderRetries) + 1) + 5));
+            // The provider retries and falls back on its own; this bounds all of its attempts together
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(Math.Max(1, _options.ProviderBudgetSeconds)));
             raw = await _provider.RecognizeAsync(image, info.MimeType, timeout.Token);
         }
         catch (Exception ex) when (ex is RecognitionProviderException or OperationCanceledException)

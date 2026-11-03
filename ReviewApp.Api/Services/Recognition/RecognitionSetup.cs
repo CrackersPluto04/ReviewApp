@@ -25,6 +25,9 @@ public static class RecognitionSetup
         }
         else
         {
+            if (options.Enabled && string.IsNullOrWhiteSpace(options.Model))
+                throw new InvalidOperationException("Recognition:Model must be configured when Recognition is enabled with the Gemini provider.");
+
             var geminiSection = builder.Configuration.GetSection(GeminiOptions.SectionName);
             if (options.Enabled && string.IsNullOrWhiteSpace(geminiSection.Get<GeminiOptions>()?.ApiKey))
                 throw new InvalidOperationException("Gemini:ApiKey must be configured when Recognition is enabled with the Gemini provider (or set Recognition:Enabled to false).");
