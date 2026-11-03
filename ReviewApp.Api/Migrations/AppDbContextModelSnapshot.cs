@@ -368,6 +368,16 @@ namespace ReviewApp.Api.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
                     b.Property<int>("UserID")
                         .HasColumnType("int");
 
@@ -378,6 +388,8 @@ namespace ReviewApp.Api.Migrations
 
                     b.HasIndex("UserID", "Name")
                         .IsUnique();
+
+                    b.HasIndex("UserID", "RowVersion");
 
                     b.ToTable("Collections");
                 });
@@ -547,6 +559,11 @@ namespace ReviewApp.Api.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<decimal>("Score")
                         .HasColumnType("decimal(3,1)");
 
@@ -566,6 +583,8 @@ namespace ReviewApp.Api.Migrations
 
                     b.HasIndex("UserID", "MediaID")
                         .IsUnique();
+
+                    b.HasIndex("UserID", "RowVersion");
 
                     b.ToTable("Reviews", t =>
                         {
@@ -684,6 +703,85 @@ namespace ReviewApp.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("SubscriptionEvents");
+                });
+
+            modelBuilder.Entity("ReviewApp.Api.DAL.Entities.SyncOperation", b =>
+                {
+                    b.Property<int>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
+
+                    b.Property<string>("ClientRef")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("EntityID")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EntityType")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("OperationID")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ResultJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("UserID")
+                        .HasColumnType("int");
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("UserID", "ClientRef")
+                        .IsUnique()
+                        .HasFilter("[ClientRef] IS NOT NULL");
+
+                    b.HasIndex("UserID", "OperationID")
+                        .IsUnique();
+
+                    b.ToTable("SyncOperations");
+                });
+
+            modelBuilder.Entity("ReviewApp.Api.DAL.Entities.SyncTombstone", b =>
+                {
+                    b.Property<int>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
+
+                    b.Property<DateTime>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("EntityID")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EntityType")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("UserID")
+                        .HasColumnType("int");
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("DeletedAt");
+
+                    b.HasIndex("UserID", "RowVersion");
+
+                    b.ToTable("SyncTombstones");
                 });
 
             modelBuilder.Entity("ReviewApp.Api.DAL.Entities.User", b =>
@@ -974,6 +1072,28 @@ namespace ReviewApp.Api.Migrations
                 });
 
             modelBuilder.Entity("ReviewApp.Api.DAL.Entities.SecurityToken", b =>
+                {
+                    b.HasOne("ReviewApp.Api.DAL.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ReviewApp.Api.DAL.Entities.SyncOperation", b =>
+                {
+                    b.HasOne("ReviewApp.Api.DAL.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ReviewApp.Api.DAL.Entities.SyncTombstone", b =>
                 {
                     b.HasOne("ReviewApp.Api.DAL.Entities.User", "User")
                         .WithMany()

@@ -84,6 +84,7 @@ public class CollectionService : ICollectionService
 
         collection.Name = dto.Name;
         collection.VisibilityLevel = dto.VisibilityLevel;
+        collection.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
 
@@ -110,6 +111,8 @@ public class CollectionService : ICollectionService
         if (collection.Name == Collection.DefaultName) return (false, false, DefaultCollectionLockedMessage);
 
         _context.Collections.Remove(collection);
+        // Tells offline devices to drop their copy (same SaveChanges, so both or neither happen)
+        _context.SyncTombstones.Add(new SyncTombstone { UserID = userId, EntityType = SyncEntityType.Collection, EntityID = collection.ID });
         await _context.SaveChangesAsync();
 
         return (true, false, "Collection deleted successfully!");
@@ -118,10 +121,10 @@ public class CollectionService : ICollectionService
     public async Task<bool> AddMediaToCollectionAsync(int userId, int collectionId, MediaType type, string externalApiId)
     {
         // Check if collection exists and belongs to user
-        var collectionExists = await _context.Collections
-            .AnyAsync(c => c.ID == collectionId && c.UserID == userId);
+        var collection = await _context.Collections
+            .FirstOrDefaultAsync(c => c.ID == collectionId && c.UserID == userId);
 
-        if (!collectionExists) return false;
+        if (collection == null) return false;
 
         // Check if media exists, if not create it
         var mediaId = await _mediaService.GetOrCreateMediaAsync(type, externalApiId);
@@ -147,6 +150,7 @@ public class CollectionService : ICollectionService
         };
 
         _context.CollectionMedias.Add(collectionMedia);
+        collection.UpdatedAt = DateTime.UtcNow;
         try
         {
             await _context.SaveChangesAsync();
@@ -155,6 +159,7 @@ public class CollectionService : ICollectionService
         {
             // A parallel request added it first (primary key): already in the collection
             _context.Entry(collectionMedia).State = EntityState.Detached;
+            _context.Entry(collection).State = EntityState.Unchanged;
             return false;
         }
 
@@ -180,6 +185,7 @@ public class CollectionService : ICollectionService
         foreach (var subItem in subsequentItems)
             subItem.OrderIndex--;
 
+        item.Collection.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
         return true;
     }
@@ -223,6 +229,7 @@ public class CollectionService : ICollectionService
         }
 
         mediaItem.OrderIndex = newOrderIndex;
+        collection.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
         return true;

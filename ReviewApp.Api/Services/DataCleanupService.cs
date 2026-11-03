@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using ReviewApp.Api.DAL;
 using ReviewApp.Api.DAL.Entities;
 using ReviewApp.Api.Services.Interfaces;
+using ReviewApp.Api.Services.Sync;
 
 namespace ReviewApp.Api.Services;
 
@@ -70,9 +71,18 @@ public class DataCleanupService : BackgroundService
             .Where(u => u.CreatedAt < usageCutoff)
             .ExecuteDeleteAsync(cancellationToken);
 
-        if (notifications > 0 || tokens > 0 || usages > 0)
-            _logger.LogInformation("Data cleanup removed {Notifications} notifications, {Tokens} security tokens and {Usages} recognition usage rows",
-                notifications, tokens, usages);
+        var syncCutoff = now - SyncRetention.Retention;
+        var syncOperations = await context.SyncOperations
+            .Where(o => o.CreatedAt < syncCutoff)
+            .ExecuteDeleteAsync(cancellationToken);
+        var tombstones = await context.SyncTombstones
+            .Where(t => t.DeletedAt < syncCutoff)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        if (notifications > 0 || tokens > 0 || usages > 0 || syncOperations > 0 || tombstones > 0)
+            _logger.LogInformation("Data cleanup removed {Notifications} notifications, {Tokens} security tokens, {Usages} recognition usage rows, " +
+                "{SyncOperations} sync operations and {Tombstones} sync tombstones",
+                notifications, tokens, usages, syncOperations, tombstones);
 
         await RepairIncompleteMediaAsync(context, scope.ServiceProvider.GetRequiredService<IMediaService>(), cancellationToken);
     }

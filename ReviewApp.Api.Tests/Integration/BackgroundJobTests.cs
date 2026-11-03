@@ -5,6 +5,7 @@ using ReviewApp.Api.Enums;
 using ReviewApp.Api.Services;
 using ReviewApp.Api.Services.Interfaces;
 using ReviewApp.Api.Services.Payments;
+using ReviewApp.Api.Services.Sync;
 using ReviewApp.Api.Tests.Support;
 
 namespace ReviewApp.Api.Tests.Integration;
@@ -57,6 +58,29 @@ public class BackgroundJobTests : IntegrationTest
         media[collected.ID].Title.ShouldBe($"Track {collected.ExternalApiID}");
         media[stillUnknown.ID].Title.ShouldBe(DataCleanupService.IncompleteTitle);
         media[complete.ID].Title.ShouldBe(complete.Title);
+    }
+
+    [Fact]
+    public async Task Cleanup_DeletesSyncRecordsAfterTheRetention()
+    {
+        var user = await Data.UserAsync();
+        var old = DateTime.UtcNow - SyncRetention.Retention - TimeSpan.FromHours(1);
+        var recent = DateTime.UtcNow.AddDays(-29);
+        await using (var context = TestDatabase.CreateContext())
+        {
+            context.SyncOperations.AddRange(
+                new SyncOperation { UserID = user.ID, OperationID = Guid.NewGuid(), EntityType = SyncEntityType.Review, ResultJson = "{}", CreatedAt = old },
+                new SyncOperation { UserID = user.ID, OperationID = Guid.NewGuid(), EntityType = SyncEntityType.Review, ResultJson = "{}", CreatedAt = recent });
+            context.SyncTombstones.AddRange(
+                new SyncTombstone { UserID = user.ID, EntityType = SyncEntityType.Review, EntityID = 1, DeletedAt = old },
+                new SyncTombstone { UserID = user.ID, EntityType = SyncEntityType.Collection, EntityID = 2, DeletedAt = recent });
+            await context.SaveChangesAsync();
+        }
+
+        await RunCleanupAsync();
+
+        (await Query().SyncOperations.Where(o => o.UserID == user.ID).Select(o => o.CreatedAt).SingleAsync()).ShouldBe(recent, TimeSpan.FromSeconds(1));
+        (await Query().SyncTombstones.Where(t => t.UserID == user.ID).Select(t => t.EntityID).SingleAsync()).ShouldBe(2);
     }
 
     [Fact]

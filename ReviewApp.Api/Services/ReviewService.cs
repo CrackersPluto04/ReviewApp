@@ -213,8 +213,9 @@ public class ReviewService : IReviewService
         if (review == null)
             return (false, "Review not found.");
 
-        // Delete review if exists
+        // Delete review if exists; the tombstone tells offline devices to drop their copy (same SaveChanges)
         _context.Reviews.Remove(review);
+        _context.SyncTombstones.Add(new SyncTombstone { UserID = userId, EntityType = SyncEntityType.Review, EntityID = review.ID });
         await _context.SaveChangesAsync();
 
         return (true, "Review deleted successfully!");

@@ -25,6 +25,8 @@ public class AppDbContext : DbContext
     public DbSet<UserSubscription> UserSubscriptions { get; set; }
     public DbSet<SubscriptionEvent> SubscriptionEvents { get; set; }
     public DbSet<RecognitionUsage> RecognitionUsages { get; set; }
+    public DbSet<SyncTombstone> SyncTombstones { get; set; }
+    public DbSet<SyncOperation> SyncOperations { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -231,5 +233,56 @@ public class AppDbContext : DbContext
             // Counting a user's recognitions since the start of the day
             entity.HasIndex(u => new { u.UserID, u.CreatedAt });
         });
+
+        /* Configure offline sync */
+        // RowVersion is a SQL Server rowversion (the sync's base version and changes-feed cursor), read as a long.
+        // Not IsRowVersion(): that also makes it a concurrency token, and concurrent web edits must keep "last write wins".
+        modelBuilder.Entity<Review>(entity =>
+        {
+            RowVersionColumn(entity.Property(r => r.RowVersion));
+            entity.HasIndex(r => new { r.UserID, r.RowVersion });
+        });
+
+        modelBuilder.Entity<Collection>(entity =>
+        {
+            RowVersionColumn(entity.Property(c => c.RowVersion));
+            entity.Property(c => c.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            entity.HasIndex(c => new { c.UserID, c.RowVersion });
+        });
+
+        modelBuilder.Entity<SyncTombstone>(entity =>
+        {
+            entity.HasOne(t => t.User)
+                  .WithMany()
+                  .HasForeignKey(t => t.UserID)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            RowVersionColumn(entity.Property(t => t.RowVersion));
+            entity.HasIndex(t => new { t.UserID, t.RowVersion });
+            entity.HasIndex(t => t.DeletedAt);
+        });
+
+        modelBuilder.Entity<SyncOperation>(entity =>
+        {
+            entity.HasOne(o => o.User)
+                  .WithMany()
+                  .HasForeignKey(o => o.UserID)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // A change is applied at most once per user
+            entity.HasIndex(o => new { o.UserID, o.OperationID }).IsUnique();
+            // One created entity per client reference
+            entity.HasIndex(o => new { o.UserID, o.ClientRef })
+                  .IsUnique()
+                  .HasFilter("[ClientRef] IS NOT NULL");
+            entity.HasIndex(o => o.CreatedAt);
+        });
     }
+
+    // A rowversion column (set by SQL Server on every write, read back after each save) mapped to a long,
+    // without being a concurrency token
+    private static void RowVersionColumn(Microsoft.EntityFrameworkCore.Metadata.Builders.PropertyBuilder<long> property) =>
+        property.HasColumnType("rowversion")
+                .HasConversion<byte[]>()
+                .ValueGeneratedOnAddOrUpdate();
 }
