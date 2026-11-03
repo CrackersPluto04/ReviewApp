@@ -31,12 +31,21 @@ object Validation {
     /** Case-insensitive and trimmed, like the web's change email dialog. */
     fun emailsMatch(email: String, confirm: String): Boolean = email.trim().equals(confirm.trim(), ignoreCase = true)
 
+    /** Usernames are part of URLs: only characters that never need escaping, and no route words (the API's UsernameRules). */
+    private val USERNAME_REGEX = Regex("^[A-Za-z0-9_-]+$")
+    val RESERVED_USERNAMES = setOf(
+        "search", "me", "admin", "administrator", "api", "login", "logout", "register", "settings",
+        "premium", "support", "system", "root", "null", "undefined", "moderator", "reviewapp",
+    )
+
     fun usernameError(username: String): String? {
         val trimmed = username.trim()
         return when {
             trimmed.isEmpty() -> "Username is required."
             trimmed.length !in MIN_USERNAME_LENGTH..MAX_USERNAME_LENGTH ->
                 "Username must be between $MIN_USERNAME_LENGTH and $MAX_USERNAME_LENGTH characters."
+            !USERNAME_REGEX.matches(trimmed) -> "Username can only contain letters, numbers, '_' and '-'."
+            trimmed.lowercase() in RESERVED_USERNAMES -> "This username is reserved, please choose another one."
             else -> null
         }
     }

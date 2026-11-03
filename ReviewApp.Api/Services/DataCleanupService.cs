@@ -1,9 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using ReviewApp.Api.DAL;
+using ReviewApp.Api.DAL.Entities;
+using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services;
 
-// Daily housekeeping: old seen notifications, spent security tokens and old recognition usage rows
+// Daily housekeeping: old seen notifications, spent security tokens, old recognition usage rows,
+// and media rows left incomplete by failed lookups
 public class DataCleanupService : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromDays(1);
@@ -70,5 +73,46 @@ public class DataCleanupService : BackgroundService
         if (notifications > 0 || tokens > 0 || usages > 0)
             _logger.LogInformation("Data cleanup removed {Notifications} notifications, {Tokens} security tokens and {Usages} recognition usage rows",
                 notifications, tokens, usages);
+
+        await RepairIncompleteMediaAsync(context, scope.ServiceProvider.GetRequiredService<IMediaService>(), cancellationToken);
     }
+
+    // Media rows stored from a failed TMDb / Spotify lookup before F1 was fixed have no real title.
+    // Unused ones are deleted; the others are fetched again (a few per run, to spare the API quotas).
+    private const int MediaRepairsPerRun = 50;
+
+    private async Task RepairIncompleteMediaAsync(AppDbContext context, IMediaService mediaService, CancellationToken cancellationToken)
+    {
+        var deleted = await IncompleteMedia(context)
+            .Where(m => !context.Reviews.Any(r => r.MediaID == m.ID) && !context.CollectionMedias.Any(cm => cm.MediaID == m.ID))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        var used = await IncompleteMedia(context).OrderBy(m => m.ID).Take(MediaRepairsPerRun).ToListAsync(cancellationToken);
+        int repaired = 0, unknown = 0;
+        foreach (var media in used)
+        {
+            var lookup = await mediaService.LookupAsync(media.MediaType, media.ExternalApiID, cancellationToken);
+            if (lookup.Status == MediaLookupStatus.Unavailable)
+                break; // the source is down, try again tomorrow
+            if (lookup.Status == MediaLookupStatus.Found)
+            {
+                MediaService.ApplyDetails(media, lookup.Media!);
+                repaired++;
+            }
+            else
+            {
+                unknown++;
+            }
+        }
+        await context.SaveChangesAsync(cancellationToken);
+
+        if (deleted > 0 || repaired > 0 || unknown > 0)
+            _logger.LogInformation("Media repair deleted {Deleted} unused incomplete rows, repaired {Repaired}, {Unknown} still unknown at the source",
+                deleted, repaired, unknown);
+    }
+
+    internal const string IncompleteTitle = "Unknown Title";
+
+    private static IQueryable<Media> IncompleteMedia(AppDbContext context) =>
+        context.Media.Where(m => m.Title == null || m.Title == "" || m.Title == IncompleteTitle);
 }

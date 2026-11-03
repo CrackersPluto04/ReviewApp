@@ -39,7 +39,16 @@ public class CollectionService : ICollectionService
         };
 
         _context.Collections.Add(collection);
-        await _context.SaveChangesAsync();
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (DbErrors.IsUniqueViolation(ex))
+        {
+            // A parallel request took the name first (unique index on user + name)
+            _context.Entry(collection).State = EntityState.Detached;
+            return null;
+        }
 
         await _achievementService.EvaluateAsync(userId, AchievementMetric.CollectionsCreated);
 
@@ -138,7 +147,16 @@ public class CollectionService : ICollectionService
         };
 
         _context.CollectionMedias.Add(collectionMedia);
-        await _context.SaveChangesAsync();
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (DbErrors.IsUniqueViolation(ex))
+        {
+            // A parallel request added it first (primary key): already in the collection
+            _context.Entry(collectionMedia).State = EntityState.Detached;
+            return false;
+        }
 
         return true;
     }

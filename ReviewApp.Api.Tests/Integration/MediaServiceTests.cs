@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ReviewApp.Api.DAL.Entities;
 using ReviewApp.Api.Enums;
+using ReviewApp.Api.Services;
 using ReviewApp.Api.Services.Interfaces;
 using ReviewApp.Api.Tests.Support;
 
@@ -66,7 +67,7 @@ public class MediaServiceTests : IntegrationTest
         series.ShouldNotBe(movie);
     }
 
-    [Fact(Skip = "Known issue F5 (FINDINGS.md): there is no unique index on Media (ExternalApiID, MediaType)")]
+    [Fact]
     public async Task GetOrCreate_ConcurrentFirstRequests_StoreOneRow()
     {
         var externalId = TestData.Unique("7");
@@ -83,15 +84,71 @@ public class MediaServiceTests : IntegrationTest
         (await Media.GetOrCreateMediaAsync((MediaType)42, "1")).ShouldBe(-1);
     }
 
-    [Fact(Skip = "Known issue F1 (FINDINGS.md):a failed TMDb/Spotify lookup stores an 'Unknown Title' media row")]
+    [Fact]
     public async Task GetOrCreate_UnknownExternalId_FailsWithoutStoringAnything()
     {
         var externalId = TestData.Unique("7");
         App.Tmdb.MarkUnknown(externalId);
 
-        var id = await Media.GetOrCreateMediaAsync(MediaType.Movie, externalId);
+        var ex = await Should.ThrowAsync<MediaResolutionException>(() => Media.GetOrCreateMediaAsync(MediaType.Movie, externalId));
 
-        id.ShouldBe(-1);
+        ex.Status.ShouldBe(MediaLookupStatus.Unknown);
+        (await Query().Media.AnyAsync(m => m.ExternalApiID == externalId)).ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData(MediaType.Movie)]
+    [InlineData(MediaType.Series)]
+    [InlineData(MediaType.Music)]
+    public async Task Resolve_SourceOutage_IsUnavailableAndStoresNothing(MediaType type)
+    {
+        var externalId = TestData.Unique("7");
+        if (type == MediaType.Music) App.Spotify.FailById(externalId); else App.Tmdb.FailById(externalId);
+
+        var resolution = await Media.ResolveAsync(type, externalId);
+
+        resolution.Status.ShouldBe(MediaLookupStatus.Unavailable);
+        (await Query().Media.AnyAsync(m => m.ExternalApiID == externalId)).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Resolve_UnknownMusic_IsUnknown()
+    {
+        var externalId = TestData.Unique("track");
+        App.Spotify.MarkUnknown(externalId);
+
+        (await Media.ResolveAsync(MediaType.Music, externalId)).Status.ShouldBe(MediaLookupStatus.Unknown);
+    }
+
+    [Fact]
+    public async Task Resolve_StoredMedia_IsFoundEvenWhileTheSourceIsDown()
+    {
+        var media = await Data.MediaAsync();
+        App.Tmdb.FailById(media.ExternalApiID);
+
+        var resolution = await Media.ResolveAsync(MediaType.Movie, media.ExternalApiID);
+
+        resolution.ShouldBe(new MediaResolution(MediaLookupStatus.Found, media.ID));
+    }
+
+    [Fact]
+    public async Task Resolve_TooLongId_IsUnknownWithoutAskingTheSource()
+    {
+        var lookups = App.Tmdb.Lookups;
+
+        (await Media.ResolveAsync(MediaType.Movie, new string('1', 65))).Status.ShouldBe(MediaLookupStatus.Unknown);
+        App.Tmdb.Lookups.ShouldBe(lookups);
+    }
+
+    [Fact]
+    public async Task Lookup_ReturnsTheDetailsWithoutStoringThem()
+    {
+        var externalId = TestData.Unique("7");
+
+        var lookup = await Media.LookupAsync(MediaType.Series, externalId);
+
+        lookup.Status.ShouldBe(MediaLookupStatus.Found);
+        lookup.Media!.Title.ShouldBe($"Series {externalId}");
         (await Query().Media.AnyAsync(m => m.ExternalApiID == externalId)).ShouldBeFalse();
     }
 }

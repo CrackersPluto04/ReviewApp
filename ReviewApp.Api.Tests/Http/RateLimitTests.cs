@@ -30,14 +30,15 @@ public sealed class RateLimitTests : IntegrationTest, IAsyncLifetime
         (await limited.Content.ReadFromJsonAsync<Dictionary<string, string>>())!["error"].ShouldBe("Too many requests. Please try again later.");
     }
 
-    [Fact(Skip = "Known issue F4 (FINDINGS.md): the sliding window leases carry no RetryAfter metadata, so the header is never sent")]
+    [Fact]
     public async Task Rejection_SaysWhenToRetry()
     {
         var client = Anonymous();
         for (var i = 0; i < 10; i++)
             await client.PostAsJsonAsync("api/Auth/login", WrongLogin);
 
-        (await client.PostAsJsonAsync("api/Auth/login", WrongLogin)).Headers.RetryAfter.ShouldNotBeNull();
+        // auth-attempt has a 10 minute window in 5 segments: the oldest segment frees up within 2 minutes
+        (await client.PostAsJsonAsync("api/Auth/login", WrongLogin)).Headers.RetryAfter!.Delta.ShouldBe(TimeSpan.FromMinutes(2));
     }
 
     private static object WrongLogin => new { email = "nobody@test.local", password = "Wrong-pass1" };

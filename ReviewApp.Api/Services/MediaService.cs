@@ -1,13 +1,18 @@
-﻿using ReviewApp.Api.DAL;
+﻿using Microsoft.EntityFrameworkCore;
+using ReviewApp.Api.DAL;
 using ReviewApp.Api.DAL.Entities;
 using ReviewApp.Api.DTOs;
 using ReviewApp.Api.Enums;
 using ReviewApp.Api.Services.Interfaces;
+using ReviewApp.Api.Services.Recognition;
 
 namespace ReviewApp.Api.Services;
 
 public class MediaService : IMediaService
 {
+    // Longer IDs don't exist at TMDb or Spotify (and the column is limited to this)
+    public const int MaxExternalIdLength = 64;
+
     private readonly AppDbContext _context;
     private readonly ITmdbService _tmdbService;
     private readonly ISpotifyService _spotifyService;
@@ -21,57 +26,101 @@ public class MediaService : IMediaService
 
     public async Task<int> GetOrCreateMediaAsync(MediaType type, string externalApiId)
     {
-        // First, check if the media already exists in the database
-        var media = _context.Media.FirstOrDefault(m => m.ExternalApiID == externalApiId && m.MediaType == type);
-        if (media != null)
-            return media.ID;
-
-        // If not, fetch details from the appropriate external API and create a new media entry
-        MediaDto? mediaDto = type switch
+        var resolution = await ResolveAsync(type, externalApiId);
+        return resolution.Status switch
         {
-            MediaType.Movie => this.ToMediaDto(type, await _tmdbService.GetMovieByIdAsync(externalApiId)),
-            MediaType.Series => this.ToMediaDto(type, await _tmdbService.GetSeriesByIdAsync(externalApiId)),
-            MediaType.Music => this.ToMediaDto(type, await _spotifyService.GetMusicByIdAsync(externalApiId)),
-            _ => null
+            MediaLookupStatus.Found => resolution.MediaID,
+            MediaLookupStatus.InvalidType => -1,
+            _ => throw new MediaResolutionException(resolution.Status, type)
         };
-        if (mediaDto == null)
-            return -1; // Invalid media type or failed to fetch media details
+    }
 
-        // Create a new media entry based on the fetched details and add to database
-        Media newMedia;
+    public async Task<MediaResolution> ResolveAsync(MediaType type, string externalApiId, CancellationToken cancellationToken = default)
+    {
+        if (!Enum.IsDefined(type))
+            return new MediaResolution(MediaLookupStatus.InvalidType);
 
-        switch (type)
+        var existing = await FindStoredAsync(type, externalApiId, cancellationToken);
+        if (existing != null)
+            return new MediaResolution(MediaLookupStatus.Found, existing.Value);
+
+        // Not stored yet: fetch the details from the source, and store nothing if that fails
+        var lookup = await LookupAsync(type, externalApiId, cancellationToken);
+        if (lookup.Status != MediaLookupStatus.Found)
+            return new MediaResolution(lookup.Status);
+
+        Media newMedia = type switch
         {
-            case MediaType.Movie:
-                newMedia = new Movie();
-                break;
-            case MediaType.Series:
-                newMedia = new Series();
-                break;
-            case MediaType.Music:
-                newMedia = new Music();
-                break;
-            default:
-                return -1; // Invalid media type
-        }
-
+            MediaType.Movie => new Movie(),
+            MediaType.Series => new Series(),
+            _ => new Music()
+        };
         newMedia.ExternalApiID = externalApiId;
         newMedia.MediaType = type;
-        newMedia.Title = mediaDto.Title;
-        // Try parsing the release date, if provided
-        if (!string.IsNullOrWhiteSpace(mediaDto.ReleaseDate) && DateTime.TryParse(mediaDto.ReleaseDate, out var parsedReleaseDate))
-            newMedia.ReleaseDate = parsedReleaseDate;
-        else
-            newMedia.ReleaseDate = null;
-        newMedia.PosterUrl = mediaDto.PosterUrl;
-        newMedia.Overview = mediaDto.Overview;
-        newMedia.Creator = mediaDto.Creator;
+        ApplyDetails(newMedia, lookup.Media!);
 
         _context.Media.Add(newMedia);
-        await _context.SaveChangesAsync();
-
-        return newMedia.ID;
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+            return new MediaResolution(MediaLookupStatus.Found, newMedia.ID);
+        }
+        catch (DbUpdateException ex) when (DbErrors.IsUniqueViolation(ex))
+        {
+            // A parallel request stored the same media first (unique index on type + external ID): use that row
+            _context.Entry(newMedia).State = EntityState.Detached;
+            var winner = await FindStoredAsync(type, externalApiId, cancellationToken);
+            return winner != null
+                ? new MediaResolution(MediaLookupStatus.Found, winner.Value)
+                : throw new InvalidOperationException("Media row vanished after a duplicate insert.", ex);
+        }
     }
+
+    public async Task<MediaLookup> LookupAsync(MediaType type, string externalApiId, CancellationToken cancellationToken = default)
+    {
+        if (!Enum.IsDefined(type))
+            return new MediaLookup(MediaLookupStatus.InvalidType);
+        if (string.IsNullOrWhiteSpace(externalApiId) || externalApiId.Length > MaxExternalIdLength)
+            return new MediaLookup(MediaLookupStatus.Unknown);
+
+        try
+        {
+            MediaDto? media = type switch
+            {
+                MediaType.Movie => await _tmdbService.FindMovieByIdAsync(externalApiId, cancellationToken) is { } movie ? ToMediaDto(type, movie) : null,
+                MediaType.Series => await _tmdbService.FindSeriesByIdAsync(externalApiId, cancellationToken) is { } series ? ToMediaDto(type, series) : null,
+                _ => await _spotifyService.FindTrackByIdAsync(externalApiId, cancellationToken) is { } track ? ToMediaDto(type, track) : null
+            };
+            return media == null
+                ? new MediaLookup(MediaLookupStatus.Unknown)
+                : new MediaLookup(MediaLookupStatus.Found, media);
+        }
+        catch (MediaSourceUnavailableException)
+        {
+            return new MediaLookup(MediaLookupStatus.Unavailable);
+        }
+    }
+
+    // Copies the fetched details onto a stored row (new rows and the repair of incomplete ones)
+    public static void ApplyDetails(Media target, MediaDto details)
+    {
+        target.Title = Truncate(details.Title, 100);
+        target.ReleaseDate = !string.IsNullOrWhiteSpace(details.ReleaseDate) && DateTime.TryParse(details.ReleaseDate, out var parsedReleaseDate)
+            ? parsedReleaseDate
+            : null;
+        target.PosterUrl = details.PosterUrl;
+        target.Overview = details.Overview;
+        target.Creator = Truncate(details.Creator, 50);
+    }
+
+    private static string? Truncate(string? value, int maxLength) =>
+        value == null || value.Length <= maxLength ? value : value[..maxLength];
+
+    private async Task<int?> FindStoredAsync(MediaType type, string externalApiId, CancellationToken cancellationToken) =>
+        await _context.Media
+            .Where(m => m.ExternalApiID == externalApiId && m.MediaType == type)
+            .Select(m => (int?)m.ID)
+            .FirstOrDefaultAsync(cancellationToken);
 
     public MediaDto ToMediaDto(MediaType type, TmdbItemDto tmdbItem)
     {

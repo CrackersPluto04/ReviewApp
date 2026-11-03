@@ -69,6 +69,14 @@ describe('FollowerListDialog', () => {
         expect(await screen.findByText('Could not load followers.')).toBeInTheDocument();
     });
 
+    it('says when the user doesn\'t exist (the API answers 404)', async () => {
+        serveList('following', apiError(404, 'User profile not found.'));
+        renderList({ type: 'following', username: 'ghost' });
+
+        expect(await screen.findByText('User profile not found.')).toBeInTheDocument();
+        expect(screen.queryByText('No following found.')).not.toBeInTheDocument();
+    });
+
     it('opens a user\'s profile and closes', async () => {
         serveList('followers', [compactUser({ username: 'b b' })]);
         const { user, onClose } = renderList();

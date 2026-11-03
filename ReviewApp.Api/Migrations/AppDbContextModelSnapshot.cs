@@ -417,7 +417,8 @@ namespace ReviewApp.Api.Migrations
 
                     b.Property<string>("ExternalApiID")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<int>("MediaType")
                         .HasColumnType("int");
@@ -436,6 +437,9 @@ namespace ReviewApp.Api.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.HasKey("ID");
+
+                    b.HasIndex("MediaType", "ExternalApiID")
+                        .IsUnique();
 
                     b.ToTable("Media");
 
@@ -560,7 +564,8 @@ namespace ReviewApp.Api.Migrations
 
                     b.HasIndex("MediaID");
 
-                    b.HasIndex("UserID");
+                    b.HasIndex("UserID", "MediaID")
+                        .IsUnique();
 
                     b.ToTable("Reviews", t =>
                         {

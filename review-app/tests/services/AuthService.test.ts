@@ -30,6 +30,8 @@ describe('AuthService', () => {
             ['a missing confirmation', ['alice', 'a@b.cd', PASSWORD, ''], 'Please fill all the required fields.'],
             ['a 2 character username', ['al', 'a@b.cd', PASSWORD, PASSWORD], 'Username must be between 3 and 20 characters.'],
             ['a 21 character username', ['a'.repeat(21), 'a@b.cd', PASSWORD, PASSWORD], 'Username must be between 3 and 20 characters.'],
+            ['a username with a slash', ['a/b', 'a@b.cd', PASSWORD, PASSWORD], "Username can only contain letters, numbers, '_' and '-'."],
+            ['a reserved username', ['search', 'a@b.cd', PASSWORD, PASSWORD], 'This username is reserved, please choose another one.'],
             ['an invalid email', ['alice', 'alice@', PASSWORD, PASSWORD], 'Please enter a valid email address.'],
             ['a 7 character password', ['alice', 'a@b.cd', 'x'.repeat(7), 'x'.repeat(7)], 'Password must be between 8 and 20 characters long.'],
             ['a 21 character password', ['alice', 'a@b.cd', 'x'.repeat(21), 'x'.repeat(21)], 'Password must be between 8 and 20 characters long.'],

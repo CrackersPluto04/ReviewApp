@@ -158,7 +158,16 @@ public class ReviewService : IReviewService
             VisibilityLevel = dto.ReviewDto.VisibilityLevel
         };
         _context.Reviews.Add(review);
-        await _context.SaveChangesAsync();
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (DbErrors.IsUniqueViolation(ex))
+        {
+            // A parallel request created it first (unique index on user + media)
+            _context.Entry(review).State = EntityState.Detached;
+            return (false, "Media already reviewed, please use edit instead.");
+        }
 
         await _achievementService.EvaluateAsync(userId, MediaReviewMetric(dto.MediaDto.MediaType),
             AchievementMetric.TotalReviews, AchievementMetric.LowScoreReviews);

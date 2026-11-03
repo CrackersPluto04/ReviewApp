@@ -43,7 +43,16 @@ public class FollowerService : IFollowerService
         };
 
         _context.UserFollowers.Add(follow);
-        await _context.SaveChangesAsync();
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (DbErrors.IsUniqueViolation(ex))
+        {
+            // A parallel request followed first (primary key): same answer as the check above
+            _context.Entry(follow).State = EntityState.Detached;
+            return (false, "You already follow this user.");
+        }
 
         await _notificationService.NotifyNewFollowerAsync(currentUserId, targetUserId);
 

@@ -37,9 +37,19 @@ public class AppDbContext : DbContext
             .HasValue<Series>(MediaType.Series)
             .HasValue<Music>(MediaType.Music);
 
+        // One row per source item, so parallel first requests can't store it twice
+        modelBuilder.Entity<Media>()
+            .HasIndex(m => new { m.MediaType, m.ExternalApiID })
+            .IsUnique();
+
         // Configure Review trigger
         modelBuilder.Entity<Review>()
             .ToTable(tb => tb.HasTrigger("SetUpdatedAt"));
+
+        // One review per user and media
+        modelBuilder.Entity<Review>()
+            .HasIndex(r => new { r.UserID, r.MediaID })
+            .IsUnique();
 
         // Configure User add-default-collection trigger
         modelBuilder.Entity<User>()

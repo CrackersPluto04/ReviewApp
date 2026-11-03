@@ -1,5 +1,5 @@
 import { apiFetch } from "./apiClient";
-import { isValidEmail, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "../utils/validation";
+import { isValidEmail, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, usernameError } from "../utils/validation";
 
 class AuthService {
     private readonly baseUrl = 'https://localhost:7140/api/Auth';
@@ -180,8 +180,9 @@ class AuthService {
         if (!username || !email || !password || !confirmPassword)
             return "Please fill all the required fields.";
 
-        if (username.length < 3 || username.length > 20)
-            return "Username must be between 3 and 20 characters.";
+        const invalidUsername = usernameError(username);
+        if (invalidUsername)
+            return invalidUsername;
 
         if (!isValidEmail(email))
             return "Please enter a valid email address.";

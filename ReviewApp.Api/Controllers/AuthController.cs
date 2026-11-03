@@ -41,9 +41,9 @@ public class AuthController : ControllerBase
         var username = request.Username.Trim();
         var email = request.Email.Trim();
 
-        if (username.Length < 3 || username.Length > 20)
+        if (UsernameRules.Validate(username) is { } usernameError)
         {
-            return BadRequest(new { error = "Username must be between 3 and 20 characters." });
+            return BadRequest(new { error = usernameError });
         }
 
         if (await _context.Users.AnyAsync(u => u.Username == username))

@@ -80,8 +80,8 @@ public class UserService : IUserService
         if (userUpdateDto.Username != null)
         {
             var newUsername = userUpdateDto.Username.Trim();
-            if (newUsername.Length < 3 || newUsername.Length > 20)
-                return (false, "Username must be between 3 and 20 characters.");
+            if (UsernameRules.Validate(newUsername) is { } usernameError)
+                return (false, usernameError);
 
             // Exclude the user's own row so a case-only change (ben -> Ben) is allowed
             if (newUsername != user.Username &&
@@ -133,12 +133,13 @@ public class UserService : IUserService
         return (true, "Password changed successfully.", user);
     }
 
-    public async Task<List<UserCompactDto>> GetUserFollowersAsync(string username, int? currentUserId)
+    // null = unknown user (404, like the other profile lists)
+    public async Task<List<UserCompactDto>?> GetUserFollowersAsync(string username, int? currentUserId)
     {
         // Get target user
         var targetUser = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
         if (targetUser == null)
-            return [];
+            return null;
 
         var followers = await _context.UserFollowers
             .Where(uf => uf.FollowingID == targetUser.ID)
@@ -158,11 +159,12 @@ public class UserService : IUserService
         return followers;
     }
 
-    public async Task<List<UserCompactDto>> GetUserFollowingAsync(string username, int? currentUserId)
+    // null = unknown user
+    public async Task<List<UserCompactDto>?> GetUserFollowingAsync(string username, int? currentUserId)
     {
         var targetUser = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
         if (targetUser == null)
-            return [];
+            return null;
 
         var following = await _context.UserFollowers
             .Where(uf => uf.FollowerID == targetUser.ID)

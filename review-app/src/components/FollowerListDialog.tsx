@@ -114,9 +114,12 @@ export function FollowerListDialog({ open, onClose, username, type, onFollowerRe
             {loading ? (
                 <Box display="flex" justifyContent="center" p={4}><CircularProgress /></Box>
             ) : users.length === 0 ? (
-                <Typography textAlign="center" color="text.secondary" mt={4}>
-                    No {type} found.
-                </Typography>
+                // A failed load (e.g. an unknown user, 404) shows only its error, not an empty list
+                !errorMessage && (
+                    <Typography textAlign="center" color="text.secondary" mt={4}>
+                        No {type} found.
+                    </Typography>
+                )
             ) : (
                 <List>
                     {users.map((u) => (

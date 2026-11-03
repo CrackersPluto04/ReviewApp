@@ -51,6 +51,42 @@ public class SpotifyService : ISpotifyService
         return await FetchFromSpotifyAsync<SpotifyTrackDto>(url);
     }
 
+    public async Task<SpotifyTrackDto?> FindTrackByIdAsync(string id, CancellationToken cancellationToken)
+    {
+        var url = $"https://api.spotify.com/v1/tracks/{Uri.EscapeDataString(id)}";
+
+        try
+        {
+            var token = await _tokenCache.GetAsync(GetAccessTokenAsync, cancellationToken);
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            // Spotify answers 400 "invalid id" for malformed IDs and 404 for unknown ones
+            if (response.StatusCode is System.Net.HttpStatusCode.NotFound or System.Net.HttpStatusCode.BadRequest)
+                return null;
+            if (!response.IsSuccessStatusCode)
+                throw new MediaSourceUnavailableException("Spotify");
+
+            var jsonString = await response.Content.ReadAsStringAsync(cancellationToken);
+            var track = JsonSerializer.Deserialize<SpotifyTrackDto>(jsonString);
+            return string.IsNullOrEmpty(track?.Id) || string.IsNullOrEmpty(track.Name) ? null : track;
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new MediaSourceUnavailableException("Spotify", ex);
+        }
+        catch (JsonException ex)
+        {
+            throw new MediaSourceUnavailableException("Spotify", ex);
+        }
+        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new MediaSourceUnavailableException("Spotify", ex);
+        }
+    }
+
     public async Task<List<SpotifyTrackDto>> FindTracksAsync(string title, string? artist, CancellationToken cancellationToken)
     {
         // No field filter on the title: it matches both track and album names (the AI names albums and singles)

@@ -33,6 +33,32 @@ public class BackgroundJobTests : IntegrationTest
         left.ShouldNotContain(oldSeen.ID);
     }
 
+    // F1: media stored from a failed lookup (before the fix) are deleted when unused, fetched again when used
+    [Fact]
+    public async Task Cleanup_DeletesUnusedIncompleteMediaAndRepairsUsedOnes()
+    {
+        var user = await Data.UserAsync();
+        var unused = await Data.MediaAsync(title: DataCleanupService.IncompleteTitle);
+        var reviewed = await Data.MediaAsync(title: DataCleanupService.IncompleteTitle);
+        var collected = await Data.MediaAsync(MediaType.Music, externalId: TestData.Unique("track"), title: "");
+        var stillUnknown = await Data.MediaAsync(title: DataCleanupService.IncompleteTitle);
+        var complete = await Data.MediaAsync();
+        await Data.ReviewAsync(user, reviewed);
+        await Data.ReviewAsync(user, stillUnknown);
+        await Data.CollectionAsync(user, media: collected);
+        App.Tmdb.MarkUnknown(stillUnknown.ExternalApiID);
+
+        await RunCleanupAsync();
+
+        var media = await Query().Media.Where(m => new[] { unused.ID, reviewed.ID, collected.ID, stillUnknown.ID, complete.ID }.Contains(m.ID))
+            .ToDictionaryAsync(m => m.ID);
+        media.ContainsKey(unused.ID).ShouldBeFalse();
+        media[reviewed.ID].Title.ShouldBe($"Movie {reviewed.ExternalApiID}");
+        media[collected.ID].Title.ShouldBe($"Track {collected.ExternalApiID}");
+        media[stillUnknown.ID].Title.ShouldBe(DataCleanupService.IncompleteTitle);
+        media[complete.ID].Title.ShouldBe(complete.Title);
+    }
+
     [Fact]
     public async Task Cleanup_DeletesRecognitionUsageAfterAWeek()
     {

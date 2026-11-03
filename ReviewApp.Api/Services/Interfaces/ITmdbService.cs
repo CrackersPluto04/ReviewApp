@@ -11,6 +11,11 @@ public interface ITmdbService
     Task<TmdbItemDto> GetMovieByIdAsync(string id);
     Task<TmdbItemDto> GetSeriesByIdAsync(string id);
 
+    // Strict lookups by ID, used before storing a media row: null = TMDb doesn't know the ID,
+    // MediaSourceUnavailableException = TMDb failed (outage, timeout), so it's never mistaken for "not found"
+    Task<TmdbItemDto?> FindMovieByIdAsync(string id, CancellationToken cancellationToken);
+    Task<TmdbItemDto?> FindSeriesByIdAsync(string id, CancellationToken cancellationToken);
+
     /* Lookups of camera recognition. Unlike the methods above, these throw MediaSourceUnavailableException
        when TMDb fails, so an outage is never mistaken for "not found". Adult titles are excluded. */
 

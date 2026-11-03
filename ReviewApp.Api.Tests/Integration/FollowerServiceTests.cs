@@ -66,7 +66,7 @@ public class FollowerServiceTests : IntegrationTest
         (await Followers.FollowUserAsync(follower.ID, target.ID)).Message.ShouldBe("You already follow this user.");
     }
 
-    [Fact(Skip = "Known issue F6 (FINDINGS.md): a parallel duplicate follow hits the primary key and throws (a 500) instead of 'already following'")]
+    [Fact]
     public async Task Follow_ConcurrentDuplicates_OneSucceedsNoneThrows()
     {
         var follower = await Data.UserAsync();

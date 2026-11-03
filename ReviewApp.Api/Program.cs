@@ -1,8 +1,11 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using ReviewApp.Api;
 using ReviewApp.Api.DAL;
+using ReviewApp.Api.Filters;
 using ReviewApp.Api.Services;
 using ReviewApp.Api.Services.Interfaces;
 using ReviewApp.Api.Services.Recognition;
@@ -112,58 +115,63 @@ builder.Services.AddRateLimiter(options =>
     {
         PermitLimit = permitLimit * permitMultiplier,
         Window = window,
-        SegmentsPerWindow = 5,
+        SegmentsPerWindow = RateLimitRetry.SegmentsPerWindow,
         QueueLimit = 0
     };
 
     // Every request: 300 / minute
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
-        RateLimitPartition.GetSlidingWindowLimiter(ClientKey(httpContext), _ => Sliding(300, TimeSpan.FromMinutes(1))));
+        RateLimitPartition.GetSlidingWindowLimiter(ClientKey(httpContext), _ => Sliding(300, RateLimitRetry.GlobalWindow)));
 
     // Login / register: 10 attempts per 10 minutes per IP (slows down password guessing and mass account creation)
     options.AddPolicy("auth-attempt", httpContext =>
         RateLimitPartition.GetSlidingWindowLimiter(
-            $"ip:{httpContext.Connection.RemoteIpAddress}", _ => Sliding(10, TimeSpan.FromMinutes(10))));
+            $"ip:{httpContext.Connection.RemoteIpAddress}", _ => Sliding(10, RateLimitRetry.Windows["auth-attempt"])));
 
     // Change email / change password: 5 attempts per 10 minutes per user (they verify the current password)
     options.AddPolicy("credential-change", httpContext =>
-        RateLimitPartition.GetSlidingWindowLimiter(ClientKey(httpContext), _ => Sliding(5, TimeSpan.FromMinutes(10))));
+        RateLimitPartition.GetSlidingWindowLimiter(ClientKey(httpContext), _ => Sliding(5, RateLimitRetry.Windows["credential-change"])));
 
     // Opening the links from emails (verify email, confirm email change): 10 per 10 minutes per IP,
     // separate from auth-attempt so opening links never uses up login attempts
     options.AddPolicy("email-link", httpContext =>
         RateLimitPartition.GetSlidingWindowLimiter(
-            $"ip:{httpContext.Connection.RemoteIpAddress}", _ => Sliding(10, TimeSpan.FromMinutes(10))));
+            $"ip:{httpContext.Connection.RemoteIpAddress}", _ => Sliding(10, RateLimitRetry.Windows["email-link"])));
 
     // Endpoints that send an email on request (resend verification / codes): 5 per 10 minutes, so the API can't be used to spam an inbox
     options.AddPolicy("email-send", httpContext =>
-        RateLimitPartition.GetSlidingWindowLimiter(ClientKey(httpContext), _ => Sliding(5, TimeSpan.FromMinutes(10))));
+        RateLimitPartition.GetSlidingWindowLimiter(ClientKey(httpContext), _ => Sliding(5, RateLimitRetry.Windows["email-send"])));
 
     // Endpoints that call TMDb / Spotify: 60 / minute, protects our third-party API quotas
     options.AddPolicy("external-api", httpContext =>
-        RateLimitPartition.GetSlidingWindowLimiter(ClientKey(httpContext), _ => Sliding(60, TimeSpan.FromMinutes(1))));
+        RateLimitPartition.GetSlidingWindowLimiter(ClientKey(httpContext), _ => Sliding(60, RateLimitRetry.Windows["external-api"])));
 
     // Subscription actions that call the payment provider (checkout, payment settings, cancel / resume, sync): 15 per 10 minutes per user
     options.AddPolicy("billing", httpContext =>
-        RateLimitPartition.GetSlidingWindowLimiter(ClientKey(httpContext), _ => Sliding(15, TimeSpan.FromMinutes(10))));
+        RateLimitPartition.GetSlidingWindowLimiter(ClientKey(httpContext), _ => Sliding(15, RateLimitRetry.Windows["billing"])));
 
     // Camera recognition uploads (each one is a paid AI call): 5 per 10 minutes per user, on top of the daily allowance
     options.AddPolicy("recognition", httpContext =>
-        RateLimitPartition.GetSlidingWindowLimiter(ClientKey(httpContext), _ => Sliding(5, TimeSpan.FromMinutes(10))));
+        RateLimitPartition.GetSlidingWindowLimiter(ClientKey(httpContext), _ => Sliding(5, RateLimitRetry.Windows["recognition"])));
 
     options.OnRejected = async (context, cancellationToken) =>
     {
         var response = context.HttpContext.Response;
         response.StatusCode = StatusCodes.Status429TooManyRequests;
 
-        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
-            response.Headers.RetryAfter = ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString();
+        // Sliding window leases carry no RetryAfter, so it's derived from the policy's window (RateLimitRetry)
+        var policy = context.HttpContext.GetEndpoint()?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName;
+        var retryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var leaseRetryAfter)
+            ? leaseRetryAfter
+            : RateLimitRetry.For(policy);
+        response.Headers.RetryAfter = ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString();
 
         await response.WriteAsJsonAsync(new { error = "Too many requests. Please try again later." }, cancellationToken);
     };
 });
 
-builder.Services.AddControllers();
+// MediaErrorFilter: unresolvable TMDb / Spotify media -> 404 media_not_found / 503 source_unavailable
+builder.Services.AddControllers(options => options.Filters.Add<MediaErrorFilter>());
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
