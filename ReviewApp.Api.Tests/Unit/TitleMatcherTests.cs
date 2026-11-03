@@ -31,6 +31,24 @@ public class TitleMatcherTests
     }
 
     [Theory]
+    [InlineData("Star Wars: Episode IV - A New Hope", "Star Wars", true)]
+    [InlineData("Star Wars: Episode VII - The Force Awakens", "Star Wars: The Force Awakens", true)]
+    [InlineData("Star Wars: Episode VI - Return of the Jedi", "Return of the Jedi", true)]
+    [InlineData("Minecraft", "A Minecraft Movie", true)]
+    [InlineData("Indiana Jones and the Raiders of the Lost Ark", "Raiders of the Lost Ark", true)]
+    [InlineData("Return of the Jedi", "Star Wars: Episode VI - Return of the Jedi", true)]
+    // Same words in another order, other words, or the same title (that is TitleMatches)
+    [InlineData("Wars Star", "Star Wars: Episode IV - A New Hope", false)]
+    [InlineData("Star Trek", "Star Wars: Episode IV - A New Hope", false)]
+    [InlineData("Iron Man", "Iron Man", false)]
+    [InlineData("Iron Man", "", false)]
+    [InlineData(null, "Iron Man", false)]
+    public void TitleContains_MatchesLongerAndShorterForms(string? wanted, string candidate, bool expected)
+    {
+        TitleMatcher.TitleContains(wanted, candidate).ShouldBe(expected);
+    }
+
+    [Theory]
     [InlineData(2008, "2008-05-02", true)]
     [InlineData(2008, "2009-01-01", true)]
     [InlineData(2008, "2007", true)]

@@ -50,6 +50,55 @@ public class MediaResolverTests
     }
 
     [Fact]
+    public async Task LongerFormOfTheTitle_IsMatched_ThroughATopSearchResultOfTheSameYear()
+    {
+        // The AI names the full title, TMDb's search finds the film through its alternative titles
+        var title = TestData.Unique("Saga ") + ": Episode IV - A New Hope";
+        var tmdbTitle = title[..title.IndexOf(':')];
+        _tmdb.ScriptTitle(title,
+            Hit(1, tmdbTitle + " Holiday Special", "1977-11-17", popularity: 95),  // other words: not the same work
+            Hit(2, tmdbTitle, "1978-01-01", popularity: 90),                      // a year off: fits, but loses to the exact year
+            Hit(3, tmdbTitle, "1977-05-25", popularity: 30));
+
+        var result = await Resolver(new RecognitionOptions { ExpandCollections = false })
+            .ResolveAsync(Answer([Movie(title, 1977)]), CancellationToken.None);
+
+        result.Candidates.Single().Media.ExternalApiID.ShouldBe("3");
+    }
+
+    [Fact]
+    public async Task ExactTitle_BeatsALongerOrShorterForm()
+    {
+        var title = TestData.Unique("Minecraft ");
+        _tmdb.ScriptTitle(title,
+            Hit(1, "A " + title + " Movie", "2025-03-31", popularity: 90),
+            Hit(2, title, "2025-01-01", popularity: 5));
+
+        var result = await Resolver(new RecognitionOptions { ExpandCollections = false })
+            .ResolveAsync(Answer([Movie(title, 2025)]), CancellationToken.None);
+
+        result.Candidates.Single().Media.ExternalApiID.ShouldBe("2");
+    }
+
+    [Fact]
+    public async Task LongerOrShorterForm_NeedsAKnownFittingYear_AndATopSearchResult()
+    {
+        var noYear = TestData.Unique("Film ");
+        var otherYear = TestData.Unique("Film ");
+        var deep = TestData.Unique("Film ");
+        _tmdb.ScriptTitle(noYear, Hit(1, "The Making of " + noYear, "2010-01-01"));
+        _tmdb.ScriptTitle(otherYear, Hit(2, otherYear + " Returns", "2015-01-01"));
+        _tmdb.ScriptTitle(deep,
+            Hit(3, "Unrelated A", "2010-01-01"), Hit(4, "Unrelated B", "2010-01-01"), Hit(5, "Unrelated C", "2010-01-01"),
+            Hit(6, deep + " Documentary", "2010-01-01"));
+
+        var result = await Resolver(new RecognitionOptions { ExpandCollections = false })
+            .ResolveAsync(Answer([Movie(noYear), Movie(otherYear, 2010), Movie(deep, 2010)]), CancellationToken.None);
+
+        result.Candidates.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task UnknownTitle_IsDropped_WithoutCountingAsAFailure()
     {
         var title = TestData.Unique("Made Up ");
@@ -145,6 +194,46 @@ public class MediaResolverTests
         people.Select(c => c.Media.Title).ShouldBe(["Big Film", "Drama Show"], ignoreOrder: true);
         people.Single(c => c.Media.Title == "Drama Show").Media.MediaType.ShouldBe(MediaType.Series);
     }
+
+    [Fact]
+    public async Task PeopleExpansion_PicksTheMostVotedWork_NotWhatIsTrending()
+    {
+        var director = TestData.Unique("Director ");
+        _tmdb.ScriptPerson(director, 78, new TmdbPersonCreditsDto
+        {
+            Crew =
+            [
+                .. Enumerable.Range(1, 9).Select(i => Crew(i, $"Classic {i}", votes: 20_000 - i, popularity: 5)),
+                Crew(20, "Trending New Film", votes: 300, popularity: 500),
+                Crew(21, "Student Short", votes: 30, popularity: 1),
+                new TmdbCreditDto { ID = 22, MediaType = "movie", Title = "Produced Only", Job = "Producer", VoteCount = 90_000 }
+            ]
+        });
+
+        var result = await Resolver(new RecognitionOptions { ExpandCollections = false })
+            .ResolveAsync(Answer([], [new RecognitionPerson(director, "director", 0.9)]), CancellationToken.None);
+
+        // The eight most voted directing credits; the trending and the obscure ones don't make it
+        result.Candidates.Select(c => c.Media.Title).ShouldBe(Enumerable.Range(1, 8).Select(i => $"Classic {i}"), ignoreOrder: true);
+    }
+
+    [Fact]
+    public async Task PeopleExpansion_DropsWorkFarLessKnownThanTheBestOne()
+    {
+        var director = TestData.Unique("Director ");
+        _tmdb.ScriptPerson(director, 79, new TmdbPersonCreditsDto
+        {
+            Crew = [Crew(1, "Space Saga", votes: 23_000), Crew(2, "Early Feature", votes: 1_100), Crew(3, "Film School Short", votes: 77)]
+        });
+
+        var result = await Resolver(new RecognitionOptions { ExpandCollections = false })
+            .ResolveAsync(Answer([], [new RecognitionPerson(director, "director", 0.9)]), CancellationToken.None);
+
+        result.Candidates.Select(c => c.Media.Title).ShouldBe(["Space Saga", "Early Feature"], ignoreOrder: true);
+    }
+
+    private static TmdbCreditDto Crew(int id, string title, int votes, double popularity = 10) =>
+        new() { ID = id, MediaType = "movie", Title = title, Job = "Director", VoteCount = votes, Popularity = popularity, GenreIds = [] };
 
     [Fact]
     public async Task UnsureOrOtherPeople_AreNotExpanded()

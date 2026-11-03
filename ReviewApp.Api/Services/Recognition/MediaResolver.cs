@@ -24,6 +24,10 @@ public class MediaResolver : IMediaResolver
     private const int MinCreditVotes = 20;
     // A series counts as the person's work from this many episodes, fewer is a guest appearance
     private const int MinSeriesEpisodes = 5;
+    // A credit with fewer votes than this share of the person's best-known one is a short or an early obscure work
+    private const double MinShareOfTopCreditVotes = 0.02;
+    // How many of the top search results may match by a longer / shorter form of the title
+    private const int LooseMatchSearchDepth = 3;
     private const int FailFastAfter = 3;
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromHours(1);
     // TMDb genres that are appearances rather than work: news, reality, talk shows
@@ -104,13 +108,28 @@ public class MediaResolver : IMediaResolver
         }
     }
 
-    // Exact title with a fitting year; an exact year beats a neighbouring one, then the more popular hit wins
-    private static TmdbItemDto? BestMatch(List<TmdbItemDto> hits, RecognitionWork work, Func<TmdbItemDto, string?> title, Func<TmdbItemDto, string?> date) =>
-        hits
+    // Exact title with a fitting year; an exact year beats a neighbouring one, then the more popular hit wins.
+    // Without one, the AI's title may be a longer or shorter form of TMDb's ("Star Wars: Episode IV - A New Hope" is
+    // "Star Wars" there, TMDb's search finds it through its alternative titles): accepted only among the top search
+    // results and with a known, fitting year on both sides.
+    private static TmdbItemDto? BestMatch(List<TmdbItemDto> hits, RecognitionWork work, Func<TmdbItemDto, string?> title, Func<TmdbItemDto, string?> date)
+    {
+        var exact = hits
             .Where(h => TitleMatcher.TitleMatches(work.Title, title(h)) && TitleMatcher.YearMatches(work.Year, date(h)))
             .OrderByDescending(h => work.Year != null && TitleMatcher.YearOf(date(h)) == work.Year)
             .ThenByDescending(h => h.Popularity)
             .FirstOrDefault();
+        if (exact != null || work.Year == null)
+            return exact;
+
+        return hits
+            .Take(LooseMatchSearchDepth)
+            .Where(h => TitleMatcher.YearOf(date(h)) != null && TitleMatcher.YearMatches(work.Year, date(h))
+                        && TitleMatcher.TitleContains(work.Title, title(h)))
+            .OrderByDescending(h => TitleMatcher.YearOf(date(h)) == work.Year)
+            .ThenByDescending(h => h.Popularity)
+            .FirstOrDefault();
+    }
 
     private async Task<IEnumerable<RankCandidate>> ExpandCollectionsAsync(Run run, List<RankCandidate> resolved)
     {
@@ -170,13 +189,7 @@ public class MediaResolver : IMediaResolver
             if (!ok)
                 return [];
 
-            var work = person.Role == "director" ? credits!.Crew.Where(c => c.Job == "Director") : credits!.Cast;
-            return work
-                .Where(c => c.MediaType is "movie" or "tv" && c.VoteCount >= MinCreditVotes && !c.GenreIds.Any(ExcludedCreditGenres.Contains))
-                .Where(c => c.MediaType == "movie" || c.EpisodeCount == null || c.EpisodeCount >= MinSeriesEpisodes)
-                .DistinctBy(c => (c.MediaType, c.ID))
-                .OrderByDescending(c => c.Popularity)
-                .Take(CreditsPerPerson)
+            return BestKnownWork(credits!, person.Role)
                 .Select(c =>
                 {
                     var type = c.MediaType == "tv" ? MediaType.Series : MediaType.Movie;
@@ -186,6 +199,23 @@ public class MediaResolver : IMediaResolver
         }));
 
         return expansions.SelectMany(e => e);
+    }
+
+    // A person's best-known films and series: the most voted ones, not the most popular (TMDb popularity is what is
+    // trending now, a talk show appearance or an airing series), and only real work (no appearances, guest roles,
+    // shorts and obscure early works)
+    private static List<TmdbCreditDto> BestKnownWork(TmdbPersonCreditsDto credits, string role)
+    {
+        var work = (role == "director" ? credits.Crew.Where(c => c.Job == "Director") : credits.Cast)
+            .Where(c => c.MediaType is "movie" or "tv" && c.VoteCount >= MinCreditVotes && !c.GenreIds.Any(ExcludedCreditGenres.Contains))
+            .Where(c => c.MediaType == "movie" || c.EpisodeCount == null || c.EpisodeCount >= MinSeriesEpisodes)
+            .DistinctBy(c => (c.MediaType, c.ID))
+            .OrderByDescending(c => c.VoteCount)
+            .ThenByDescending(c => c.Popularity)
+            .ToList();
+
+        var floor = work.Count == 0 ? 0 : work[0].VoteCount * MinShareOfTopCreditVotes;
+        return work.Where(c => c.VoteCount >= floor).Take(CreditsPerPerson).ToList();
     }
 
     // The bookkeeping of one recognition's lookups
