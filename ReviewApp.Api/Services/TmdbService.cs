@@ -1,6 +1,7 @@
 ﻿using ReviewApp.Api.DTOs;
 using ReviewApp.Api.Enums;
 using ReviewApp.Api.Services.Interfaces;
+using ReviewApp.Api.Services.Recognition;
 using System.Text.Json;
 
 namespace ReviewApp.Api.Services;
@@ -50,14 +51,52 @@ public class TmdbService : ITmdbService
         return await FetchFromTmdbAsync<TmdbItemDto>($"tv/{Uri.EscapeDataString(id)}");
     }
 
+    /* Camera recognition lookups (strict: failures throw MediaSourceUnavailableException) */
+
+    public async Task<List<TmdbItemDto>> FindMoviesAsync(string title, CancellationToken cancellationToken)
+    {
+        var result = await FetchStrictAsync<TmdbSearchResponseDto>($"search/movie?query={Uri.EscapeDataString(title)}&include_adult=false", cancellationToken);
+        return result.Results.Where(r => !r.Adult).ToList();
+    }
+
+    public async Task<List<TmdbItemDto>> FindSeriesAsync(string title, CancellationToken cancellationToken)
+    {
+        var result = await FetchStrictAsync<TmdbSearchResponseDto>($"search/tv?query={Uri.EscapeDataString(title)}&include_adult=false", cancellationToken);
+        return result.Results.Where(r => !r.Adult).ToList();
+    }
+
+    public async Task<int?> GetMovieCollectionIdAsync(int movieId, CancellationToken cancellationToken)
+    {
+        var movie = await FetchStrictAsync<TmdbItemDto>($"movie/{movieId}", cancellationToken);
+        return movie.BelongsToCollection?.ID;
+    }
+
+    public async Task<List<TmdbItemDto>> GetCollectionPartsAsync(int collectionId, CancellationToken cancellationToken)
+    {
+        var collection = await FetchStrictAsync<TmdbCollectionDto>($"collection/{collectionId}", cancellationToken);
+        return collection.Parts.Where(p => !p.Adult).ToList();
+    }
+
+    public async Task<List<TmdbPersonDto>> FindPeopleAsync(string name, CancellationToken cancellationToken)
+    {
+        var result = await FetchStrictAsync<TmdbPersonSearchResponseDto>($"search/person?query={Uri.EscapeDataString(name)}&include_adult=false", cancellationToken);
+        return result.Results.Where(r => !r.Adult).ToList();
+    }
+
+    public async Task<TmdbPersonCreditsDto> GetPersonCreditsAsync(int personId, CancellationToken cancellationToken)
+    {
+        var credits = await FetchStrictAsync<TmdbPersonCreditsDto>($"person/{personId}/combined_credits", cancellationToken);
+        credits.Cast.RemoveAll(c => c.Adult);
+        credits.Crew.RemoveAll(c => c.Adult);
+        return credits;
+    }
+
     /* Helper methods */
 
     // Generic method to fetch data from TMDb and deserialize it into the specified type
     private async Task<T> FetchFromTmdbAsync<T>(string endpoint) where T : class, new()
     {
-        var apiKey = _config["Tmdb:ApiKey"];
-        var separator = endpoint.Contains('?') ? "&" : "?";
-        var response = await _httpClient.GetAsync($"{endpoint}{separator}api_key={apiKey}");
+        var response = await _httpClient.GetAsync(WithApiKey(endpoint));
 
         if (!response.IsSuccessStatusCode)
         {
@@ -66,6 +105,41 @@ public class TmdbService : ITmdbService
 
         var jsonString = await response.Content.ReadAsStringAsync();
         return JsonSerializer.Deserialize<T>(jsonString) ?? new T();
+    }
+
+    // Like FetchFromTmdbAsync, but only "not found" is an empty result; any other failure throws
+    private async Task<T> FetchStrictAsync<T>(string endpoint, CancellationToken cancellationToken) where T : class, new()
+    {
+        try
+        {
+            using var response = await _httpClient.GetAsync(WithApiKey(endpoint), cancellationToken);
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                return new T();
+            if (!response.IsSuccessStatusCode)
+                throw new MediaSourceUnavailableException("TMDb");
+
+            var jsonString = await response.Content.ReadAsStringAsync(cancellationToken);
+            return JsonSerializer.Deserialize<T>(jsonString) ?? new T();
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new MediaSourceUnavailableException("TMDb", ex);
+        }
+        catch (JsonException ex)
+        {
+            throw new MediaSourceUnavailableException("TMDb", ex);
+        }
+        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            // HttpClient's own timeout
+            throw new MediaSourceUnavailableException("TMDb", ex);
+        }
+    }
+
+    private string WithApiKey(string endpoint)
+    {
+        var separator = endpoint.Contains('?') ? "&" : "?";
+        return $"{endpoint}{separator}api_key={_config["Tmdb:ApiKey"]}";
     }
 
     // Helper method to build query string for discover endpoints

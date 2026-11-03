@@ -178,14 +178,6 @@ public class SubscriptionController : ControllerBase
             """, "text/html");
     }
 
-    // Placeholder Premium endpoint that only proves the paywall works end to end (FeatureKeys.EntitlementPreview).
-    // Remove it when the first real Premium feature exists.
-    [HttpGet("entitlement-preview")]
-    [Authorize]
-    [RequiresFeature(FeatureKeys.EntitlementPreview)]
-    public IActionResult EntitlementPreview() =>
-        Ok(new { message = "You have access to Premium features." });
-
     // Development only: plays a provider event against the current user's Fake subscription
     [HttpPost("dev/simulate")]
     [Authorize]

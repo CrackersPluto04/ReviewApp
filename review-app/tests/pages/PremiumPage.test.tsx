@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/preact';
 import { PremiumPage } from '../../src/pages/PremiumPage';
 import { server } from '../support/server';
-import { apiError, capture, deferred, ok, paymentRequired } from '../support/api';
+import { apiError, capture, deferred, ok } from '../support/api';
 import { activeSubscription, authUser, plan, premiumAuthUser } from '../support/builders';
 import { currentLocation, currentLocationState, renderWithApp } from '../support/render';
 import { stubLocation } from '../support/browser';
@@ -21,11 +21,11 @@ describe('PremiumPage', () => {
         expect(screen.getByRole('heading', { name: 'THE Review App Premium' })).toBeInTheDocument();
         expect(await screen.findByText('€4.99 / month')).toBeInTheDocument();
         expect(screen.getByText('Everything the app offers today stays free')).toBeInTheDocument();
-        expect(screen.getByText('Early access')).toBeInTheDocument();
+        expect(screen.getByText('Camera recognition')).toBeInTheDocument();
         expect(screen.getByText('Coming soon')).toBeInTheDocument();
         expect(screen.getByText(/renews automatically every month/)).toBeInTheDocument();
-        // Logged-out visitors get neither the preview nor a current plan
-        expect(screen.queryByRole('button', { name: 'Open the early access preview' })).not.toBeInTheDocument();
+        // Logged-out visitors get neither the recognition link nor a current plan
+        expect(screen.queryByRole('button', { name: /camera recognition|how it works/ })).not.toBeInTheDocument();
         expect(screen.queryByText('Your current plan')).not.toBeInTheDocument();
     });
 
@@ -86,37 +86,22 @@ describe('PremiumPage', () => {
         expect(screen.queryByRole('button', { name: /Subscribe for/ })).not.toBeInTheDocument();
     });
 
-    it('opens the early access preview for a subscriber', async () => {
+    it('leads a subscriber to camera recognition', async () => {
         servePlan();
-        server.use(
-            capture('get', 'Subscription/status', ok(activeSubscription())).handler,
-            capture('get', 'Subscription/entitlement-preview', ok({ message: 'Welcome to the preview!' })).handler,
-        );
+        server.use(capture('get', 'Subscription/status', ok(activeSubscription())).handler);
         const { user } = renderWithApp(<PremiumPage />, { user: premiumAuthUser() });
 
-        await user.click(await screen.findByRole('button', { name: 'Open the early access preview' }));
+        await user.click(await screen.findByRole('button', { name: 'Try camera recognition' }));
 
-        expect(await screen.findByText('Welcome to the preview!')).toBeInTheDocument();
+        expect(currentLocation()).toBe('/recognize');
     });
 
-    it('leaves a Free user\'s preview attempt to the upsell dialog', async () => {
+    it('shows a Free user what camera recognition is', async () => {
         servePlan();
-        server.use(capture('get', 'Subscription/entitlement-preview', paymentRequired()).handler);
         const { user } = renderWithApp(<PremiumPage />, { user: authUser() });
 
-        await user.click(await screen.findByRole('button', { name: 'Open the early access preview' }));
+        await user.click(await screen.findByRole('button', { name: 'See how it works' }));
 
-        expect(await screen.findByRole('dialog', { name: 'This is a Premium feature' })).toBeInTheDocument();
-        expect(screen.queryByText('This is a Premium feature.')).not.toBeInTheDocument();
-    });
-
-    it('shows other preview errors on the page', async () => {
-        servePlan();
-        server.use(capture('get', 'Subscription/entitlement-preview', apiError(500, 'The preview is broken.')).handler);
-        const { user } = renderWithApp(<PremiumPage />, { user: authUser() });
-
-        await user.click(await screen.findByRole('button', { name: 'Open the early access preview' }));
-
-        expect(await screen.findByText('The preview is broken.')).toBeInTheDocument();
+        expect(currentLocation()).toBe('/recognize');
     });
 });

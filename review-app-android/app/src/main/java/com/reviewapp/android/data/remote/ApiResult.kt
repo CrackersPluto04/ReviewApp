@@ -9,7 +9,8 @@ import java.io.IOException
 
 sealed interface ApiResult<out T> {
     data class Success<T>(val data: T) : ApiResult<T>
-    data class Error(val message: String, val code: Int? = null) : ApiResult<Nothing>
+    /** [code] is the HTTP status, [reason] the API's machine readable `code` (e.g. `daily_limit`) when it sent one. */
+    data class Error(val message: String, val code: Int? = null, val reason: String? = null) : ApiResult<Nothing>
 }
 
 inline fun <T, R> ApiResult<T>.map(transform: (T) -> R): ApiResult<R> = when (this) {
@@ -21,7 +22,8 @@ inline fun <T, R> ApiResult<T>.map(transform: (T) -> R): ApiResult<R> = when (th
 suspend fun <T> apiCall(block: suspend () -> T): ApiResult<T> = try {
     ApiResult.Success(block())
 } catch (e: HttpException) {
-    ApiResult.Error(ApiErrors.message(e.code(), e.response()?.errorBody()?.string()), e.code())
+    val body = e.response()?.errorBody()?.string()
+    ApiResult.Error(ApiErrors.message(e.code(), body), e.code(), ApiErrors.reason(body))
 } catch (_: IOException) {
     ApiResult.Error(ApiErrors.NETWORK_ERROR)
 } catch (_: SerializationException) {
@@ -38,14 +40,19 @@ object ApiErrors {
      * Picks the message to show for a failed request: `{ error }` first, then the first
      * model-validation message, then a generic one for the status code.
      */
-    fun message(code: Int, body: String?): String {
-        val parsed = body?.takeIf { it.isNotBlank() }?.let {
-            try {
-                json.decodeFromString<ErrorResponse>(it)
-            } catch (_: Exception) {
-                null
-            }
+    /** The API's machine readable `code` of an error body, if any. */
+    fun reason(body: String?): String? = parse(body)?.code?.takeIf { it.isNotBlank() }
+
+    private fun parse(body: String?): ErrorResponse? = body?.takeIf { it.isNotBlank() }?.let {
+        try {
+            json.decodeFromString<ErrorResponse>(it)
+        } catch (_: Exception) {
+            null
         }
+    }
+
+    fun message(code: Int, body: String?): String {
+        val parsed = parse(body)
         parsed?.error?.takeIf { it.isNotBlank() }?.let { return it }
         parsed?.errors?.values?.flatten()?.firstOrNull { it.isNotBlank() }?.let { return it }
 

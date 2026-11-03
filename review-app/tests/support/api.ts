@@ -76,7 +76,7 @@ export const networkError = () => HttpResponse.error();
 
 export const unauthorized = () => apiError(401, 'Unauthorized');
 
-export const paymentRequired = (feature = 'entitlement-preview') =>
+export const paymentRequired = (feature = 'camera-recognition') =>
     HttpResponse.json({ error: 'This is a Premium feature.', code: 'premium_required', feature }, { status: 402 });
 
 /**

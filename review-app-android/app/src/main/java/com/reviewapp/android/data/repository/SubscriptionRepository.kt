@@ -43,10 +43,6 @@ class SubscriptionRepository(
 
     suspend fun resume(): ApiResult<String> = afterChange(apiCall { api.resume() }.message("Your subscription will renew again."))
 
-    /** The placeholder Premium feature; a Free user gets a 402 here, which also opens the upsell. */
-    suspend fun tryEntitlementPreview(): ApiResult<String> =
-        apiCall { api.entitlementPreview() }.message("You have access to Premium features.")
-
     /**
      * After returning from checkout: asks the API to check with the provider, then polls the status until
      * Premium shows up or [timeoutMs] passes (the provider's notification can arrive a little later).

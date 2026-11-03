@@ -114,6 +114,20 @@ public sealed class RateLimitTests : IntegrationTest, IAsyncLifetime
     }
 
     [Fact]
+    public async Task Recognition_FivePerTenMinutes()
+    {
+        var user = await Data.UserAsync();
+        await Data.PremiumAsync(user);
+        var client = As(user);
+
+        // Refused uploads (an unsupported format) count too: the limit protects the endpoint, not only the AI calls
+        await ShouldLimitAfterAsync(5, () => client.PostAsync("api/Recognition", Photo(TestImages.Heic())));
+    }
+
+    private static MultipartFormDataContent Photo(byte[] image) =>
+        new() { { new ByteArrayContent(image), "image", "photo.heic" } };
+
+    [Fact]
     public async Task Global_ThreeHundredPerMinute()
     {
         var client = Anonymous();

@@ -71,6 +71,7 @@ import com.reviewapp.android.ui.notifications.NotificationsScreen
 import com.reviewapp.android.ui.profile.FollowListScreen
 import com.reviewapp.android.ui.profile.ProfileScreen
 import com.reviewapp.android.ui.profile.ProfileTab
+import com.reviewapp.android.ui.recognition.RecognitionScreen
 import com.reviewapp.android.ui.review.ReviewScreen
 import com.reviewapp.android.ui.review.WriteReviewScreen
 import com.reviewapp.android.ui.search.SearchScreen
@@ -221,6 +222,7 @@ private fun AppNavHost(navController: NavHostController, unseenNotifications: In
     val editReview: (MediaType, String) -> Unit = { type, id -> navController.navigate(WriteReviewRoute(type.id, id)) }
     val openReview: (Int) -> Unit = { id -> navController.navigate(ReviewRoute(id)) }
     val openPremium: () -> Unit = { navController.navigate(PremiumRoute) { launchSingleTop = true } }
+    val openRecognition: () -> Unit = { navController.navigate(RecognitionRoute) { launchSingleTop = true } }
 
     // A profile is the Profile tab (no username, no back button) or any user's page
     @Composable
@@ -246,6 +248,7 @@ private fun AppNavHost(navController: NavHostController, unseenNotifications: In
                 onOpenUserSearch = { navController.navigate(UserSearchRoute) },
                 unseenNotifications = unseenNotifications,
                 onOpenNotifications = { navController.navigate(NotificationsRoute) { launchSingleTop = true } },
+                onOpenRecognition = openRecognition,
             )
         }
         composable<DiscoverMoviesRoute> { DiscoverScreen(MediaType.Movie, onOpenMedia = openMedia) }
@@ -301,7 +304,10 @@ private fun AppNavHost(navController: NavHostController, unseenNotifications: In
             )
         }
         composable<AccountSettingsRoute> { AccountSettingsScreen(onBack = goBack, onOpenPremium = openPremium) }
-        composable<PremiumRoute> { PremiumScreen(onBack = goBack, onLogin = goToLogin) }
+        composable<PremiumRoute> { PremiumScreen(onBack = goBack, onLogin = goToLogin, onOpenRecognition = openRecognition) }
+        composable<RecognitionRoute> {
+            RecognitionScreen(onBack = goBack, onLogin = goToLogin, onOpenMedia = openMedia, onOpenPremium = openPremium)
+        }
         composable<SubscriptionReturnRoute>(
             // e.g. adb shell am start -d "reviewapp://subscription/success"
             deepLinks = listOf(navDeepLink<SubscriptionReturnRoute>(basePath = "reviewapp://subscription")),

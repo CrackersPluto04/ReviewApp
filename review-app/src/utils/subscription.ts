@@ -8,7 +8,7 @@ export const PREMIUM_COLOR = TIER_COLORS.Gold;
 // Keep in sync with FeatureKeys in the backend (Services/Entitlements.cs)
 export const FEATURE_KEYS = {
     profileBadge: 'profile-badge',
-    entitlementPreview: 'entitlement-preview'
+    cameraRecognition: 'camera-recognition'
 } as const;
 
 // For showing / hiding UI only: the backend decides access on every request (402 when missing)

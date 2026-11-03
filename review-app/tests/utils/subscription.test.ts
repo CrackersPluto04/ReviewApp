@@ -9,14 +9,14 @@ describe('subscription utils', () => {
     });
 
     it('keeps the feature keys in sync with the backend', () => {
-        expect(FEATURE_KEYS).toEqual({ profileBadge: 'profile-badge', entitlementPreview: 'entitlement-preview' });
+        expect(FEATURE_KEYS).toEqual({ profileBadge: 'profile-badge', cameraRecognition: 'camera-recognition' });
     });
 
     describe('hasFeature', () => {
         it('is true only for entitled users', () => {
-            expect(hasFeature(premiumAuthUser(), FEATURE_KEYS.entitlementPreview)).toBe(true);
-            expect(hasFeature(authUser(), FEATURE_KEYS.entitlementPreview)).toBe(false);
-            expect(hasFeature(null, FEATURE_KEYS.entitlementPreview)).toBe(false);
+            expect(hasFeature(premiumAuthUser(), FEATURE_KEYS.cameraRecognition)).toBe(true);
+            expect(hasFeature(authUser(), FEATURE_KEYS.cameraRecognition)).toBe(false);
+            expect(hasFeature(null, FEATURE_KEYS.cameraRecognition)).toBe(false);
         });
 
         it('tolerates a user without the entitlements list', () => {

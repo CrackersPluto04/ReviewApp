@@ -205,6 +205,14 @@ public sealed class TestData : IDisposable
     public Task<UserSubscription> PremiumAsync(User user) =>
         SubscriptionAsync(user, SubscriptionStatus.Active, DateTime.UtcNow.AddDays(20));
 
+    // Recognitions the user already made (daily allowance), now unless said otherwise
+    public async Task RecognitionUsageAsync(User user, int count, DateTime? createdAt = null)
+    {
+        for (var i = 0; i < count; i++)
+            _context.RecognitionUsages.Add(new RecognitionUsage { UserID = user.ID, CreatedAt = createdAt ?? DateTime.UtcNow });
+        await SaveAsync();
+    }
+
     private async Task SaveAsync()
     {
         await _context.SaveChangesAsync();

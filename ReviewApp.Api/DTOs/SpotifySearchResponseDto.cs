@@ -6,6 +6,10 @@ public class SpotifyTokenDto
 {
     [JsonPropertyName("access_token")]
     public string AccessToken { get; set; } = string.Empty;
+
+    // Seconds
+    [JsonPropertyName("expires_in")]
+    public int ExpiresIn { get; set; }
 }
 
 public class SpotifySearchResponseDto
@@ -36,10 +40,17 @@ public class SpotifyTrackDto
 
     [JsonPropertyName("artists")]
     public List<SpotifyArtistDto> Artists { get; set; } = [];
+
+    // 0-100; may be missing for some apps, then 0
+    [JsonPropertyName("popularity")]
+    public int Popularity { get; set; }
 }
 
 public class SpotifyAlbumDto
 {
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
     [JsonPropertyName("release_date")]
     public string? ReleaseDate { get; set; }
 

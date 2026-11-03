@@ -19,6 +19,12 @@ import com.reviewapp.android.domain.model.Page
 import com.reviewapp.android.domain.model.Plan
 import com.reviewapp.android.domain.model.PlanFeature
 import com.reviewapp.android.domain.model.ProfileReview
+import com.reviewapp.android.domain.model.Recognition
+import com.reviewapp.android.domain.model.RecognitionAllowance
+import com.reviewapp.android.domain.model.RecognitionItems
+import com.reviewapp.android.domain.model.RecognitionOutcome
+import com.reviewapp.android.domain.model.RecognitionTier
+import com.reviewapp.android.domain.model.RecognizedMedia
 import com.reviewapp.android.domain.model.Reply
 import com.reviewapp.android.domain.model.ReplyContext
 import com.reviewapp.android.domain.model.ReplyPage
@@ -47,6 +53,8 @@ data class ErrorResponse(
     val error: String? = null,
     val title: String? = null,
     val errors: Map<String, List<String>>? = null,
+    /** Machine readable reason of some errors, e.g. `daily_limit`, `busy`, `not_found`. */
+    val code: String? = null,
 )
 
 @Serializable
@@ -593,3 +601,56 @@ data class SubscriptionRedirectRequest(val platform: String = "android")
 
 @Serializable
 data class SubscriptionUrlDto(val url: String)
+
+// Camera recognition
+
+@Serializable
+data class RecognitionAllowanceDto(
+    val enabled: Boolean = false,
+    val premium: Boolean = false,
+    val limit: Int? = null,
+    val remaining: Int? = null,
+    val resetsAt: String? = null,
+) {
+    fun toDomain() = RecognitionAllowance(enabled, premium, limit, remaining, resetsAt)
+}
+
+@Serializable
+data class RecognizedMediaDto(
+    val media: MediaDto = MediaDto(),
+    val tier: String = "",
+) {
+    fun toDomain() = RecognizedMedia(media.toDomain(), RecognitionTier.fromApi(tier))
+}
+
+@Serializable
+data class RecognitionItemsDto(
+    val items: List<RecognizedMediaDto> = emptyList(),
+    val total: Int = 0,
+    val hasMore: Boolean = false,
+    val nextOffset: Int = 0,
+) {
+    fun toDomain() = RecognitionItems(items.map { it.toDomain() }, total, hasMore, nextOffset)
+}
+
+@Serializable
+data class RecognitionResponseDto(
+    val recognitionId: String? = null,
+    val outcome: String = "",
+    val summary: String = "",
+    val items: List<RecognizedMediaDto> = emptyList(),
+    val total: Int = 0,
+    val hasMore: Boolean = false,
+    val nextOffset: Int = 0,
+    val incomplete: Boolean = false,
+    val allowance: RecognitionAllowanceDto = RecognitionAllowanceDto(),
+) {
+    fun toDomain() = Recognition(
+        recognitionId = recognitionId?.takeIf { it.isNotBlank() },
+        outcome = RecognitionOutcome.fromApi(outcome),
+        summary = summary,
+        firstPage = RecognitionItems(items.map { it.toDomain() }, total, hasMore, nextOffset),
+        incomplete = incomplete,
+        allowance = allowance.toDomain(),
+    )
+}

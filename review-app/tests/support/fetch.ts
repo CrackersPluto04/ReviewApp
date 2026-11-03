@@ -27,11 +27,50 @@ export function installFetchRecorder() {
         const method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
         sent.push({ method, url, credentials: init?.credentials ?? (input instanceof Request ? input.credentials : undefined) });
 
-        const response = mswFetch(input, init);
+        const response = init?.body instanceof FormData
+            ? encodeFormData(init.body).then(({ body, contentType }) => {
+                const headers = new Headers(init.headers);
+                headers.set('content-type', contentType);
+                return mswFetch(input, { ...init, body, headers });
+            })
+            : mswFetch(input, init);
         const settled = response.catch(() => undefined).finally(() => pending.delete(settled));
         pending.add(settled);
         return response;
     };
+}
+
+/**
+ * Uploads (camera recognition) send a FormData with a Blob. Under jsdom both are jsdom's classes, which Node's fetch
+ * can't serialize (and MSW can't take a streamed multipart body either), so the body is encoded here, the way a browser
+ * would: multipart/form-data with a boundary, the same names, file names, types and bytes.
+ */
+async function encodeFormData(form: FormData): Promise<{ body: ArrayBuffer, contentType: string }> {
+    const boundary = `----TestFormBoundary${Math.random().toString(16).slice(2)}`;
+    const text = new TextEncoder();
+    const parts: Uint8Array[] = [];
+
+    for (const [name, value] of form.entries()) {
+        if (typeof value === 'string') {
+            parts.push(text.encode(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`));
+            continue;
+        }
+        const file = value as File;
+        parts.push(text.encode(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"; filename="${file.name ?? 'blob'}"\r\n`
+            + `Content-Type: ${file.type || 'application/octet-stream'}\r\n\r\n`));
+        parts.push(new Uint8Array(await file.arrayBuffer()));
+        parts.push(text.encode('\r\n'));
+    }
+    parts.push(text.encode(`--${boundary}--\r\n`));
+
+    const body = new ArrayBuffer(parts.reduce((length, part) => length + part.length, 0));
+    const bytes = new Uint8Array(body);
+    let offset = 0;
+    for (const part of parts) {
+        bytes.set(part, offset);
+        offset += part.length;
+    }
+    return { body, contentType: `multipart/form-data; boundary=${boundary}` };
 }
 
 /**

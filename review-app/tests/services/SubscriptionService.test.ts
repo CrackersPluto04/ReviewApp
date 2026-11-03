@@ -82,21 +82,10 @@ describe('SubscriptionService', () => {
         });
     });
 
-    describeEndpoint({
-        ...common,
-        name: 'tryEntitlementPreview',
-        method: 'get',
-        path: 'Subscription/entitlement-preview',
-        call: () => subscriptionService.tryEntitlementPreview(),
-        response: ok({ message: 'Welcome to the preview.' }),
-        result: { success: true, message: 'Welcome to the preview.', data: { message: 'Welcome to the preview.' } },
-        fallback: 'Something went wrong while opening the preview.',
-    });
-
     it('reports a 402 with its status and the API\'s message', async () => {
-        server.use(capture('get', 'Subscription/entitlement-preview', paymentRequired()).handler);
+        server.use(capture('post', 'Subscription/portal', paymentRequired()).handler);
 
-        expect(await subscriptionService.tryEntitlementPreview()).toEqual({
+        expect(await subscriptionService.openPortal()).toEqual({
             success: false, status: 402, message: 'This is a Premium feature.',
         });
     });

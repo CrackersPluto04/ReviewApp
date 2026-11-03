@@ -99,11 +99,11 @@ class ApiParsingTest {
     fun authUser_readsTierAndEntitlements() {
         val user = json.decodeFromString<LoginResponse>(
             """{"message":"Logged in successfully","user":{"id":3,"username":"bob","profilePictureUrl":null,
-               "isEmailConfirmed":false,"tier":"Premium","isPremium":true,"entitlements":["profile-badge","entitlement-preview"]}}""",
+               "isEmailConfirmed":false,"tier":"Premium","isPremium":true,"entitlements":["profile-badge","camera-recognition"]}}""",
         ).user!!.toDomain()
 
         assertTrue(user.isPremium)
-        assertTrue(user.hasFeature(FeatureKeys.ENTITLEMENT_PREVIEW))
+        assertTrue(user.hasFeature(FeatureKeys.CAMERA_RECOGNITION))
         assertFalse(user.hasFeature("offline-mode"))
     }
 

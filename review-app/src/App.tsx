@@ -22,6 +22,7 @@ import { EmailLinkPage } from './pages/EmailLinkPage';
 import { PremiumPage } from './pages/PremiumPage';
 import { SubscriptionReturnPage } from './pages/SubscriptionReturnPage';
 import { PremiumUpsellProvider } from './context/PremiumUpsellContext';
+import { RecognitionPage } from './pages/RecognitionPage';
 
 export type ThemeMode = "light" | "dark";
 
@@ -149,6 +150,13 @@ export function AppRoutes({ mode, toggleTheme }: ThemeProps) {
 			<Route path="/premium" element={
 				<PageContainer mode={mode} toggleTheme={toggleTheme}>
 					<PremiumPage />
+				</PageContainer>
+			} />
+
+			{/* Camera recognition (Premium; the page shows the upsell to Free users) */}
+			<Route path="/recognize" element={
+				<PageContainer mode={mode} toggleTheme={toggleTheme}>
+					<RecognitionPage />
 				</PageContainer>
 			} />
 

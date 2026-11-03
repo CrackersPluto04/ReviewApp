@@ -36,6 +36,14 @@ public abstract class HttpTest : IntegrationTest
     protected static Task<HttpResponseMessage> PostJsonAsync(HttpClient client, string url, object body) =>
         client.PostAsJsonAsync(url, body);
 
+    // A photo upload like the clients send it: multipart/form-data with the file in the "image" part
+    protected static MultipartFormDataContent Photo(byte[] image, string name = "image", string contentType = "image/jpeg")
+    {
+        var file = new ByteArrayContent(image);
+        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        return new MultipartFormDataContent { { file, name, "photo.jpg" } };
+    }
+
     protected static Task<HttpResponseMessage> LoginAsync(HttpClient client, DAL.Entities.User user, string password = TestData.Password) =>
         client.PostAsJsonAsync("api/Auth/login", new { email = user.Email, password });
 }

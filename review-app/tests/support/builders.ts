@@ -1,6 +1,7 @@
 import type { AuthUser } from '../../src/context/AuthContext';
 import type {
     AchievementDto, AchievementTierDto, CollectionDto, CollectionMediaDto, MediaDto, NotificationDto, PlanDto,
+    RecognitionAllowanceDto, RecognitionResponseDto, RecognitionTier, RecognizedMediaDto,
     ReplyDto, SecurityStatusDto, SubscriptionStatusDto, UnlockedAchievementDto, UserCompactDto, UserProfileDto,
 } from '../../src/types/types';
 
@@ -33,7 +34,7 @@ export function authUser(overrides: Partial<AuthUser> = {}): AuthUser {
 }
 
 export function premiumAuthUser(overrides: Partial<AuthUser> = {}): AuthUser {
-    return authUser({ tier: 'Premium', isPremium: true, entitlements: ['entitlement-preview'], ...overrides });
+    return authUser({ tier: 'Premium', isPremium: true, entitlements: ['profile-badge', 'camera-recognition'], ...overrides });
 }
 
 export function userProfile(overrides: Partial<UserProfileDto> = {}): UserProfileDto {
@@ -251,7 +252,7 @@ export function plan(overrides: Partial<PlanDto> = {}): PlanDto {
         currency: 'EUR',
         interval: 'month',
         features: [
-            { key: 'entitlement-preview', title: 'Early access', description: 'Try new features first.', comingSoon: false },
+            { key: 'camera-recognition', title: 'Camera recognition', description: 'Find media by taking a photo.', comingSoon: false },
             { key: 'stats', title: 'Statistics', description: 'Charts about your reviews.', comingSoon: true },
         ],
         ...overrides,
@@ -268,6 +269,33 @@ export function subscriptionStatus(overrides: Partial<SubscriptionStatusDto> = {
         hasPaymentProblem: false,
         currentPeriodEnd: null,
         accessEndsAt: null,
+        ...overrides,
+    };
+}
+
+export function recognitionAllowance(overrides: Partial<RecognitionAllowanceDto> = {}): RecognitionAllowanceDto {
+    return { enabled: true, premium: true, limit: 20, remaining: 14, resetsAt: '2026-11-03T00:00:00Z', ...overrides };
+}
+
+export function recognizedMedia(tier: RecognitionTier = 'direct', overrides: Partial<MediaDto> = {}): RecognizedMediaDto {
+    return { media: media(overrides), tier };
+}
+
+// A recognition with `count` items in total, the first page (10) included
+export function recognitionResponse(count = 12, overrides: Partial<RecognitionResponseDto> = {}): RecognitionResponseDto {
+    const items = Array.from({ length: count }, (_, i) => recognizedMedia(i < 3 ? 'direct' : 'universe', { title: `Suggestion ${i + 1}` }));
+    const first = items.slice(0, 10);
+    return {
+        recognitionId: count > 10 ? 'rec-1' : null,
+        outcome: 'recognised',
+        summary: 'We saw an Iron Man statue.',
+        subject: { label: 'Iron Man statue', kind: 'statue' },
+        items: first,
+        total: count,
+        hasMore: count > 10,
+        nextOffset: first.length,
+        incomplete: false,
+        allowance: recognitionAllowance({ remaining: 13 }),
         ...overrides,
     };
 }

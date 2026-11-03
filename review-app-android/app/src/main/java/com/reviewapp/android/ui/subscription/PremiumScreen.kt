@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.AlertDialog
@@ -68,6 +69,7 @@ private val FreeFeatures = listOf(
 fun PremiumScreen(
     onBack: () -> Unit,
     onLogin: () -> Unit,
+    onOpenRecognition: () -> Unit,
     viewModel: PremiumViewModel = viewModel(factory = PremiumViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -102,7 +104,7 @@ fun PremiumScreen(
             plan == null -> Column(modifier) {
                 ErrorState(state.error ?: "Could not load the plans.", viewModel::loadPlan, Modifier.fillMaxWidth())
             }
-            else -> PremiumContent(state, plan, viewModel, modifier)
+            else -> PremiumContent(state, plan, viewModel, onOpenRecognition, modifier)
         }
     }
 
@@ -118,7 +120,7 @@ fun PremiumScreen(
 }
 
 @Composable
-private fun PremiumContent(state: PremiumUiState, plan: Plan, viewModel: PremiumViewModel, modifier: Modifier) {
+private fun PremiumContent(state: PremiumUiState, plan: Plan, viewModel: PremiumViewModel, onOpenRecognition: () -> Unit, modifier: Modifier) {
     val subscription = state.subscription
     val isPremium = subscription?.isPremium == true
 
@@ -150,13 +152,16 @@ private fun PremiumContent(state: PremiumUiState, plan: Plan, viewModel: Premium
         if (state.isLoggedIn) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Early access", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Camera recognition", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(
-                        "Premium members can try new features before anyone else.",
+                        "Take a photo of a figure, poster, album cover or other collectible and get the movies, series and music it relates to.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    OutlinedButton(onClick = viewModel::tryPreview) { Text("Open the early access preview") }
+                    OutlinedButton(onClick = onOpenRecognition) {
+                        Icon(Icons.Outlined.PhotoCamera, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                        Text(if (isPremium) "Try camera recognition" else "See how it works")
+                    }
                 }
             }
         }

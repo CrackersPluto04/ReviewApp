@@ -34,6 +34,18 @@ public class BackgroundJobTests : IntegrationTest
     }
 
     [Fact]
+    public async Task Cleanup_DeletesRecognitionUsageAfterAWeek()
+    {
+        var user = await Data.UserAsync();
+        await Data.RecognitionUsageAsync(user, 2, DateTime.UtcNow - DataCleanupService.RecognitionUsageRetention - TimeSpan.FromHours(1));
+        await Data.RecognitionUsageAsync(user, 1, DateTime.UtcNow.AddDays(-2));
+
+        await RunCleanupAsync();
+
+        (await Query().RecognitionUsages.CountAsync(u => u.UserID == user.ID)).ShouldBe(1);
+    }
+
+    [Fact]
     public async Task Cleanup_DeletesExpiredAndSpentTokensAfterADay()
     {
         var user = await Data.UserAsync();

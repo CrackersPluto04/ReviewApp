@@ -304,8 +304,64 @@ data class SecurityStatus(
 /** Keys of the features that need a subscription, same as the API's `FeatureKeys`. */
 object FeatureKeys {
     const val PROFILE_BADGE = "profile-badge"
-    const val ENTITLEMENT_PREVIEW = "entitlement-preview"
+    const val CAMERA_RECOGNITION = "camera-recognition"
 }
+
+/** How closely a recognition suggestion relates to the photo, closest first (the API's tier names). */
+enum class RecognitionTier(val apiName: String, val label: String) {
+    Direct("direct", "Direct match"),
+    Universe("universe", "Same universe"),
+    People("people", "Related people"),
+    Similar("similar", "You might also like");
+
+    companion object {
+        /** A tier the app doesn't know yet reads as the loosest one. */
+        fun fromApi(name: String?): RecognitionTier = entries.firstOrNull { it.apiName == name } ?: Similar
+    }
+}
+
+enum class RecognitionOutcome(val apiName: String) {
+    Recognised("recognised"),
+    NothingRecognised("nothing_recognised"),
+    NotMediaRelated("not_media_related"),
+    PersonNotIdentified("person_not_identified");
+
+    companion object {
+        fun fromApi(name: String?): RecognitionOutcome = entries.firstOrNull { it.apiName == name } ?: NothingRecognised
+    }
+}
+
+data class RecognizedMedia(val media: Media, val tier: RecognitionTier)
+
+/** `GET Recognition/allowance`: whether the feature is on, and the daily allowance (null counters for Free users). */
+data class RecognitionAllowance(
+    val enabled: Boolean,
+    val premium: Boolean,
+    val limit: Int?,
+    val remaining: Int?,
+    /** ISO date, UTC. */
+    val resetsAt: String?,
+)
+
+/** A page of a recognition's ranked list. */
+data class RecognitionItems(
+    val items: List<RecognizedMedia>,
+    val total: Int,
+    val hasMore: Boolean,
+    val nextOffset: Int,
+)
+
+/** `POST Recognition`: what was seen and the first page of suggestions. */
+data class Recognition(
+    /** Null when there is nothing to page through. */
+    val recognitionId: String?,
+    val outcome: RecognitionOutcome,
+    val summary: String,
+    val firstPage: RecognitionItems,
+    /** Some TMDb / Spotify lookups failed, the list may miss items. */
+    val incomplete: Boolean,
+    val allowance: RecognitionAllowance,
+)
 
 /** Same names as the API's `SubscriptionStatus`. */
 enum class SubscriptionStatus {

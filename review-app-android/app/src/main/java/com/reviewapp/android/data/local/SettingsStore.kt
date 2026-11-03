@@ -2,6 +2,7 @@ package com.reviewapp.android.data.local
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
@@ -20,7 +21,15 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { it[THEME_KEY] = mode.name }
     }
 
+    /** The camera recognition screen's "your photo goes to an AI service" notice was dismissed. */
+    val recognitionNoticeDismissed: Flow<Boolean> = dataStore.data.map { it[RECOGNITION_NOTICE_KEY] ?: false }
+
+    suspend fun dismissRecognitionNotice() {
+        dataStore.edit { it[RECOGNITION_NOTICE_KEY] = true }
+    }
+
     private companion object {
         val THEME_KEY = stringPreferencesKey("theme_mode")
+        val RECOGNITION_NOTICE_KEY = booleanPreferencesKey("recognition_notice_dismissed")
     }
 }

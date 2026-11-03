@@ -78,7 +78,7 @@ public class SubscriptionServiceTests
         Assert.True(Entitlements.IsAvailable(FeatureKeys.ProfileBadge, SubscriptionTier.Premium));
         Assert.False(Entitlements.IsAvailable(FeatureKeys.ProfileBadge, SubscriptionTier.Free));
         Assert.Empty(Entitlements.FeaturesFor(SubscriptionTier.Free));
-        Assert.Contains(FeatureKeys.EntitlementPreview, Entitlements.FeaturesFor(SubscriptionTier.Premium));
+        Assert.Contains(FeatureKeys.CameraRecognition, Entitlements.FeaturesFor(SubscriptionTier.Premium));
     }
 
     [Fact]

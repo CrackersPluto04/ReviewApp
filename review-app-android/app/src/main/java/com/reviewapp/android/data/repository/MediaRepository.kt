@@ -47,7 +47,8 @@ class MediaRepository(private val mediaApi: MediaApi) {
     fun cached(mediaType: MediaType, externalApiId: String): Media? =
         synchronized(cache) { cache[mediaKey(mediaType, externalApiId)] }
 
-    private fun <T : Iterable<Media>> remember(items: T): T {
+    /** Also used by other repositories that return media (e.g. camera recognition). */
+    fun <T : Iterable<Media>> remember(items: T): T {
         synchronized(cache) { items.forEach { cache[it.key] = it } }
         return items
     }
