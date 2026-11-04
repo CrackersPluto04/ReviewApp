@@ -129,6 +129,20 @@ public sealed class RateLimitTests : IntegrationTest, IAsyncLifetime
         new() { { new ByteArrayContent(image), "image", "photo.heic" } };
 
     [Fact]
+    public async Task Sync_BurstOfTwenty_ThenSaysWhenTheNextOneIsAllowed()
+    {
+        var user = await Data.UserAsync();
+        var client = As(user);
+        var emptyPush = new { userId = user.ID, ops = Array.Empty<object>() };
+
+        await ShouldLimitAfterAsync(20, () => client.PostAsJsonAsync("api/Sync/push", emptyPush));
+
+        // A token bucket: one more request every 6 seconds, and the lease says when
+        var limited = await client.PostAsJsonAsync("api/Sync/push", emptyPush);
+        limited.Headers.RetryAfter!.Delta!.Value.ShouldBeInRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(6));
+    }
+
+    [Fact]
     public async Task Global_ThreeHundredPerMinute()
     {
         var client = Anonymous();

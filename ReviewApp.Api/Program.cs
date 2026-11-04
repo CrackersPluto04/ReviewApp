@@ -9,6 +9,7 @@ using ReviewApp.Api.Filters;
 using ReviewApp.Api.Services;
 using ReviewApp.Api.Services.Interfaces;
 using ReviewApp.Api.Services.Recognition;
+using ReviewApp.Api.Services.Sync;
 using System.Text;
 using System.Threading.RateLimiting;
 
@@ -154,6 +155,18 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("recognition", httpContext =>
         RateLimitPartition.GetSlidingWindowLimiter(ClientKey(httpContext), _ => Sliding(5, RateLimitRetry.Windows["recognition"])));
 
+    // The offline sync of the Android app (push / changes): a burst of 20 requests, then one every 6 seconds (10 / minute)
+    // per user. A token bucket, so the rejection carries its own Retry-After (the time until the next token).
+    options.AddPolicy("sync", httpContext =>
+        RateLimitPartition.GetTokenBucketLimiter(ClientKey(httpContext), _ => new TokenBucketRateLimiterOptions
+        {
+            TokenLimit = 20 * permitMultiplier,
+            TokensPerPeriod = permitMultiplier,
+            ReplenishmentPeriod = TimeSpan.FromSeconds(6),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        }));
+
     options.OnRejected = async (context, cancellationToken) =>
     {
         var response = context.HttpContext.Response;
@@ -220,6 +233,7 @@ builder.Services.AddScoped<IAchievementService, AchievementService>();
 builder.Services.AddScoped<IAchievementUnlockHandler, ResponseHeaderUnlockHandler>();
 builder.Services.AddScoped<IAchievementUnlockHandler, NotificationUnlockHandler>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<ISyncService, SyncService>();
 builder.Services.AddScoped<ISecurityService, SecurityService>();
 
 // Emails are queued by the request and sent in the background
