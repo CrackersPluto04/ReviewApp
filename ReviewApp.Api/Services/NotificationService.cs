@@ -161,9 +161,10 @@ public class NotificationService : INotificationService
             .Where(n => n.ID == notificationId && n.RecipientUserID == userId)
             .ExecuteUpdateAsync(s => s.SetProperty(n => n.IsSeen, isSeen)) > 0;
 
-    public Task<int> MarkAllSeenAsync(int userId) =>
+    // upToId: only notifications up to this ID (the offline sync must not touch ones the device never saw)
+    public Task<int> MarkAllSeenAsync(int userId, int? upToId = null) =>
         _context.Notifications
-            .Where(n => n.RecipientUserID == userId && !n.IsSeen)
+            .Where(n => n.RecipientUserID == userId && !n.IsSeen && (upToId == null || n.ID <= upToId))
             .ExecuteUpdateAsync(s => s.SetProperty(n => n.IsSeen, true));
 
     public async Task<bool> DeleteAsync(int userId, int notificationId) =>
@@ -171,9 +172,9 @@ public class NotificationService : INotificationService
             .Where(n => n.ID == notificationId && n.RecipientUserID == userId)
             .ExecuteDeleteAsync() > 0;
 
-    public Task<int> DeleteSeenAsync(int userId) =>
+    public Task<int> DeleteSeenAsync(int userId, int? upToId = null) =>
         _context.Notifications
-            .Where(n => n.RecipientUserID == userId && n.IsSeen)
+            .Where(n => n.RecipientUserID == userId && n.IsSeen && (upToId == null || n.ID <= upToId))
             .ExecuteDeleteAsync();
 
     private async Task EnforceCapAsync(int userId)

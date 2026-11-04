@@ -1,5 +1,6 @@
 ﻿using ReviewApp.Api.DTOs;
 using ReviewApp.Api.Enums;
+using ReviewApp.Api.Services;
 
 namespace ReviewApp.Api.Services.Interfaces;
 
@@ -13,6 +14,12 @@ public interface IReviewService
     Task<(bool Success, string Message)> CreateReviewAsync(int userId, ReviewMediaDto dto);
     Task<(bool Success, string Message)> EditReviewAsync(int userId, ReviewMediaDto dto);
     Task<(bool Success, string Message)> DeleteReviewAsync(int userId, int reviewId);
+
+    // Core writes behind the methods above, also used by the offline sync: exact statuses, stored media IDs,
+    // no achievement evaluation (the caller evaluates after committing)
+    Task<ReviewWriteResult> CreateCoreAsync(int userId, int mediaId, ReviewFields fields, DateTime? createdAt = null);
+    Task<ReviewWriteResult> UpdateCoreAsync(int userId, int reviewId, ReviewFields fields);
+    Task<ReviewWriteResult> DeleteCoreAsync(int userId, int reviewId);
 
     Task<(bool HasReviewed, ReviewDto? Review)> CheckIfUserReviewedMediaAsync(int userId, MediaType mediaType, string externalApiId);
     // Single review with its author, null when it doesn't exist or is hidden from the requesting user

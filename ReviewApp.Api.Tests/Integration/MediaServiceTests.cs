@@ -47,12 +47,12 @@ public class MediaServiceTests : IntegrationTest
     {
         var externalId = TestData.Unique("7");
         var first = await Media.GetOrCreateMediaAsync(MediaType.Movie, externalId);
-        var lookups = App.Tmdb.Lookups;
+        var lookups = App.Tmdb.LookupsOf(externalId);
 
         var second = await Media.GetOrCreateMediaAsync(MediaType.Movie, externalId);
 
         second.ShouldBe(first);
-        App.Tmdb.Lookups.ShouldBe(lookups);
+        App.Tmdb.LookupsOf(externalId).ShouldBe(lookups);
         (await Query().Media.CountAsync(m => m.ExternalApiID == externalId)).ShouldBe(1);
     }
 
@@ -134,10 +134,10 @@ public class MediaServiceTests : IntegrationTest
     [Fact]
     public async Task Resolve_TooLongId_IsUnknownWithoutAskingTheSource()
     {
-        var lookups = App.Tmdb.Lookups;
+        var tooLong = new string('1', 65);
 
-        (await Media.ResolveAsync(MediaType.Movie, new string('1', 65))).Status.ShouldBe(MediaLookupStatus.Unknown);
-        App.Tmdb.Lookups.ShouldBe(lookups);
+        (await Media.ResolveAsync(MediaType.Movie, tooLong)).Status.ShouldBe(MediaLookupStatus.Unknown);
+        App.Tmdb.LookupsOf(tooLong).ShouldBe(0);
     }
 
     [Fact]

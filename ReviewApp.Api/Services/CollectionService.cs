@@ -22,36 +22,17 @@ public class CollectionService : ICollectionService
         _achievementService = achievementService;
     }
 
+    public const int MaxNameLength = 50;
+
     public async Task<CollectionDto?> CreateCollectionAsync(int userId, CreateCollectionDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.Name)) return null;
-
-        var exists = await _context.Collections
-            .AnyAsync(c => c.UserID == userId && c.Name == dto.Name);
-
-        if (exists) return null;
-
-        var collection = new Collection
-        {
-            UserID = userId,
-            Name = dto.Name,
-            VisibilityLevel = dto.VisibilityLevel
-        };
-
-        _context.Collections.Add(collection);
-        try
-        {
-            await _context.SaveChangesAsync();
-        }
-        catch (DbUpdateException ex) when (DbErrors.IsUniqueViolation(ex))
-        {
-            // A parallel request took the name first (unique index on user + name)
-            _context.Entry(collection).State = EntityState.Detached;
+        var result = await CreateCoreAsync(userId, dto.Name, dto.VisibilityLevel);
+        if (result.Status != CollectionWriteStatus.Created)
             return null;
-        }
 
-        await _achievementService.EvaluateAsync(userId, AchievementMetric.CollectionsCreated);
+        await _achievementService.EvaluateAsync(userId, CreateMetrics);
 
+        var collection = result.Collection!;
         return new CollectionDto
         {
             ID = collection.ID,
@@ -67,27 +48,16 @@ public class CollectionService : ICollectionService
     {
         if (string.IsNullOrWhiteSpace(dto.Name)) return (false, false, "Collection name is required.", null);
 
-        var collection = await _context.Collections
-            .FirstOrDefaultAsync(c => c.ID == dto.CollectionID && c.UserID == userId);
-
-        if (collection == null) return (false, true, "Collection not found.", null);
-        if (collection.Name == Collection.DefaultName) return (false, false, DefaultCollectionLockedMessage, null);
-
-        if (collection.Name != dto.Name)
+        var result = await UpdateCoreAsync(userId, dto.CollectionID, dto.Name, dto.VisibilityLevel);
+        switch (result.Status)
         {
-            // Excludes this collection, so a case-only rename isn't blocked by its own (case-insensitive) name
-            var nameTaken = await _context.Collections
-                .AnyAsync(c => c.UserID == userId && c.Name == dto.Name && c.ID != collection.ID);
-
-            if (nameTaken) return (false, false, "You already have a collection with this name.", null);
+            case CollectionWriteStatus.NotFound: return (false, true, "Collection not found.", null);
+            case CollectionWriteStatus.Locked: return (false, false, DefaultCollectionLockedMessage, null);
+            case CollectionWriteStatus.NameTaken: return (false, false, "You already have a collection with this name.", null);
+            case CollectionWriteStatus.InvalidName: return (false, false, "Collection name is required.", null);
         }
 
-        collection.Name = dto.Name;
-        collection.VisibilityLevel = dto.VisibilityLevel;
-        collection.UpdatedAt = DateTime.UtcNow;
-
-        await _context.SaveChangesAsync();
-
+        var collection = result.Collection!;
         // The media items aren't loaded, so they are counted in the database
         var mediaCount = await _context.CollectionMedias.CountAsync(cm => cm.CollectionID == collection.ID);
 
@@ -104,90 +74,37 @@ public class CollectionService : ICollectionService
 
     public async Task<(bool Success, bool NotFound, string Message)> DeleteCollectionAsync(int userId, int collectionId)
     {
-        var collection = await _context.Collections
-            .FirstOrDefaultAsync(c => c.ID == collectionId && c.UserID == userId);
-
-        if (collection == null) return (false, true, "Collection not found.");
-        if (collection.Name == Collection.DefaultName) return (false, false, DefaultCollectionLockedMessage);
-
-        _context.Collections.Remove(collection);
-        // Tells offline devices to drop their copy (same SaveChanges, so both or neither happen)
-        _context.SyncTombstones.Add(new SyncTombstone { UserID = userId, EntityType = SyncEntityType.Collection, EntityID = collection.ID });
-        await _context.SaveChangesAsync();
-
-        return (true, false, "Collection deleted successfully!");
+        var result = await DeleteCoreAsync(userId, collectionId);
+        return result.Status switch
+        {
+            CollectionWriteStatus.Deleted => (true, false, "Collection deleted successfully!"),
+            CollectionWriteStatus.Locked => (false, false, DefaultCollectionLockedMessage),
+            _ => (false, true, "Collection not found.")
+        };
     }
 
     public async Task<bool> AddMediaToCollectionAsync(int userId, int collectionId, MediaType type, string externalApiId)
     {
-        // Check if collection exists and belongs to user
-        var collection = await _context.Collections
-            .FirstOrDefaultAsync(c => c.ID == collectionId && c.UserID == userId);
-
-        if (collection == null) return false;
+        // Ownership first, so someone else's collection is never a reason to fetch media
+        if (!await _context.Collections.AnyAsync(c => c.ID == collectionId && c.UserID == userId))
+            return false;
 
         // Check if media exists, if not create it
         var mediaId = await _mediaService.GetOrCreateMediaAsync(type, externalApiId);
-
         if (mediaId == -1) return false;
 
-        // Check if media already in collection
-        var alreadyInCollection = await _context.CollectionMedias
-            .AnyAsync(cm => cm.CollectionID == collectionId && cm.MediaID == mediaId);
-
-        if (alreadyInCollection) return false;
-
-        // Get max order index in collection
-        var maxOrder = await _context.CollectionMedias
-            .Where(cm => cm.CollectionID == collectionId)
-            .MaxAsync(cm => (int?)cm.OrderIndex) ?? -1;
-
-        var collectionMedia = new CollectionMedia
-        {
-            CollectionID = collectionId,
-            MediaID = mediaId,
-            OrderIndex = maxOrder + 1 // Put new media at the end of the collection
-        };
-
-        _context.CollectionMedias.Add(collectionMedia);
-        collection.UpdatedAt = DateTime.UtcNow;
-        try
-        {
-            await _context.SaveChangesAsync();
-        }
-        catch (DbUpdateException ex) when (DbErrors.IsUniqueViolation(ex))
-        {
-            // A parallel request added it first (primary key): already in the collection
-            _context.Entry(collectionMedia).State = EntityState.Detached;
-            _context.Entry(collection).State = EntityState.Unchanged;
-            return false;
-        }
-
-        return true;
+        return (await AddMediaCoreAsync(userId, collectionId, mediaId)).Status == CollectionWriteStatus.Added;
     }
 
     public async Task<bool> RemoveMediaFromCollectionAsync(int userId, int collectionId, MediaType type, string externalApiId)
     {
-        // Check if collection belongs to user and media is in collection
-        var item = await _context.CollectionMedias
-            .Include(cm => cm.Collection)
-            .FirstOrDefaultAsync(cm => cm.CollectionID == collectionId && cm.Media.MediaType == type && cm.Media.ExternalApiID == externalApiId && cm.Collection.UserID == userId);
+        var mediaId = await _context.Media
+            .Where(m => m.MediaType == type && m.ExternalApiID == externalApiId)
+            .Select(m => (int?)m.ID)
+            .FirstOrDefaultAsync();
+        if (mediaId == null) return false;
 
-        if (item == null) return false;
-
-        _context.CollectionMedias.Remove(item);
-
-        // Update order indexes of remaining media in collection
-        var subsequentItems = await _context.CollectionMedias
-            .Where(cm => cm.CollectionID == collectionId && cm.OrderIndex > item.OrderIndex)
-            .ToListAsync();
-
-        foreach (var subItem in subsequentItems)
-            subItem.OrderIndex--;
-
-        item.Collection.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
-        return true;
+        return (await RemoveMediaCoreAsync(userId, collectionId, mediaId.Value)).Status == CollectionWriteStatus.Removed;
     }
 
     public async Task<bool> ReorderMediaAsync(int userId, int collectionId, int dbMediaId, int newOrderIndex)
@@ -234,6 +151,208 @@ public class CollectionService : ICollectionService
 
         return true;
     }
+
+    /* Core writes (also used by the offline sync): exact statuses, stored media IDs, no achievement evaluation */
+
+    // What creating a collection can change in the achievements
+    public static readonly AchievementMetric[] CreateMetrics = [AchievementMetric.CollectionsCreated];
+
+    public static bool IsValidName(string? name) =>
+        !string.IsNullOrWhiteSpace(name) && name.Length <= MaxNameLength;
+
+    public async Task<CollectionWriteResult> CreateCoreAsync(int userId, string name, VisibilityLevel visibility)
+    {
+        if (!IsValidName(name))
+            return new CollectionWriteResult(CollectionWriteStatus.InvalidName);
+
+        // Names are unique per user (case-insensitive collation), Favourites included
+        var takenBy = await CollectionNamedAsync(userId, name, exceptId: null);
+        if (takenBy != null)
+            return new CollectionWriteResult(CollectionWriteStatus.NameTaken, ExistingCollectionID: takenBy);
+
+        var collection = new Collection
+        {
+            UserID = userId,
+            Name = name,
+            VisibilityLevel = visibility
+        };
+
+        _context.Collections.Add(collection);
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (DbErrors.IsUniqueViolation(ex))
+        {
+            // A parallel request took the name first (unique index on user + name)
+            _context.Entry(collection).State = EntityState.Detached;
+            return new CollectionWriteResult(CollectionWriteStatus.NameTaken, ExistingCollectionID: await CollectionNamedAsync(userId, name, exceptId: null));
+        }
+
+        return new CollectionWriteResult(CollectionWriteStatus.Created, collection);
+    }
+
+    public async Task<CollectionWriteResult> UpdateCoreAsync(int userId, int collectionId, string name, VisibilityLevel visibility)
+    {
+        var collection = await _context.Collections
+            .FirstOrDefaultAsync(c => c.ID == collectionId && c.UserID == userId);
+
+        if (collection == null) return new CollectionWriteResult(CollectionWriteStatus.NotFound);
+        if (collection.Name == Collection.DefaultName) return new CollectionWriteResult(CollectionWriteStatus.Locked, collection);
+        if (!IsValidName(name)) return new CollectionWriteResult(CollectionWriteStatus.InvalidName, collection);
+
+        if (collection.Name != name)
+        {
+            // Excludes this collection, so a case-only rename isn't blocked by its own (case-insensitive) name
+            var takenBy = await CollectionNamedAsync(userId, name, exceptId: collection.ID);
+            if (takenBy != null)
+                return new CollectionWriteResult(CollectionWriteStatus.NameTaken, collection, takenBy);
+        }
+
+        collection.Name = name;
+        collection.VisibilityLevel = visibility;
+        collection.UpdatedAt = DateTime.UtcNow;
+
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (DbErrors.IsUniqueViolation(ex))
+        {
+            // A parallel request took the name first
+            await _context.Entry(collection).ReloadAsync();
+            return new CollectionWriteResult(CollectionWriteStatus.NameTaken, collection, await CollectionNamedAsync(userId, name, exceptId: collection.ID));
+        }
+
+        return new CollectionWriteResult(CollectionWriteStatus.Updated, collection);
+    }
+
+    public async Task<CollectionWriteResult> DeleteCoreAsync(int userId, int collectionId)
+    {
+        var collection = await _context.Collections
+            .FirstOrDefaultAsync(c => c.ID == collectionId && c.UserID == userId);
+
+        if (collection == null) return new CollectionWriteResult(CollectionWriteStatus.NotFound);
+        if (collection.Name == Collection.DefaultName) return new CollectionWriteResult(CollectionWriteStatus.Locked, collection);
+
+        _context.Collections.Remove(collection);
+        // Tells offline devices to drop their copy (same SaveChanges, so both or neither happen)
+        _context.SyncTombstones.Add(new SyncTombstone { UserID = userId, EntityType = SyncEntityType.Collection, EntityID = collection.ID });
+        await _context.SaveChangesAsync();
+
+        return new CollectionWriteResult(CollectionWriteStatus.Deleted, collection);
+    }
+
+    public async Task<CollectionWriteResult> AddMediaCoreAsync(int userId, int collectionId, int mediaId)
+    {
+        var collection = await _context.Collections
+            .FirstOrDefaultAsync(c => c.ID == collectionId && c.UserID == userId);
+        if (collection == null) return new CollectionWriteResult(CollectionWriteStatus.NotFound);
+
+        if (await _context.CollectionMedias.AnyAsync(cm => cm.CollectionID == collectionId && cm.MediaID == mediaId))
+            return new CollectionWriteResult(CollectionWriteStatus.AlreadyPresent, collection);
+
+        // Put new media at the end of the collection
+        var maxOrder = await _context.CollectionMedias
+            .Where(cm => cm.CollectionID == collectionId)
+            .MaxAsync(cm => (int?)cm.OrderIndex) ?? -1;
+
+        var collectionMedia = new CollectionMedia
+        {
+            CollectionID = collectionId,
+            MediaID = mediaId,
+            OrderIndex = maxOrder + 1
+        };
+
+        _context.CollectionMedias.Add(collectionMedia);
+        collection.UpdatedAt = DateTime.UtcNow;
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (DbErrors.IsUniqueViolation(ex))
+        {
+            // A parallel request added it first (primary key): already in the collection
+            _context.Entry(collectionMedia).State = EntityState.Detached;
+            await _context.Entry(collection).ReloadAsync();
+            return new CollectionWriteResult(CollectionWriteStatus.AlreadyPresent, collection);
+        }
+
+        return new CollectionWriteResult(CollectionWriteStatus.Added, collection);
+    }
+
+    public async Task<CollectionWriteResult> RemoveMediaCoreAsync(int userId, int collectionId, int mediaId)
+    {
+        var collection = await _context.Collections
+            .FirstOrDefaultAsync(c => c.ID == collectionId && c.UserID == userId);
+        if (collection == null) return new CollectionWriteResult(CollectionWriteStatus.NotFound);
+
+        var item = await _context.CollectionMedias
+            .FirstOrDefaultAsync(cm => cm.CollectionID == collectionId && cm.MediaID == mediaId);
+        if (item == null) return new CollectionWriteResult(CollectionWriteStatus.NotPresent, collection);
+
+        _context.CollectionMedias.Remove(item);
+
+        // Update order indexes of remaining media in collection
+        var subsequentItems = await _context.CollectionMedias
+            .Where(cm => cm.CollectionID == collectionId && cm.OrderIndex > item.OrderIndex)
+            .ToListAsync();
+
+        foreach (var subItem in subsequentItems)
+            subItem.OrderIndex--;
+
+        collection.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return new CollectionWriteResult(CollectionWriteStatus.Removed, collection);
+    }
+
+    // Puts the listed media first, in the given order, and every other item of the collection after them in their
+    // current order. Media that aren't in the collection (any more) are ignored, so an order made on another device
+    // never drops or invents items.
+    public async Task<CollectionWriteResult> SetOrderAsync(int userId, int collectionId, IReadOnlyList<int> mediaIdsInOrder)
+    {
+        var collection = await _context.Collections
+            .Include(c => c.CollectionMedias)
+            .FirstOrDefaultAsync(c => c.ID == collectionId && c.UserID == userId);
+        if (collection == null) return new CollectionWriteResult(CollectionWriteStatus.NotFound);
+
+        var current = collection.CollectionMedias.OrderBy(cm => cm.OrderIndex).ToList();
+        var ordered = MergeOrder(current.Select(cm => cm.MediaID).ToList(), mediaIdsInOrder);
+        var byMedia = current.ToDictionary(cm => cm.MediaID);
+
+        var changed = false;
+        for (var index = 0; index < ordered.Count; index++)
+        {
+            var item = byMedia[ordered[index]];
+            if (item.OrderIndex == index) continue;
+            item.OrderIndex = index;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            collection.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
+
+        return new CollectionWriteResult(CollectionWriteStatus.Reordered, collection);
+    }
+
+    // The requested order for items that are still present, then the rest in their current order
+    public static List<int> MergeOrder(IReadOnlyList<int> currentOrder, IReadOnlyList<int> requestedOrder)
+    {
+        var present = currentOrder.ToHashSet();
+        var result = requestedOrder.Where(present.Contains).Distinct().ToList();
+        var placed = result.ToHashSet();
+        result.AddRange(currentOrder.Where(id => !placed.Contains(id)));
+        return result;
+    }
+
+    private Task<int?> CollectionNamedAsync(int userId, string name, int? exceptId) =>
+        _context.Collections
+            .Where(c => c.UserID == userId && c.Name == name && c.ID != exceptId)
+            .Select(c => (int?)c.ID)
+            .FirstOrDefaultAsync();
 
     public async Task<List<CollectionDto>?> GetUserCollectionsAsync(string targetUsername, int? requestingUserId, string sortBy = "createdAt_asc")
     {

@@ -20,10 +20,14 @@ public class FakeTmdbService : ITmdbService
     private readonly ConcurrentDictionary<int, List<TmdbItemDto>> _collections = new();
     private readonly ConcurrentDictionary<string, TmdbPersonDto> _people = new();
     private readonly ConcurrentDictionary<int, TmdbPersonCreditsDto> _credits = new();
+    private readonly ConcurrentDictionary<string, int> _lookupsById = new();
     private int _lookups;
     private int _recognitionLookups;
 
+    // All lookups by ID (shared by the parallel tests, so only for "unchanged" checks of unique data use LookupsOf)
     public int Lookups => _lookups;
+    // Lookups of one (unique) ID, safe with tests running in parallel
+    public int LookupsOf(string id) => _lookupsById.TryGetValue(id, out var count) ? count : 0;
     // Calls of the Find* / collection / person methods
     public int RecognitionLookups => _recognitionLookups;
 
@@ -119,6 +123,7 @@ public class FakeTmdbService : ITmdbService
     private TmdbItemDto Item(string kind, string id)
     {
         Interlocked.Increment(ref _lookups);
+        _lookupsById.AddOrUpdate(id, 1, (_, count) => count + 1);
         if (_unknown.ContainsKey(id) || !int.TryParse(id, out var numericId))
             return new TmdbItemDto();
 

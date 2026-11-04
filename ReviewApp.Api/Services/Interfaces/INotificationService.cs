@@ -13,7 +13,8 @@ public interface INotificationService
     Task<NotificationPageDto> GetNotificationsAsync(int userId, NotificationQueryParams p);
     Task<int> GetUnseenCountAsync(int userId);
     Task<bool> SetSeenAsync(int userId, int notificationId, bool isSeen);
-    Task<int> MarkAllSeenAsync(int userId);
+    // upToId limits them to notifications up to that ID (the offline sync: only the ones the device had seen)
+    Task<int> MarkAllSeenAsync(int userId, int? upToId = null);
     Task<bool> DeleteAsync(int userId, int notificationId);
-    Task<int> DeleteSeenAsync(int userId);
+    Task<int> DeleteSeenAsync(int userId, int? upToId = null);
 }
