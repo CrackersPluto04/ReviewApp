@@ -3,6 +3,8 @@ package com.reviewapp.android.ui.offline
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -56,9 +58,13 @@ val LocalIsOnline = compositionLocalOf { true }
 class ConnectivityViewModel(
     connectivity: StateFlow<Connectivity>,
     status: StateFlow<OfflineStatus>,
+    running: StateFlow<Boolean>,
+    pausedUntil: StateFlow<Long?>,
 ) : ViewModel() {
 
-    val banner: StateFlow<ConnectivityBanner?> = combine(connectivity, status, ::connectivityBanner)
+    private val sync = combine(running, pausedUntil) { isRunning, paused -> SyncActivity(isRunning, paused != null) }
+
+    val banner: StateFlow<ConnectivityBanner?> = combine(connectivity, status, sync, ::connectivityBanner)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), connectivityBanner(connectivity.value, status.value))
 
     /** The backend can be reached (for [LocalIsOnline]). */
@@ -69,19 +75,21 @@ class ConnectivityViewModel(
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val c = appContainer()
-                ConnectivityViewModel(c.connectivityMonitor.connectivity, c.offlineGateway.status)
+                ConnectivityViewModel(c.connectivityMonitor.connectivity, c.offlineGateway.status, c.syncEngine.running, c.syncEngine.pausedUntil)
             }
         }
     }
 }
 
 /**
- * A thin strip saying the app is offline, can't reach the backend, or has changes waiting; hidden otherwise.
- * [aboveNavigationBar]: the bottom bar is below it (else it keeps clear of the system navigation bar itself).
+ * A thin strip saying the app is offline, can't reach the backend, is syncing, or has changes waiting; hidden
+ * otherwise. With changes waiting a tap opens them ([onOpenChanges]). [aboveNavigationBar]: the bottom bar is below
+ * it (else it keeps clear of the system navigation bar itself).
  */
 @Composable
 fun ConnectivityStrip(
     aboveNavigationBar: Boolean,
+    onOpenChanges: () -> Unit,
     viewModel: ConnectivityViewModel = viewModel(factory = ConnectivityViewModel.Factory),
 ) {
     val banner by viewModel.banner.collectAsStateWithLifecycle()
@@ -94,7 +102,9 @@ fun ConnectivityStrip(
         Surface(
             color = if (current.problem) colors.errorContainer else colors.inverseSurface,
             contentColor = if (current.problem) colors.onErrorContainer else colors.inverseOnSurface,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(if (current.opensChanges) Modifier.clickable(onClickLabel = "See waiting changes", onClick = onOpenChanges) else Modifier),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -113,8 +123,11 @@ fun ConnectivityStrip(
                     style = MaterialTheme.typography.labelLarge,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(start = 8.dp),
+                    modifier = Modifier.padding(start = 8.dp).weight(1f),
                 )
+                if (current.opensChanges) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(18.dp))
+                }
             }
         }
     }

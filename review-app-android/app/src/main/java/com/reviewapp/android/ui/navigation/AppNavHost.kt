@@ -74,6 +74,7 @@ import com.reviewapp.android.ui.offline.ConnectivityStrip
 import com.reviewapp.android.ui.offline.ConnectivityViewModel
 import com.reviewapp.android.ui.offline.LocalIsOnline
 import com.reviewapp.android.ui.offline.OfflineSettingsScreen
+import com.reviewapp.android.ui.offline.PendingChangesScreen
 import com.reviewapp.android.ui.profile.FollowListScreen
 import com.reviewapp.android.ui.profile.ProfileScreen
 import com.reviewapp.android.ui.profile.ProfileTab
@@ -141,7 +142,11 @@ fun ReviewAppRoot() {
             bottomBar = {
                 Column {
                     // Offline, backend unreachable or changes waiting: visible from every screen, never blocking it
-                    ConnectivityStrip(aboveNavigationBar = showBottomBar)
+                    ConnectivityStrip(
+                        aboveNavigationBar = showBottomBar,
+                        onOpenChanges = { navController.navigate(PendingChangesRoute) { launchSingleTop = true } },
+                        viewModel = connectivityViewModel,
+                    )
                     if (showBottomBar) {
                         NavigationBar {
                             TopLevelTab.entries.forEach { tab ->
@@ -325,7 +330,14 @@ private fun AppNavHost(navController: NavHostController, unseenNotifications: In
                 onOpenOffline = { navController.navigate(OfflineSettingsRoute) { launchSingleTop = true } },
             )
         }
-        composable<OfflineSettingsRoute> { OfflineSettingsScreen(onBack = goBack, onOpenPremium = openPremium) }
+        composable<OfflineSettingsRoute> {
+            OfflineSettingsScreen(
+                onBack = goBack,
+                onOpenPremium = openPremium,
+                onOpenChanges = { navController.navigate(PendingChangesRoute) { launchSingleTop = true } },
+            )
+        }
+        composable<PendingChangesRoute> { PendingChangesScreen(onBack = goBack) }
         composable<PremiumRoute> { PremiumScreen(onBack = goBack, onLogin = goToLogin, onOpenRecognition = openRecognition) }
         composable<RecognitionRoute> {
             RecognitionScreen(onBack = goBack, onLogin = goToLogin, onOpenMedia = openMedia, onOpenPremium = openPremium)

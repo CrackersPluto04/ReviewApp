@@ -24,6 +24,8 @@ sealed interface ApiResult<out T> {
         val code: Int? = null,
         val reason: String? = null,
         val isNetwork: Boolean = false,
+        /** The `Retry-After` of a 429 (or 503), in seconds. */
+        val retryAfterSeconds: Long? = null,
     ) : ApiResult<Nothing>
 }
 
@@ -45,7 +47,8 @@ suspend fun <T> apiCall(useSnapshot: Boolean = true, block: suspend () -> T): Ap
     ApiResult.Success(data, probe.servedSnapshotAt)
 } catch (e: HttpException) {
     val body = e.response()?.errorBody()?.string()
-    ApiResult.Error(ApiErrors.message(e.code(), body), e.code(), ApiErrors.reason(body))
+    val retryAfter = e.response()?.headers()?.get("Retry-After")?.trim()?.toLongOrNull()
+    ApiResult.Error(ApiErrors.message(e.code(), body), e.code(), ApiErrors.reason(body), retryAfterSeconds = retryAfter)
 } catch (_: IOException) {
     ApiResult.Error(ApiErrors.NETWORK_ERROR, isNetwork = true)
 } catch (_: SerializationException) {

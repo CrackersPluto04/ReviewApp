@@ -138,6 +138,8 @@ data class ProfileReview(
     val visibility: Visibility,
     val isOwner: Boolean,
     val replyCount: Int,
+    /** Offline mode: the change waiting to sync ([com.reviewapp.android.data.local.offline.SyncState]). */
+    val syncState: Int = 0,
 ) {
     val mediaKey: String get() = mediaKey(mediaType, externalApiId)
 }
@@ -151,10 +153,11 @@ data class MediaCollection(
     val isOwner: Boolean,
     /** The permanent "Favourites" collection, it can't be renamed, edited or deleted. */
     val isDefault: Boolean,
+    val syncState: Int = 0,
 )
 
 /** A media in a collection; [dbMediaId] is the API's own id, needed for reordering. */
-data class CollectionItem(val dbMediaId: Int, val media: Media)
+data class CollectionItem(val dbMediaId: Int, val media: Media, val syncState: Int = 0)
 
 data class CollectionDetails(val collection: MediaCollection, val items: List<CollectionItem>)
 
@@ -218,6 +221,7 @@ data class AppNotification(
     val reviewId: Int?,
     val replyId: Int?,
     val groupCode: String?,
+    val syncState: Int = 0,
 )
 
 /** Keyset page; [unseenCount] is the user's overall count, for the badge. */

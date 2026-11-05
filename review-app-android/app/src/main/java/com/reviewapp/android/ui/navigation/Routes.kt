@@ -38,6 +38,10 @@ data object AccountSettingsRoute
 @Serializable
 data object OfflineSettingsRoute
 
+/** The changes made offline that the backend hasn't accepted yet, with Discard. */
+@Serializable
+data object PendingChangesRoute
+
 /** Plans page with the current user's subscription. */
 @Serializable
 data object PremiumRoute

@@ -1,6 +1,8 @@
 package com.reviewapp.android
 
+import android.app.Activity
 import android.app.Application
+import android.os.Bundle
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
@@ -51,14 +53,41 @@ class ReviewApplication : Application(), ImageLoaderFactory {
         val c = container
         c.connectivityMonitor.start()
         c.offlineGateway.start()
-        // The user's own online writes change their content on the backend: the offline copy follows
+        // The user's own changes change their content on the backend: the offline copy follows (the events a sync
+        // itself causes don't count, or they would start the next one)
         c.syncEngine.start(
             merge(
-                c.reviewRepository.changes.map { },
-                c.collectionRepository.changes.map { },
+                c.reviewRepository.changes.filter { !it.fromSync }.map { },
+                c.collectionRepository.changes.filter { !it.fromSync }.map { },
                 c.userRepository.followChanges,
             ),
         )
+        // Sent changes got their real ids: the lists and the hearts reload from the copy
+        c.appScope.launch {
+            c.syncEngine.pushed.collect {
+                c.reviewRepository.onSynced()
+                c.collectionRepository.onSynced()
+            }
+        }
+        // Opening the app syncs, and shows what a background push unlocked meanwhile
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            private var started = 0
+            override fun onActivityStarted(activity: Activity) {
+                if (started++ == 0) {
+                    c.isInForeground = true
+                    c.syncEngine.requestSync()
+                    c.appScope.launch { c.showPendingUnlocks() }
+                }
+            }
+            override fun onActivityStopped(activity: Activity) {
+                if (--started == 0) c.isInForeground = false
+            }
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+            override fun onActivityResumed(activity: Activity) = Unit
+            override fun onActivityPaused(activity: Activity) = Unit
+            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+            override fun onActivityDestroyed(activity: Activity) = Unit
+        })
         c.appScope.launch { c.sessionManager.restore() }
         // Back online: retry a start that failed offline, verify a session opened offline
         c.appScope.launch {

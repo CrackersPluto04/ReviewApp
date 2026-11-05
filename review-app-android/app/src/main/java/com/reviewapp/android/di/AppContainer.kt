@@ -54,6 +54,14 @@ import com.reviewapp.android.data.remote.SyncApi
 import com.reviewapp.android.data.sync.LocalLibrary
 import com.reviewapp.android.data.sync.SnapshotInterceptor
 import com.reviewapp.android.data.sync.SyncEngine
+import com.reviewapp.android.data.sync.PushRunner
+import com.reviewapp.android.data.sync.OfflineWriter
+import com.reviewapp.android.data.sync.OfflineWrites
+import com.reviewapp.android.data.sync.SyncPushWorker
+import com.reviewapp.android.data.local.offline.PendingUnlockEntity
+import com.reviewapp.android.data.remote.dto.UnlockedAchievementDto
+import com.reviewapp.android.domain.model.UnlockedAchievement
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -155,7 +163,10 @@ class AppContainer(context: Context) {
         .addInterceptor { chain ->
             val request = chain.request()
             val response = chain.proceed(request)
-            response.header(AchievementRepository.UNLOCK_HEADER)?.let(achievementRepository::onUnlockHeader)
+            // The sync reports its unlocks in its body (shown together, or later after a background push)
+            if (!request.url.encodedPath.contains("/Sync/")) {
+                response.header(AchievementRepository.UNLOCK_HEADER)?.let(achievementRepository::onUnlockHeader)
+            }
             if (response.isSuccessful && request.method != "GET") notificationRepository.onMutation()
             response
         }
@@ -213,15 +224,60 @@ class AppContainer(context: Context) {
     val databaseManager = DatabaseManager(context, DatabaseKeyStore(context.sessionDataStore), offlineImages)
     val offlineGateway = OfflineGateway(sessionManager, settingsStore, databaseManager, clock, appScope)
     val localLibrary = LocalLibrary(offlineGateway, sessionManager)
+
+    /** Set by the application: whether an activity is visible (unlocks of a background push wait for the next open). */
+    @Volatile var isInForeground: Boolean = false
+
+    private val pushRunner = PushRunner(
+        syncApi = syncApi,
+        userId = { sessionManager.currentUser?.id },
+        onUnlocked = { unlocked -> deliverUnlocks(unlocked) },
+    )
+    val syncEngine = SyncEngine(syncApi, offlineGateway, connectivityMonitor, snapshotInterceptor, pushRunner, appScope)
+    val offlineWriter = OfflineWriter(
+        database = { offlineGateway.database() },
+        offlineActive = { offlineGateway.status.value.mode.canEditOffline },
+        currentUser = { sessionManager.currentUser },
+        onQueued = {
+            syncEngine.requestSync()
+            // Sent even if the app is closed before the connection comes back
+            SyncPushWorker.schedule(context)
+        },
+    )
+    private val offlineWrites = OfflineWrites(offlineWriter, syncEngine)
+
     val authRepository = AuthRepository(authApi, sessionManager)
     val mediaRepository = MediaRepository(mediaApi, localLibrary, appScope)
-    val reviewRepository = ReviewRepository(reviewApi, appScope, localLibrary)
-    val userRepository = UserRepository(userApi, followerApi, sessionManager, localLibrary)
-    val collectionRepository = CollectionRepository(collectionApi, userApi, sessionManager, appScope, localLibrary)
+    val reviewRepository = ReviewRepository(reviewApi, appScope, localLibrary, offlineWrites)
+    val userRepository = UserRepository(userApi, followerApi, sessionManager, localLibrary, offlineWrites)
+    val collectionRepository = CollectionRepository(collectionApi, userApi, sessionManager, appScope, localLibrary, offlineWrites)
     val replyRepository = ReplyRepository(replyApi)
-    val notificationRepository = NotificationRepository(notificationApi, sessionManager, appScope, localLibrary)
-    val syncEngine = SyncEngine(syncApi, offlineGateway, connectivityMonitor, snapshotInterceptor, appScope)
+    val notificationRepository = NotificationRepository(notificationApi, sessionManager, appScope, localLibrary, offlineWrites)
     val achievementRepository = AchievementRepository(achievementApi)
+
+    /** Unlocks earned by sent offline changes: banners now, or after the next app open when it is in the background. */
+    private suspend fun deliverUnlocks(unlocked: List<UnlockedAchievement>) {
+        if (isInForeground) {
+            achievementRepository.onUnlocked(unlocked)
+            return
+        }
+        val json = ApiJson.encodeToString(
+            ListSerializer(UnlockedAchievementDto.serializer()),
+            unlocked.map { UnlockedAchievementDto(it.groupCode, it.title, it.tier.name) },
+        )
+        offlineGateway.database()?.pendingUnlocks()?.insert(PendingUnlockEntity(json = json, createdAt = System.currentTimeMillis()))
+    }
+
+    /** On opening the app: the unlocks a background push earned. */
+    suspend fun showPendingUnlocks() {
+        val db = offlineGateway.database() ?: return
+        val stored = db.pendingUnlocks().all()
+        if (stored.isEmpty()) return
+        db.pendingUnlocks().clear()
+        stored.flatMap { row ->
+            runCatching { ApiJson.decodeFromString(ListSerializer(UnlockedAchievementDto.serializer()), row.json) }.getOrDefault(emptyList())
+        }.map { it.toDomain() }.let(achievementRepository::onUnlocked)
+    }
     val accountRepository = AccountRepository(userApi, securityApi, authApi, sessionManager)
     val subscriptionRepository = SubscriptionRepository(subscriptionApi, sessionManager, appScope)
     val recognitionRepository = RecognitionRepository(recognitionApi, mediaRepository)

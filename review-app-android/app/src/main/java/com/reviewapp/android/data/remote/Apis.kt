@@ -75,6 +75,9 @@ interface SyncApi {
 
     @POST("Sync/visible")
     suspend fun visible(@Body body: SyncVisibleRequest): SyncVisibleDto
+
+    @POST("Sync/push")
+    suspend fun push(@Body body: com.reviewapp.android.data.remote.dto.SyncPushRequest): com.reviewapp.android.data.remote.dto.SyncPushResponse
 }
 
 interface AuthApi {

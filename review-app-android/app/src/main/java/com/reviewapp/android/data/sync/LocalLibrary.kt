@@ -2,6 +2,7 @@ package com.reviewapp.android.data.sync
 
 import android.util.Log
 import com.reviewapp.android.data.SessionManager
+import com.reviewapp.android.data.local.offline.EntityType
 import com.reviewapp.android.data.local.offline.MediaEntity
 import com.reviewapp.android.data.local.offline.OfflineDatabase
 import com.reviewapp.android.data.local.offline.SyncMetaKeys
@@ -51,10 +52,19 @@ class LocalLibrary(
     suspend fun <T> networkFirst(
         own: Boolean,
         snapshotFirst: Boolean = false,
+        /** While changes of these entity types wait to be sent, the copy is the truth: no request at all. */
+        pendingTypes: List<Int> = emptyList(),
         remote: suspend (useSnapshot: Boolean) -> ApiResult<T>,
         local: suspend LocalReads.() -> T?,
     ): ApiResult<T> {
         val reads = if (own) reads() else null
+        if (reads != null && pendingTypes.any { reads.hasPending(it) }) {
+            try {
+                reads.local()?.let { return ApiResult.Success(it) }
+            } catch (e: Exception) {
+                Log.w(TAG, "Offline read failed", e)
+            }
+        }
         val result = remote(reads == null || snapshotFirst)
         if (reads == null || result !is ApiResult.Error || !result.isNetwork) return result
         return try {
@@ -77,10 +87,21 @@ class LocalLibrary(
         }
     }
 
-    /** True when [id] is one of the user's own reviews in the offline copy. */
-    suspend fun ownsReview(id: Int): Boolean = safely { database()?.reviews()?.byId(id) != null } ?: false
+    /** True when [id] is one of the user's own reviews in the offline copy (a temporary id too). */
+    suspend fun ownsReview(id: Int): Boolean =
+        id < 0 || safely { database()?.reviews()?.byId(resolve(EntityType.REVIEW, id)) != null } ?: false
 
-    suspend fun ownsCollection(id: Int): Boolean = safely { database()?.collections()?.byId(id) != null } ?: false
+    suspend fun ownsCollection(id: Int): Boolean =
+        id < 0 || safely { database()?.collections()?.byId(resolve(EntityType.COLLECTION, id)) != null } ?: false
+
+    /** The real id of something created offline once the backend has it (else [id] itself). */
+    suspend fun resolve(entityType: Int, id: Int): Int {
+        if (id >= 0) return id
+        return safely { database()?.idMap()?.realId(entityType, id) } ?: id
+    }
+
+    /** Changes of [entityType] wait to be sent. */
+    suspend fun hasPending(entityType: Int): Boolean = safely { (database()?.outbox()?.countOf(entityType) ?: 0) > 0 } ?: false
 
     /** Keeps an opened media for the offline search (the most recently used ones stay). */
     suspend fun rememberMedia(media: Media) {
@@ -116,6 +137,18 @@ class LocalLibrary(
         }
     }
 
+    // Form drafts: unsaved text kept when the app is killed (only with an offline copy)
+
+    suspend fun loadDraft(key: String): String? = safely { database()?.drafts()?.get(key)?.json }
+
+    suspend fun saveDraft(key: String, json: String) {
+        safely { database()?.drafts()?.put(com.reviewapp.android.data.local.offline.DraftEntity(key, json, clock())) }
+    }
+
+    suspend fun deleteDraft(key: String) {
+        safely { database()?.drafts()?.delete(key) }
+    }
+
     /** The reply counts of the user's reviews as the API just showed them (the feed doesn't carry them). */
     suspend fun rememberReplyCounts(reviews: List<ProfileReview>) {
         val db = database() ?: return
@@ -144,11 +177,16 @@ class LocalReads(
 ) {
     suspend fun lastSyncedAt(): Long? = db.syncMeta().get(SyncMetaKeys.LAST_SYNCED_AT)?.toLongOrNull()
 
+    suspend fun hasPending(entityType: Int): Boolean = db.outbox().countOf(entityType) > 0
+
+    private suspend fun resolve(entityType: Int, id: Int): Int =
+        if (id < 0) db.idMap().realId(entityType, id) ?: id else id
+
     suspend fun reviews(filter: ReviewFilter, page: Int): Page<ProfileReview> =
         LocalReviewQuery.page(db.reviews().all(), filter, page)
 
     suspend fun reviewDetail(id: Int): ReviewDetail? {
-        val review = db.reviews().byId(id) ?: return null
+        val review = db.reviews().byId(resolve(EntityType.REVIEW, id)) ?: return null
         val profile = db.profile().get(userId)
         return ReviewDetail(review.toProfileReview(), profile?.username ?: username, profile?.profilePictureUrl ?: profilePictureUrl)
     }
@@ -163,10 +201,13 @@ class LocalReads(
         LocalCollectionQuery.sorted(db.collections().all(), sortBy)
 
     suspend fun collectionDetails(id: Int): CollectionDetails? {
-        val collection = db.collections().byId(id) ?: return null
-        val items = db.collections().items(id).map { local ->
+        val realId = resolve(EntityType.COLLECTION, id)
+        val collection = db.collections().byId(realId) ?: return null
+        val items = db.collections().items(realId).mapIndexed { index, local ->
             CollectionItem(
-                dbMediaId = local.dbMediaId ?: 0,
+                // Media added offline have no backend id yet; the screen keys items by it, so a unique stand-in
+                dbMediaId = local.dbMediaId ?: -(index + 1),
+                syncState = local.item.syncState,
                 media = Media(
                     externalApiId = local.item.externalApiId,
                     mediaType = MediaType.fromId(local.item.mediaType),

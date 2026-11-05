@@ -19,9 +19,22 @@ class OfflineTextsTest {
         assertNull(connectivityBanner(Connectivity.Online, OfflineStatus()))
         assertNull(connectivityBanner(Connectivity.Online, active))
         assertEquals(
-            ConnectivityBanner("2 changes waiting to sync", disconnected = false),
+            ConnectivityBanner("2 changes waiting to sync", disconnected = false, opensChanges = true),
             connectivityBanner(Connectivity.Online, active.copy(pendingChanges = 2)),
         )
+    }
+
+    @Test
+    fun strip_Online_SaysWhatTheSyncDoes() {
+        val waiting = active.copy(pendingChanges = 3)
+        assertEquals("Syncing 3 changes…", connectivityBanner(Connectivity.Online, waiting, SyncActivity(running = true))!!.text)
+        assertEquals("Sync paused, it continues shortly", connectivityBanner(Connectivity.Online, waiting, SyncActivity(paused = true))!!.text)
+
+        // Only issues left: they need the user
+        val issues = connectivityBanner(Connectivity.Online, active.copy(pendingChanges = 2, issues = 2))!!
+        assertEquals("2 changes need your attention", issues.text)
+        assertTrue(issues.problem && issues.opensChanges)
+        assertEquals("1 change needs your attention", connectivityBanner(Connectivity.Online, active.copy(pendingChanges = 1, issues = 1))!!.text)
     }
 
     @Test
@@ -29,7 +42,7 @@ class OfflineTextsTest {
         assertEquals(ConnectivityBanner("You're offline"), connectivityBanner(Connectivity.Offline, OfflineStatus()))
         assertEquals(ConnectivityBanner("Offline · showing what's saved on this phone"), connectivityBanner(Connectivity.Offline, active))
         assertEquals(
-            ConnectivityBanner("Offline · 1 change waiting to sync"),
+            ConnectivityBanner("Offline · 1 change waiting to sync", opensChanges = true),
             connectivityBanner(Connectivity.Offline, active.copy(pendingChanges = 1)),
         )
         assertEquals(

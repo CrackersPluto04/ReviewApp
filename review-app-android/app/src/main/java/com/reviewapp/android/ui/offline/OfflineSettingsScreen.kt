@@ -17,6 +17,7 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.CloudSync
+import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.SdStorage
@@ -71,6 +72,7 @@ import com.reviewapp.android.util.pluralize
 fun OfflineSettingsScreen(
     onBack: () -> Unit,
     onOpenPremium: () -> Unit,
+    onOpenChanges: () -> Unit,
     viewModel: OfflineSettingsViewModel = viewModel(factory = OfflineSettingsViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -98,6 +100,19 @@ fun OfflineSettingsScreen(
                     item { StatusCard(view) }
                 }
                 val mode = state.status.mode
+                if (state.status.pendingChanges > 0) {
+                    item {
+                        SettingRow(
+                            Icons.Outlined.CloudUpload,
+                            "Waiting changes",
+                            listOfNotNull(
+                                state.status.toSend.takeIf { it > 0 }?.let { "${pluralize(it, "change")} to sync" },
+                                state.status.issues.takeIf { it > 0 }?.let { "$it need your attention" },
+                            ).joinToString(" · "),
+                            onClick = onOpenChanges,
+                        )
+                    }
+                }
                 if (mode is OfflineMode.Active || mode is OfflineMode.Preparing || mode is OfflineMode.ReadOnly) {
                     item { SyncRow(state, onSyncNow = viewModel::syncNow) }
                     item { Divider() }

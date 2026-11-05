@@ -333,7 +333,7 @@ class ProfileViewModel(
         setFollowed(follow)
         _state.update { it.copy(isFollowBusy = true) }
         viewModelScope.launch {
-            val result = userRepository.setFollowing(profile.id, follow)
+            val result = userRepository.setFollowing(profile.id, follow, profile.username, profile.profilePictureUrl)
             _state.update { it.copy(isFollowBusy = false) }
             when (result) {
                 is ApiResult.Success -> {

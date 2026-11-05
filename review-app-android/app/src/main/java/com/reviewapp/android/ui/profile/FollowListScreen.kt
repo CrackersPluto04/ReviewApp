@@ -140,7 +140,7 @@ class FollowListViewModel(
         val follow = !user.isFollowed
         setFollowed(user.id, follow, busy = true)
         viewModelScope.launch {
-            val result = userRepository.setFollowing(user.id, follow)
+            val result = userRepository.setFollowing(user.id, follow, user.username, user.profilePictureUrl)
             setFollowed(user.id, if (result is ApiResult.Success) follow else !follow, busy = false)
             if (result is ApiResult.Error) _messages.send(result.message)
         }

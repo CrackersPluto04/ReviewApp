@@ -9,6 +9,9 @@ import com.reviewapp.android.data.remote.dto.UserUpdateRequest
 import com.reviewapp.android.data.remote.dto.toPage
 import com.reviewapp.android.data.remote.map
 import com.reviewapp.android.data.sync.LocalLibrary
+import com.reviewapp.android.data.sync.OfflineWriteException
+import com.reviewapp.android.data.sync.OfflineWrites
+import com.reviewapp.android.data.local.offline.EntityType
 import com.reviewapp.android.domain.model.Page
 import com.reviewapp.android.domain.model.ProfileReview
 import com.reviewapp.android.domain.model.UserProfile
@@ -22,6 +25,7 @@ class UserRepository(
     private val followerApi: FollowerApi,
     private val sessionManager: SessionManager,
     private val local: LocalLibrary,
+    private val offline: OfflineWrites,
 ) {
     // Emitted after the current user followed, unfollowed or removed someone, so the profile
     // headers (counts) and the visibility-dependent lists refresh
@@ -30,12 +34,28 @@ class UserRepository(
 
     // Own pages: the snapshot of the page when there is one (it has the counts and join date as last seen), else the
     // offline tables. Other users: snapshots only
-    suspend fun profile(username: String): ApiResult<UserProfile> = local.networkFirst(
-        own = local.isMe(username),
-        snapshotFirst = true,
-        remote = { useSnapshot -> apiCall(useSnapshot) { userApi.getProfile(username) }.map { it.toDomain() } },
-        local = { profile() },
-    )
+    suspend fun profile(username: String): ApiResult<UserProfile> {
+        val own = local.isMe(username)
+        val result = local.networkFirst(
+            own = own,
+            snapshotFirst = true,
+            remote = { useSnapshot -> apiCall(useSnapshot) { userApi.getProfile(username) }.map { it.toDomain() } },
+            local = { profile() },
+        )
+        // A bio, picture or follow change waits: the header shows it as the user left it
+        if (own && result is ApiResult.Success && PROFILE_TYPES.any { local.hasPending(it) }) {
+            val mine = local.reads()?.let { runCatching { it.profile() }.getOrNull() } ?: return result
+            return result.copy(
+                data = result.data.copy(
+                    bio = mine.bio,
+                    profilePictureUrl = mine.profilePictureUrl,
+                    followersCount = mine.followersCount,
+                    followingCount = mine.followingCount,
+                ),
+            )
+        }
+        return result
+    }
 
     suspend fun search(query: String): ApiResult<List<UserSummary>> =
         apiCall { userApi.search(query) }.map { list -> list.map { it.toDomain() } }
@@ -45,6 +65,7 @@ class UserRepository(
         val own = local.isMe(username)
         val result = local.networkFirst(
             own = own,
+            pendingTypes = listOf(EntityType.REVIEW),
             remote = { useSnapshot ->
                 apiCall(useSnapshot) {
                     userApi.getReviews(
@@ -67,6 +88,7 @@ class UserRepository(
     suspend fun followers(username: String): ApiResult<List<UserSummary>> = local.networkFirst(
         own = local.isMe(username),
         snapshotFirst = true,
+        pendingTypes = FOLLOW_TYPES,
         remote = { useSnapshot -> apiCall(useSnapshot) { userApi.getFollowers(username) }.map { list -> list.map { it.toDomain() } } },
         local = { followers() },
     )
@@ -74,25 +96,45 @@ class UserRepository(
     suspend fun following(username: String): ApiResult<List<UserSummary>> = local.networkFirst(
         own = local.isMe(username),
         snapshotFirst = true,
+        pendingTypes = FOLLOW_TYPES,
         remote = { useSnapshot -> apiCall(useSnapshot) { userApi.getFollowing(username) }.map { list -> list.map { it.toDomain() } } },
         local = { following() },
     )
 
-    suspend fun setFollowing(userId: Int, follow: Boolean): ApiResult<Unit> = notifyOnSuccess(
-        apiCall { if (follow) followerApi.follow(userId) else followerApi.unfollow(userId) },
-    )
+    /** [username] / [profilePictureUrl]: who it is, so offline the follow lists can show them before the sync. */
+    suspend fun setFollowing(userId: Int, follow: Boolean, username: String? = null, profilePictureUrl: String? = null): ApiResult<Unit> =
+        notifyOnSuccess(
+            if (offline.writer.canWrite()) offlineWrite { offline.writer.setFollowing(userId, follow, username, profilePictureUrl) }
+            else apiCall { if (follow) followerApi.follow(userId) else followerApi.unfollow(userId) },
+        )
 
-    suspend fun removeFollower(userId: Int): ApiResult<Unit> =
-        notifyOnSuccess(apiCall { followerApi.removeFollower(userId) })
+    suspend fun removeFollower(userId: Int): ApiResult<Unit> = notifyOnSuccess(
+        if (offline.writer.canWrite()) offlineWrite { offline.writer.removeFollower(userId) }
+        else apiCall { followerApi.removeFollower(userId) },
+    )
 
     /** An empty [bio] clears it. */
     suspend fun updateBio(bio: String): ApiResult<Unit> =
-        apiCall { userApi.updateMe(UserUpdateRequest(bio = bio)) }.map { }
+        if (offline.writer.canWrite()) offlineWrite { offline.writer.updateProfile(bio = bio) }
+        else apiCall { userApi.updateMe(UserUpdateRequest(bio = bio)) }.map { }
 
     suspend fun updateAvatar(url: String): ApiResult<Unit> {
-        val result = apiCall { userApi.updateMe(UserUpdateRequest(profilePictureUrl = url)) }.map { }
+        val result = if (offline.writer.canWrite()) offlineWrite { offline.writer.updateProfile(profilePictureUrl = url) }
+        else apiCall { userApi.updateMe(UserUpdateRequest(profilePictureUrl = url)) }.map { }
         if (result is ApiResult.Success) sessionManager.updateUser { it.copy(profilePictureUrl = url) }
         return result
+    }
+
+    private suspend fun offlineWrite(write: suspend () -> Unit): ApiResult<Unit> = try {
+        write()
+        ApiResult.Success(Unit)
+    } catch (e: OfflineWriteException) {
+        ApiResult.Error(e.message ?: "Could not save the change.")
+    }
+
+    private companion object {
+        val FOLLOW_TYPES = listOf(EntityType.FOLLOW, EntityType.FOLLOWER)
+        val PROFILE_TYPES = listOf(EntityType.PROFILE, EntityType.FOLLOW, EntityType.FOLLOWER)
     }
 
     private fun notifyOnSuccess(result: ApiResult<Unit>): ApiResult<Unit> {

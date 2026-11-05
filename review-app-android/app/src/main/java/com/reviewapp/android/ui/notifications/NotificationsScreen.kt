@@ -262,6 +262,7 @@ private fun NotificationCard(
                             style = MaterialTheme.typography.bodySmall,
                             color = colors.onSurfaceVariant,
                         )
+                        com.reviewapp.android.ui.components.SyncBadge(notification.syncState, Modifier.padding(top = 2.dp))
                     }
                     IconButton(onClick = onToggleSeen) {
                         Icon(

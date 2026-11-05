@@ -124,7 +124,11 @@ data class FollowEntity(
     val syncState: Int = SyncState.SYNCED,
 )
 
-/** The user's newest notifications as last loaded; [deleted] hides one whose delete is still waiting. */
+/**
+ * The user's newest notifications as last loaded; [deleted] hides one whose delete is still waiting. Serializable:
+ * it is its own shadow while a change of it waits.
+ */
+@kotlinx.serialization.Serializable
 @Entity(tableName = "notifications", indices = [Index("createdAt")])
 data class NotificationEntity(
     @PrimaryKey val id: Int,
@@ -183,8 +187,11 @@ object EntityType {
     const val REVIEW = 0
     const val COLLECTION = 1
     const val PROFILE = 2
+    /** The user following someone (entityId = the other user). */
     const val FOLLOW = 3
     const val NOTIFICATION = 4
+    /** Someone following the user, removed by the user (entityId = the follower). */
+    const val FOLLOWER = 5
 }
 
 /** The state of a queued change. */
@@ -216,7 +223,6 @@ data class OutboxEntity(
     /** Comma-separated opIds this op waits for. */
     val dependsOn: String?,
     val payloadJson: String,
-    val baseVersion: Long?,
     val state: Int = OutboxState.PENDING,
     val attempts: Int = 0,
     val nextAttemptAt: Long = 0,

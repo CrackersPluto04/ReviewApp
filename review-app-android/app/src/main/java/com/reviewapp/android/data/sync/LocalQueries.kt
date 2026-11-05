@@ -74,6 +74,7 @@ object LocalReviewQuery {
         visibility = Visibility.fromId(review.visibility),
         isOwner = true,
         replyCount = review.replyCount,
+        syncState = review.syncState,
     )
 }
 
@@ -97,6 +98,7 @@ object LocalCollectionQuery {
         mediaCount = mediaCount,
         isOwner = true,
         isDefault = collection.isDefault,
+        syncState = collection.syncState,
     )
 }
 
@@ -141,6 +143,7 @@ object LocalNotificationQuery {
         reviewId = reviewId,
         replyId = replyId,
         groupCode = groupCode,
+        syncState = syncState,
     )
 }
 

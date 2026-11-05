@@ -22,6 +22,9 @@ class AchievementRepository(private val api: AchievementApi) {
     suspend fun achievements(username: String): ApiResult<List<Achievement>> =
         apiCall { api.getAchievements(username) }.map { list -> list.map { it.toDomain() } }
 
+    /** Unlocks that came another way: the sync's answer (offline changes earn them when they are sent). */
+    fun onUnlocked(unlocked: List<UnlockedAchievement>) = unlocked.forEach { _unlocks.tryEmit(it) }
+
     /** Called by the OkHttp interceptor for every response with the [UNLOCK_HEADER]. */
     fun onUnlockHeader(raw: String) {
         val unlocked = parseUnlockHeader(raw)

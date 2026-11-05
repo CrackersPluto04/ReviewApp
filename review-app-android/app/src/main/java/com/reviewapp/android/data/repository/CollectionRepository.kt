@@ -12,6 +12,11 @@ import com.reviewapp.android.data.remote.dto.ReorderMediaRequest
 import com.reviewapp.android.data.remote.dto.UpdateCollectionRequest
 import com.reviewapp.android.data.remote.map
 import com.reviewapp.android.data.sync.LocalLibrary
+import com.reviewapp.android.data.sync.OfflineWriteException
+import com.reviewapp.android.data.sync.OfflineWrites
+import com.reviewapp.android.data.sync.OpWait
+import com.reviewapp.android.data.sync.OutboxDescriber
+import com.reviewapp.android.data.local.offline.EntityType
 import com.reviewapp.android.domain.model.CollectionDetails
 import com.reviewapp.android.domain.model.Media
 import com.reviewapp.android.domain.model.MediaCollection
@@ -65,8 +70,11 @@ data class MyCollections(
     )
 }
 
-/** Emitted after the current user changed one of their collections or its media. */
-data class CollectionChange(val collectionId: Int)
+/**
+ * Emitted after the current user changed one of their collections or its media. [fromSync]: a sync updated the
+ * offline copy instead (doesn't trigger another sync).
+ */
+data class CollectionChange(val collectionId: Int, val fromSync: Boolean = false)
 
 class CollectionRepository(
     private val collectionApi: CollectionApi,
@@ -74,6 +82,7 @@ class CollectionRepository(
     private val sessionManager: SessionManager,
     private val appScope: CoroutineScope,
     private val local: LocalLibrary,
+    private val offline: OfflineWrites,
 ) {
     private val _mine = MutableStateFlow(MyCollections())
     val mine: StateFlow<MyCollections> = _mine.asStateFlow()
@@ -104,6 +113,13 @@ class CollectionRepository(
         loadJob?.cancel()
         _mine.update { it.copy(isLoading = true, error = null) }
         loadJob = appScope.launch {
+            // Changes of the collections wait to be sent: the copy has them as the user left them
+            if (local.hasPending(EntityType.COLLECTION)) {
+                offlineMine()?.let { mine ->
+                    _mine.value = mine
+                    return@launch
+                }
+            }
             val (collections, memberships) = coroutineScope {
                 val collections = async { apiCall(useSnapshot = false) { userApi.getCollections(username, DiscoverOptions.DEFAULT_COLLECTION_SORT) } }
                 val memberships = async { apiCall(useSnapshot = false) { collectionApi.getMemberships() } }
@@ -155,6 +171,11 @@ class CollectionRepository(
     // Optimistic: the cache changes first and is put back (and reloaded) if the request fails
     private suspend fun setMembershipLocked(media: Media, collectionId: Int, add: Boolean): ApiResult<Unit> {
         _mine.update { it.withMembership(media.key, collectionId, add) }
+        if (offline.writer.canWrite()) {
+            return offlineWrite(collectionId) { offline.writer.setInCollection(collectionId, media, add) }.also { result ->
+                if (result is ApiResult.Error) _mine.update { it.withMembership(media.key, collectionId, !add) }
+            }
+        }
         val result = apiCall {
             if (add) {
                 collectionApi.addMedia(collectionId, AddMediaRequest(media.mediaType.id, media.externalApiId))
@@ -174,17 +195,81 @@ class CollectionRepository(
 
     suspend fun userCollections(username: String, sortBy: String): ApiResult<List<MediaCollection>> = local.networkFirst(
         own = local.isMe(username),
+        pendingTypes = listOf(EntityType.COLLECTION),
         remote = { useSnapshot -> apiCall(useSnapshot) { userApi.getCollections(username, sortBy) }.map { list -> list.map { it.toDomain() } } },
         local = { collections(sortBy) },
     )
 
-    suspend fun details(id: Int): ApiResult<CollectionDetails> = local.networkFirst(
-        own = local.ownsCollection(id),
-        remote = { useSnapshot -> apiCall(useSnapshot) { collectionApi.getCollection(id) }.map { it.toDomain() } },
-        local = { collectionDetails(id) },
-    )
+    suspend fun details(id: Int): ApiResult<CollectionDetails> {
+        // Created offline: the real id once the backend has it
+        val realId = local.resolve(EntityType.COLLECTION, id)
+        return local.networkFirst(
+            own = local.ownsCollection(realId),
+            pendingTypes = listOf(EntityType.COLLECTION),
+            remote = { useSnapshot ->
+                if (realId < 0) ApiResult.Error("Collection not found.", 404)
+                else apiCall(useSnapshot) { collectionApi.getCollection(realId) }.map { it.toDomain() }
+            },
+            local = { collectionDetails(realId) },
+        )
+    }
+
+    /** Offline mode: applied to the offline copy and queued (the sync sends it). */
+    private suspend fun offlineWrite(collectionId: Int, write: suspend () -> Unit): ApiResult<Unit> = try {
+        write()
+        _changes.tryEmit(CollectionChange(collectionId))
+        ApiResult.Success(Unit)
+    } catch (e: OfflineWriteException) {
+        ApiResult.Error(e.message ?: "Could not change the collection.")
+    }
+
+    /** A sync applied changes: the hearts reload, and so do the lists (temporary ids became real ones). */
+    fun onSynced() {
+        refresh()
+        _changes.tryEmit(CollectionChange(collectionId = 0, fromSync = true))
+    }
+
+    /**
+     * Offline mode: a name the copy already has is refused at once; online the answer is awaited a moment, so a name
+     * taken on the web meanwhile is refused like before (the queued change is thrown away).
+     */
+    private suspend fun createOffline(name: String, visibility: Visibility): ApiResult<MediaCollection> {
+        val (entity, op) = try {
+            offline.writer.createCollection(name, visibility)
+        } catch (e: OfflineWriteException) {
+            return ApiResult.Error(e.message ?: "Could not create the collection.")
+        }
+        val wait = offline.engine.awaitOp(op.opId)
+        if (wait is OpWait.Issue) {
+            offline.writer.discard(op.seq)
+            return ApiResult.Error(OutboxDescriber.reasonMessage(wait.reason))
+        }
+        // Applied: the backend's id is in id_map now (the list reloads with it through the sync's event)
+        val id = local.resolve(EntityType.COLLECTION, entity.id)
+        val collection = MediaCollection(id, entity.name, Visibility.fromId(entity.visibility), entity.createdAt.take(10), 0, isOwner = true, isDefault = false, syncState = entity.syncState)
+        _mine.update { it.copy(collections = it.collections + collection) }
+        _changes.tryEmit(CollectionChange(collection.id))
+        return ApiResult.Success(collection)
+    }
+
+    private suspend fun updateOffline(collection: MediaCollection, name: String, visibility: Visibility): ApiResult<MediaCollection> {
+        val op = try {
+            offline.writer.updateCollection(collection.id, name, visibility)
+        } catch (e: OfflineWriteException) {
+            return ApiResult.Error(e.message ?: "Could not save the collection.")
+        }
+        if (offline.engine.awaitOp(op.opId).let { it is OpWait.Issue && it.reason == "name_taken" }) {
+            offline.writer.discard(op.seq)
+            return ApiResult.Error(OutboxDescriber.reasonMessage("name_taken"))
+        }
+        val updated = collection.copy(name = name.trim(), visibility = visibility)
+        _mine.update { mine -> mine.copy(collections = mine.collections.map { if (it.id == collection.id) updated else it }) }
+        _changes.tryEmit(CollectionChange(collection.id))
+        return ApiResult.Success(updated)
+    }
 
     suspend fun create(name: String, visibility: Visibility): ApiResult<MediaCollection> {
+        if (offline.writer.canWrite()) return createOffline(name, visibility)
         val result = apiCall { collectionApi.create(CreateCollectionRequest(name.trim(), visibility.id)) }
             .map { it.toDomain() }
         if (result is ApiResult.Success) {
@@ -195,6 +280,7 @@ class CollectionRepository(
     }
 
     suspend fun update(collection: MediaCollection, name: String, visibility: Visibility): ApiResult<MediaCollection> {
+        if (offline.writer.canWrite()) return updateOffline(collection, name, visibility)
         val result = apiCall {
             collectionApi.update(UpdateCollectionRequest(collection.id, name.trim(), visibility.id))
         }.map { collection.copy(name = it.name, visibility = visibility) }
@@ -208,7 +294,11 @@ class CollectionRepository(
     }
 
     suspend fun delete(collectionId: Int): ApiResult<Unit> {
-        val result = apiCall { collectionApi.delete(collectionId) }
+        val result = if (offline.writer.canWrite()) {
+            offlineWrite(collectionId) { offline.writer.deleteCollection(collectionId) }
+        } else {
+            apiCall { collectionApi.delete(collectionId) }
+        }
         if (result is ApiResult.Success) {
             _mine.update { it.withoutCollection(collectionId) }
             _changes.tryEmit(CollectionChange(collectionId))
@@ -216,7 +306,12 @@ class CollectionRepository(
         return result
     }
 
-    /** Moves one media to [newIndex] (0-based, the API shifts the rest). */
-    suspend fun reorder(collectionId: Int, dbMediaId: Int, newIndex: Int): ApiResult<Unit> =
-        apiCall { collectionApi.reorder(collectionId, ReorderMediaRequest(dbMediaId, newIndex)) }
+    /**
+     * Moves one media to [newIndex] (0-based, the API shifts the rest). Offline mode sends the whole [order] instead
+     * (media added offline have no backend id to move yet).
+     */
+    suspend fun reorder(collectionId: Int, dbMediaId: Int, newIndex: Int, order: List<Media>): ApiResult<Unit> {
+        if (offline.writer.canWrite()) return offlineWrite(collectionId) { offline.writer.reorder(collectionId, order) }
+        return apiCall { collectionApi.reorder(collectionId, ReorderMediaRequest(dbMediaId, newIndex)) }
+    }
 }

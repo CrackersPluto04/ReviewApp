@@ -109,7 +109,8 @@ class CollectionViewModel(
         val end = _state.value.items.indexOfFirst { it.dbMediaId == dbMediaId }
         if (end < 0 || end == start) return
         viewModelScope.launch {
-            val result = reorderMutex.withLock { collectionRepository.reorder(collectionId, dbMediaId, end) }
+            val order = _state.value.items.map { it.media }
+            val result = reorderMutex.withLock { collectionRepository.reorder(collectionId, dbMediaId, end, order) }
             if (result is ApiResult.Error) {
                 _events.send(CollectionEvent.Message(result.message))
                 load(quiet = true)

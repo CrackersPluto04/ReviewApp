@@ -49,6 +49,9 @@ abstract class OfflineDatabase : RoomDatabase() {
     abstract fun notifications(): NotificationDao
     abstract fun snapshots(): SnapshotDao
     abstract fun shadows(): ShadowDao
+    abstract fun idMap(): IdMapDao
+    abstract fun drafts(): DraftDao
+    abstract fun pendingUnlocks(): PendingUnlockDao
 
     companion object {
         @Volatile private var libraryLoaded = false

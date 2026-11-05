@@ -4,7 +4,13 @@ import android.util.Log
 import androidx.room.withTransaction
 import com.reviewapp.android.data.local.offline.EntityType
 import com.reviewapp.android.data.local.offline.OfflineDatabase
+import com.reviewapp.android.data.local.offline.OutboxState
 import com.reviewapp.android.data.local.offline.SyncMetaKeys
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.withTimeoutOrNull
 import com.reviewapp.android.data.remote.ApiResult
 import com.reviewapp.android.data.remote.SyncApi
 import com.reviewapp.android.data.remote.apiCall
@@ -36,17 +42,27 @@ sealed interface SyncOutcome {
     data class Failed(val message: String, val isNetwork: Boolean) : SyncOutcome
 }
 
+/** Where an awaited op is ([SyncEngine.awaitOp]). */
+sealed interface OpWait {
+    data object Applied : OpWait
+    /** Still queued (offline, or no answer within the wait). */
+    data object Queued : OpWait
+    data class Issue(val reason: String?) : OpWait
+}
+
 /**
- * Keeps the offline copy current: one run at a time (a [Mutex]), triggers while one runs fold into one more run
- * (a conflated channel). A run pulls the changes feed into the tables page by page (each page in one transaction,
- * so an interruption leaves a consistent copy), then drops cached content its owners have hidden since, and keeps
- * the cache within its budget. Offline editing adds the push in front of the pull.
+ * Keeps the offline copy and the backend in step: one run at a time (a [Mutex]), triggers while one runs fold into
+ * one more run (a conflated channel). A run first sends the queued changes ([PushRunner]), then pulls the changes
+ * feed into the tables page by page (each page in one transaction, so an interruption leaves a consistent copy;
+ * pulling after pushing means a refresh never lands on top of a change still waiting), then drops cached content
+ * its owners have hidden since, and keeps the cache within its budget.
  */
 class SyncEngine(
     private val syncApi: SyncApi,
     private val gateway: OfflineGateway,
     private val connectivity: ConnectivityMonitor,
     private val snapshots: SnapshotInterceptor,
+    private val pushRunner: PushRunner,
     private val scope: CoroutineScope,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
@@ -56,10 +72,20 @@ class SyncEngine(
     private val _running = MutableStateFlow(false)
     val running: StateFlow<Boolean> = _running.asStateFlow()
 
+    /** Set while the backend asked to slow down (429): the sync continues by itself at that time. */
+    private val _pausedUntil = MutableStateFlow<Long?>(null)
+    val pausedUntil: StateFlow<Long?> = _pausedUntil.asStateFlow()
+
     private val _lastOutcome = MutableStateFlow<SyncOutcome?>(null)
     val lastOutcome: StateFlow<SyncOutcome?> = _lastOutcome.asStateFlow()
 
+    /** After a push that applied changes (screens showing temporary ids reload, the hearts refresh). */
+    private val _pushed = MutableSharedFlow<PushOutcome.Done>(extraBufferCapacity = 4)
+    val pushed: SharedFlow<PushOutcome.Done> = _pushed.asSharedFlow()
+
     private var lastVisibilityCheck = 0L
+    private var recoveredDb: OfflineDatabase? = null
+    private var wakeUp: Job? = null
 
     /** [changes]: the user's own online writes (they change the copy on the backend). */
     @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
@@ -90,16 +116,62 @@ class SyncEngine(
     /** One run now (the settings' "Sync now", the library download); waits for a running one first. */
     suspend fun syncNow(): SyncOutcome = runOnce()
 
+    /** Only sends the queue (the background job: no pull, no banners). */
+    suspend fun pushOnly(): PushOutcome? = mutex.withLock {
+        val db = gateway.database() ?: return@withLock null
+        try {
+            recoverOnce(db)
+            pushRunner.push(db).also { if (it is PushOutcome.Done && it.applied > 0) _pushed.tryEmit(it) }
+        } catch (e: Exception) {
+            Log.w(TAG, "Push failed", e)
+            PushOutcome.Failed(e.message ?: "Sync failed")
+        }
+    }
+
+    /**
+     * Waits a moment for one op's answer while online (so a form can show "name taken" like it did before offline
+     * mode); offline, or without an answer in time, the op just stays queued.
+     */
+    suspend fun awaitOp(opId: String, timeoutMillis: Long = AWAIT_MILLIS): OpWait {
+        if (connectivity.connectivity.value != Connectivity.Online) return OpWait.Queued
+        val db = gateway.database() ?: return OpWait.Queued
+        requestSync()
+        return withTimeoutOrNull(timeoutMillis) { pollOp(db, opId) } ?: OpWait.Queued
+    }
+
+    private suspend fun pollOp(db: OfflineDatabase, opId: String): OpWait {
+        while (true) {
+            val op = try {
+                db.outbox().all().firstOrNull { it.opId == opId }
+            } catch (_: Exception) {
+                return OpWait.Queued
+            }
+            when {
+                op == null -> return OpWait.Applied
+                op.state == OutboxState.CONFLICT || op.state == OutboxState.REJECTED -> return OpWait.Issue(op.lastReason)
+            }
+            delay(AWAIT_POLL_MILLIS)
+        }
+    }
+
     private suspend fun runOnce(): SyncOutcome = mutex.withLock {
         val mode = gateway.status.value.mode
         val db = gateway.database()
-        // Draining only sends what waits (the copy goes away), a pull would be wasted
-        if (db == null || mode is OfflineMode.Draining || connectivity.connectivity.value != Connectivity.Online) {
-            return@withLock SyncOutcome.Skipped
-        }
+        if (db == null || connectivity.connectivity.value != Connectivity.Online) return@withLock SyncOutcome.Skipped
         _running.value = true
         val outcome = try {
-            pull(db).also { if (it == SyncOutcome.Done) afterPull(db) }
+            recoverOnce(db)
+            when (val pushed = pushRunner.push(db)) {
+                PushOutcome.Offline -> SyncOutcome.Failed("You're offline.", isNetwork = true)
+                PushOutcome.NeedsLogin -> SyncOutcome.Failed("Log in again to sync your changes.", isNetwork = false)
+                else -> {
+                    if (pushed is PushOutcome.Done && pushed.applied > 0) _pushed.tryEmit(pushed)
+                    _pausedUntil.value = (pushed as? PushOutcome.Paused)?.untilMillis
+                    // Draining only sends what waits (the copy goes away), a pull would be wasted
+                    if (mode is OfflineMode.Draining) SyncOutcome.Done
+                    else pull(db).also { if (it == SyncOutcome.Done) afterPull(db) }
+                }
+            }
         } catch (e: Exception) {
             // The copy was closed (logout, switched off) or the device ran out of space
             Log.w(TAG, "Sync run failed", e)
@@ -107,8 +179,30 @@ class SyncEngine(
         } finally {
             _running.value = false
         }
+        scheduleWakeUp(db)
         _lastOutcome.value = outcome
         outcome
+    }
+
+    private suspend fun recoverOnce(db: OfflineDatabase) {
+        if (recoveredDb === db) return
+        pushRunner.recover(db)
+        recoveredDb = db
+    }
+
+    /** Runs again when the earliest waiting op may be retried (or the 429 pause ends). */
+    private suspend fun scheduleWakeUp(db: OfflineDatabase) {
+        val next = try {
+            listOfNotNull(db.outbox().nextAttemptAt(), _pausedUntil.value).filter { it > clock() }.minOrNull()
+        } catch (_: Exception) {
+            null
+        } ?: return
+        wakeUp?.cancel()
+        wakeUp = scope.launch {
+            delay(next - clock())
+            _pausedUntil.value = null
+            requestSync()
+        }
     }
 
     private suspend fun pull(db: OfflineDatabase): SyncOutcome {
@@ -162,7 +256,7 @@ class SyncEngine(
         return PendingEntities(
             reviewIds = outbox.pendingIds(EntityType.REVIEW).toSet(),
             collectionIds = outbox.pendingIds(EntityType.COLLECTION).toSet(),
-            followUserIds = outbox.pendingIds(EntityType.FOLLOW).toSet(),
+            followUserIds = (outbox.pendingIds(EntityType.FOLLOW) + outbox.pendingIds(EntityType.FOLLOWER)).toSet(),
             notificationIds = outbox.pendingIds(EntityType.NOTIFICATION).toSet(),
             profile = outbox.pendingIds(EntityType.PROFILE).isNotEmpty() || outbox.bulkCount(EntityType.PROFILE) > 0,
             notificationBulk = outbox.bulkCount(EntityType.NOTIFICATION) > 0,
@@ -241,6 +335,8 @@ class SyncEngine(
         /** The API's limit of ids per visibility check. */
         const val MAX_VISIBLE_IDS = 1000
         const val CHANGES_DEBOUNCE_MILLIS = 2_000L
+        const val AWAIT_MILLIS = 5_000L
+        const val AWAIT_POLL_MILLIS = 150L
         const val PERIODIC_MILLIS = 10 * 60_000L
         const val VISIBILITY_EVERY_MILLIS = 30 * 60_000L
         /** Opened media kept for the offline search beyond the user's own content. */

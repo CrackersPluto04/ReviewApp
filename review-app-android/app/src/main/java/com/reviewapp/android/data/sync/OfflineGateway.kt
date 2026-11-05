@@ -40,7 +40,11 @@ data class OfflineStatus(
     val graceLeftMillis: Long? = null,
     /** Device time (epoch millis) when "Make available offline" last finished. */
     val libraryDownloadedAt: Long? = null,
-)
+    /** Of [pendingChanges], the ones in Sync issues (the rest are still to be sent). */
+    val issues: Int = 0,
+) {
+    val toSend: Int get() = (pendingChanges - issues).coerceAtLeast(0)
+}
 
 /**
  * Decides, for the logged-in user, whether the offline path is used ([OfflineMode], rules in [OfflineModeRules]),
@@ -94,6 +98,7 @@ class OfflineGateway(
         val lastSyncedAt: Long?,
         val graceLeftMillis: Long?,
         val libraryDownloadedAt: Long? = null,
+        val issues: Int = 0,
     )
 
     private fun inputsOf(user: AuthUser): Flow<Inputs> {
@@ -129,12 +134,14 @@ class OfflineGateway(
                                 db.syncMeta().observe(SyncMetaKeys.LAST_SYNCED_AT),
                                 db.syncMeta().observe(SyncMetaKeys.LIBRARY_DOWNLOADED_AT),
                                 db.outbox().observeCount(),
-                            ) { prepared, lastSynced, downloaded, pending ->
+                                db.outbox().observeIssueCount(),
+                            ) { prepared, lastSynced, downloaded, pending, issues ->
                                 Inputs(
                                     input(prepared == "true", hasLocalCopy = true, pending),
                                     lastSynced?.toLongOrNull(),
                                     graceLeft,
                                     downloaded?.toLongOrNull(),
+                                    issues,
                                 )
                             },
                         )
@@ -158,6 +165,7 @@ class OfflineGateway(
         val decision = OfflineModeRules.decide(inputs.input)
         _status.value = OfflineStatus(
             decision.mode, inputs.input.pendingChanges, inputs.lastSyncedAt, inputs.graceLeftMillis, inputs.libraryDownloadedAt,
+            inputs.issues,
         )
         val userId = inputs.input.userId
         if (decision.deleteLocalCopy && userId != null) {

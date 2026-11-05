@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "202427a400cdb37006ba436d2e31f1d4",
+    "identityHash": "2faef18cf87acded5fe092e39d76b5fc",
     "entities": [
       {
         "tableName": "reviews",
@@ -669,7 +669,7 @@
       },
       {
         "tableName": "outbox",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`seq` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `opId` TEXT NOT NULL, `type` TEXT NOT NULL, `entityType` INTEGER NOT NULL, `entityId` INTEGER, `clientRef` TEXT, `dependsOn` TEXT, `payloadJson` TEXT NOT NULL, `baseVersion` INTEGER, `state` INTEGER NOT NULL, `attempts` INTEGER NOT NULL, `nextAttemptAt` INTEGER NOT NULL, `lastReason` TEXT, `resultJson` TEXT, `createdAt` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`seq` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `opId` TEXT NOT NULL, `type` TEXT NOT NULL, `entityType` INTEGER NOT NULL, `entityId` INTEGER, `clientRef` TEXT, `dependsOn` TEXT, `payloadJson` TEXT NOT NULL, `state` INTEGER NOT NULL, `attempts` INTEGER NOT NULL, `nextAttemptAt` INTEGER NOT NULL, `lastReason` TEXT, `resultJson` TEXT, `createdAt` INTEGER NOT NULL)",
         "fields": [
           {
             "fieldPath": "seq",
@@ -715,11 +715,6 @@
             "columnName": "payloadJson",
             "affinity": "TEXT",
             "notNull": true
-          },
-          {
-            "fieldPath": "baseVersion",
-            "columnName": "baseVersion",
-            "affinity": "INTEGER"
           },
           {
             "fieldPath": "state",
@@ -911,7 +906,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '202427a400cdb37006ba436d2e31f1d4')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '2faef18cf87acded5fe092e39d76b5fc')"
     ]
   }
 }

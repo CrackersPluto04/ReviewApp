@@ -35,6 +35,10 @@ interface OutboxDao {
     @Query("SELECT COUNT(*) FROM outbox")
     suspend fun count(): Int
 
+    /** Changes in Sync issues (conflicts and rejections waiting for the user). */
+    @Query("SELECT COUNT(*) FROM outbox WHERE state IN (2, 3)")
+    fun observeIssueCount(): Flow<Int>
+
     /** The local ids of entities of [entityType] with a pending change. */
     @Query("SELECT DISTINCT entityId FROM outbox WHERE entityType = :entityType AND entityId IS NOT NULL")
     suspend fun pendingIds(entityType: Int): List<Int>
@@ -42,6 +46,72 @@ interface OutboxDao {
     /** Pending changes of [entityType] that aren't about one entity (mark all seen, delete all seen). */
     @Query("SELECT COUNT(*) FROM outbox WHERE entityType = :entityType AND entityId IS NULL")
     suspend fun bulkCount(entityType: Int): Int
+
+    @Query("SELECT COUNT(*) FROM outbox WHERE entityType = :entityType")
+    suspend fun countOf(entityType: Int): Int
+
+    /** Every queued change in the order the user made them. */
+    @Query("SELECT * FROM outbox ORDER BY seq")
+    suspend fun all(): List<OutboxEntity>
+
+    @Query("SELECT * FROM outbox ORDER BY seq")
+    fun observeAll(): Flow<List<OutboxEntity>>
+
+    @Insert
+    suspend fun insert(op: OutboxEntity): Long
+
+    @androidx.room.Update
+    suspend fun update(ops: List<OutboxEntity>)
+
+    @Query("DELETE FROM outbox WHERE seq IN (:seqs)")
+    suspend fun delete(seqs: List<Long>)
+
+    @Query("UPDATE outbox SET state = :to WHERE state = :from")
+    suspend fun moveState(from: Int, to: Int)
+
+    /** After a create got its real id: the later changes of the entity point at it. */
+    @Query("UPDATE outbox SET entityId = :realId WHERE entityType = :entityType AND entityId = :tempId")
+    suspend fun remap(entityType: Int, tempId: Int, realId: Int)
+
+    @Query("SELECT MIN(nextAttemptAt) FROM outbox WHERE state = 0")
+    suspend fun nextAttemptAt(): Long?
+
+    /** Changes still to send (not the ones in Sync issues). */
+    @Query("SELECT COUNT(*) FROM outbox WHERE state IN (0, 1)")
+    suspend fun countToSend(): Int
+}
+
+@Dao
+interface IdMapDao {
+    @Upsert
+    suspend fun put(entry: IdMapEntity)
+
+    @Query("SELECT realId FROM id_map WHERE entityType = :entityType AND tempId = :tempId")
+    suspend fun realId(entityType: Int, tempId: Int): Int?
+}
+
+@Dao
+interface DraftDao {
+    @Query("SELECT * FROM drafts WHERE `key` = :key")
+    suspend fun get(key: String): DraftEntity?
+
+    @Upsert
+    suspend fun put(draft: DraftEntity)
+
+    @Query("DELETE FROM drafts WHERE `key` = :key")
+    suspend fun delete(key: String)
+}
+
+@Dao
+interface PendingUnlockDao {
+    @Insert
+    suspend fun insert(unlock: PendingUnlockEntity)
+
+    @Query("SELECT * FROM pending_unlocks ORDER BY id")
+    suspend fun all(): List<PendingUnlockEntity>
+
+    @Query("DELETE FROM pending_unlocks")
+    suspend fun clear()
 }
 
 /** A review with the title and poster of its media. */
@@ -82,6 +152,16 @@ interface ReviewDao {
 
     @Query("UPDATE reviews SET replyCount = :replyCount WHERE id = :id")
     suspend fun setReplyCount(id: Int, replyCount: Int)
+
+    @Query("SELECT * FROM reviews WHERE id = :id")
+    suspend fun entity(id: Int): ReviewEntity?
+
+    @Query("UPDATE reviews SET syncState = :state WHERE id = :id")
+    suspend fun setSyncState(id: Int, state: Int)
+
+    /** A review created offline got its real id. */
+    @Query("UPDATE reviews SET id = :realId WHERE id = :tempId")
+    suspend fun remapId(tempId: Int, realId: Int)
 }
 
 data class ReplyCountRow(val id: Int, val replyCount: Int)
@@ -141,6 +221,25 @@ interface CollectionDao {
         deleteItems(collectionId)
         if (items.isNotEmpty()) insertItems(items)
     }
+
+    @Query("SELECT * FROM collections WHERE id = :id")
+    suspend fun entity(id: Int): CollectionEntity?
+
+    @Query("SELECT * FROM collection_items WHERE collectionId = :collectionId ORDER BY orderIndex")
+    suspend fun itemsOf(collectionId: Int): List<CollectionItemEntity>
+
+    @Query("DELETE FROM collection_items WHERE collectionId = :collectionId AND mediaType = :mediaType AND externalApiId = :externalApiId")
+    suspend fun deleteItem(collectionId: Int, mediaType: Int, externalApiId: String)
+
+    @Query("UPDATE collections SET syncState = :state WHERE id = :id")
+    suspend fun setSyncState(id: Int, state: Int)
+
+    @Query("UPDATE collection_items SET syncState = :state WHERE collectionId = :collectionId")
+    suspend fun setItemsSyncState(collectionId: Int, state: Int)
+
+    /** A collection created offline got its real id (its items follow through the foreign key). */
+    @Query("UPDATE collections SET id = :realId WHERE id = :tempId")
+    suspend fun remapId(tempId: Int, realId: Int)
 }
 
 @Dao
@@ -224,6 +323,15 @@ interface FollowDao {
     @Upsert
     suspend fun upsertUsers(users: List<KnownUserEntity>)
 
+    @Query("SELECT * FROM follows WHERE followerId = :followerId AND followingId = :followingId")
+    suspend fun get(followerId: Int, followingId: Int): FollowEntity?
+
+    @Query("SELECT * FROM known_users")
+    suspend fun knownUsers(): List<KnownUserEntity>
+
+    @Query("DELETE FROM follows WHERE followerId = :followerId AND followingId = :followingId")
+    suspend fun delete(followerId: Int, followingId: Int)
+
     /** Replaces the follow rows, keeping the ones of users with a pending change. */
     @Transaction
     suspend fun replace(follows: List<FollowEntity>, keepUserIds: Set<Int>, users: List<KnownUserEntity>) {
@@ -253,6 +361,31 @@ interface NotificationDao {
         deleteAllExcept(keepIds.ifEmpty { setOf(0) }.toList())
         if (notifications.isNotEmpty()) insert(notifications)
     }
+
+    /** Also a deleted one (its delete waits to be sent). */
+    @Query("SELECT * FROM notifications WHERE id = :id")
+    suspend fun get(id: Int): NotificationEntity?
+
+    @Query("SELECT MAX(id) FROM notifications")
+    suspend fun maxId(): Int?
+
+    @Query("UPDATE notifications SET isSeen = :seen, syncState = :state WHERE id = :id")
+    suspend fun setSeen(id: Int, seen: Boolean, state: Int)
+
+    @Query("UPDATE notifications SET deleted = 1, syncState = :state WHERE id = :id")
+    suspend fun markDeleted(id: Int, state: Int)
+
+    @Query("UPDATE notifications SET isSeen = 1 WHERE id <= :upToId")
+    suspend fun markAllSeen(upToId: Int)
+
+    @Query("UPDATE notifications SET deleted = 1 WHERE isSeen = 1 AND id <= :upToId")
+    suspend fun deleteSeen(upToId: Int)
+
+    @Query("UPDATE notifications SET syncState = :state WHERE id = :id")
+    suspend fun setSyncState(id: Int, state: Int)
+
+    @Query("DELETE FROM notifications WHERE id = :id")
+    suspend fun remove(id: Int)
 }
 
 /** A snapshot's size and age, for the cache budget. */
@@ -293,4 +426,13 @@ interface SnapshotDao {
 interface ShadowDao {
     @Upsert
     suspend fun upsert(shadows: List<ServerShadowEntity>)
+
+    @Query("SELECT * FROM server_shadow WHERE entityType = :entityType AND entityId = :entityId")
+    suspend fun get(entityType: Int, entityId: Int): ServerShadowEntity?
+
+    @Query("SELECT * FROM server_shadow")
+    suspend fun all(): List<ServerShadowEntity>
+
+    @Query("DELETE FROM server_shadow WHERE entityType = :entityType AND entityId = :entityId")
+    suspend fun delete(entityType: Int, entityId: Int)
 }
