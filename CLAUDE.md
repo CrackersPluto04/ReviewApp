@@ -99,6 +99,7 @@ Run all commands from `review-app-android/` (Windows: `gradlew.bat`). Gradle nee
 gradlew assembleDebug         # build the debug APK
 gradlew installDebug          # install on the running emulator/device
 gradlew testDebugUnitTest     # JVM unit tests (validation, formatting, API JSON parsing)
+gradlew connectedDebugAndroidTest # instrumented tests on the running emulator/device (the encrypted offline database)
 adb reverse tcp:7140 tcp:7140 # once per emulator/device boot, see below
 adb reverse tcp:5062 tcp:5062 # same, for the checkout return page in the browser
 ```
@@ -112,8 +113,10 @@ adb reverse tcp:5062 tcp:5062 # same, for the checkout return page in the browse
   del %TEMP%\aspnet_dev_cert.pem %TEMP%\aspnet_dev_cert.key
   ```
   Release builds trust only the system CAs. Without the file the debug build fails (`resource raw/aspnet_dev_cert not found`).
-- **CI**: `.github/workflows/android-tests.yml` runs on pull requests and pushes to `main` touching `review-app-android/` (or by hand, `workflow_dispatch`): JDK 25 (the daemon JVM in `gradle/gradle-daemon-jvm.properties`), Gradle cache (`cache-provider: basic`), a throwaway self-signed `aspnet_dev_cert.pem` (key discarded) so the debug resources link, then `testDebugUnitTest assembleDebug`; test results and the HTML report are uploaded as the `android-test-results` artifact. No emulator (`androidTest` only has the template test), no secrets.
+- **CI**: `.github/workflows/android-tests.yml` runs on pull requests and pushes to `main` touching `review-app-android/` (or by hand, `workflow_dispatch`): JDK 25 (the daemon JVM in `gradle/gradle-daemon-jvm.properties`), Gradle cache (`cache-provider: basic`), a throwaway self-signed `aspnet_dev_cert.pem` (key discarded) so the debug resources link, then `testDebugUnitTest assembleDebug`; test results and the HTML report are uploaded as the `android-test-results` artifact. No emulator (the `androidTest` suite, which needs a device for SQLCipher's native library, is run locally), no secrets.
 - `libs.versions.toml` holds all dependency versions. AGP 9 has built-in Kotlin, so the `kotlin-android` plugin entry is not applied.
+- **Room and KSP**: Room runs through KSP2 (`com.google.devtools.ksp`, versioned independently of Kotlin; it works with AGP's built-in Kotlin). The Room Gradle plugin exports every `OfflineDatabase` schema version to `app/schemas/` (committed, the base of migration tests). `kotlinx-coroutines-test` is pinned to the coroutines version the app resolves (Room, lifecycle), so unit tests run on the same coroutines core as the app.
+- **Offline database** (`data/local/offline/OfflineDatabase`): Room on SQLCipher (`net.zetetic:sqlcipher-android`, `SupportOpenHelperFactory` with a raw 32 byte key; `OfflineDatabase.open` loads the native library once). The AAR ships its own R8 keep rules and adds about 2 MB of native code per ABI. Schema changes need an explicit migration, never a destructive one (the outbox holds changes that exist nowhere else).
 
 ## Architecture
 
