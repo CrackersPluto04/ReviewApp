@@ -38,6 +38,8 @@ data class OfflineStatus(
     val lastSyncedAt: Long? = null,
     /** Millis left of the grace period while the session isn't verified (null while verified). */
     val graceLeftMillis: Long? = null,
+    /** Device time (epoch millis) when "Make available offline" last finished. */
+    val libraryDownloadedAt: Long? = null,
 )
 
 /**
@@ -87,7 +89,12 @@ class OfflineGateway(
         }
     }
 
-    private class Inputs(val input: OfflineModeInput, val lastSyncedAt: Long?, val graceLeftMillis: Long?)
+    private class Inputs(
+        val input: OfflineModeInput,
+        val lastSyncedAt: Long?,
+        val graceLeftMillis: Long?,
+        val libraryDownloadedAt: Long? = null,
+    )
 
     private fun inputsOf(user: AuthUser): Flow<Inputs> {
         val entitled = FeatureKeys.OFFLINE_MODE in user.entitlements
@@ -120,9 +127,15 @@ class OfflineGateway(
                             combine(
                                 db.syncMeta().observe(SyncMetaKeys.PREPARED),
                                 db.syncMeta().observe(SyncMetaKeys.LAST_SYNCED_AT),
+                                db.syncMeta().observe(SyncMetaKeys.LIBRARY_DOWNLOADED_AT),
                                 db.outbox().observeCount(),
-                            ) { prepared, lastSynced, pending ->
-                                Inputs(input(prepared == "true", hasLocalCopy = true, pending), lastSynced?.toLongOrNull(), graceLeft)
+                            ) { prepared, lastSynced, downloaded, pending ->
+                                Inputs(
+                                    input(prepared == "true", hasLocalCopy = true, pending),
+                                    lastSynced?.toLongOrNull(),
+                                    graceLeft,
+                                    downloaded?.toLongOrNull(),
+                                )
                             },
                         )
                     }
@@ -143,7 +156,9 @@ class OfflineGateway(
             return
         }
         val decision = OfflineModeRules.decide(inputs.input)
-        _status.value = OfflineStatus(decision.mode, inputs.input.pendingChanges, inputs.lastSyncedAt, inputs.graceLeftMillis)
+        _status.value = OfflineStatus(
+            decision.mode, inputs.input.pendingChanges, inputs.lastSyncedAt, inputs.graceLeftMillis, inputs.libraryDownloadedAt,
+        )
         val userId = inputs.input.userId
         if (decision.deleteLocalCopy && userId != null) {
             lock.withLock { databases.delete(userId) }

@@ -37,6 +37,9 @@ import com.reviewapp.android.data.remote.dto.ReviewDetailDto
 import com.reviewapp.android.data.remote.dto.ReviewMediaRequest
 import com.reviewapp.android.data.remote.dto.SecurityStatusDto
 import com.reviewapp.android.data.remote.dto.SetSeenRequest
+import com.reviewapp.android.data.remote.dto.SyncChangesDto
+import com.reviewapp.android.data.remote.dto.SyncVisibleDto
+import com.reviewapp.android.data.remote.dto.SyncVisibleRequest
 import com.reviewapp.android.data.remote.dto.TwoFactorLoginRequest
 import com.reviewapp.android.data.remote.dto.TwoFactorResendRequest
 import com.reviewapp.android.data.remote.dto.TwoFactorCodeRequest
@@ -59,6 +62,20 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 // One interface per API controller, paths are relative to BuildConfig.API_BASE_URL (".../api/").
+
+/** The offline sync: the changes feed and the visibility check (the push comes with offline editing). */
+interface SyncApi {
+    @GET("Sync/changes")
+    suspend fun changes(
+        @Query("since") since: Long,
+        @Query("syncedAt") syncedAt: String?,
+        @Query("continued") continued: Boolean,
+        @Query("limit") limit: Int,
+    ): SyncChangesDto
+
+    @POST("Sync/visible")
+    suspend fun visible(@Body body: SyncVisibleRequest): SyncVisibleDto
+}
 
 interface AuthApi {
     @POST("Auth/register")

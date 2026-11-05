@@ -7,6 +7,7 @@ import com.reviewapp.android.data.remote.NotificationApi
 import com.reviewapp.android.data.remote.apiCall
 import com.reviewapp.android.data.remote.dto.SetSeenRequest
 import com.reviewapp.android.data.remote.map
+import com.reviewapp.android.data.sync.LocalLibrary
 import com.reviewapp.android.domain.model.NotificationPage
 import com.reviewapp.android.domain.model.NotificationSort
 import com.reviewapp.android.domain.model.NotificationStatus
@@ -31,6 +32,7 @@ class NotificationRepository(
     private val api: NotificationApi,
     private val sessionManager: SessionManager,
     private val scope: CoroutineScope,
+    private val local: LocalLibrary,
 ) {
     private val _unseenCount = MutableStateFlow(0)
     val unseenCount: StateFlow<Int> = _unseenCount.asStateFlow()
@@ -57,8 +59,12 @@ class NotificationRepository(
     suspend fun refreshUnseen() {
         if (!isLoggedIn) return
         val current = session.get()
-        val result = apiCall { api.getUnseenCount() }
-        if (result is ApiResult.Success && current == session.get()) _unseenCount.value = result.data.count
+        val result = local.networkFirst(
+            own = true,
+            remote = { useSnapshot -> apiCall(useSnapshot) { api.getUnseenCount() }.map { it.count } },
+            local = { unseenCount() },
+        )
+        if (result is ApiResult.Success && current == session.get()) _unseenCount.value = result.data
     }
 
     /**
@@ -86,8 +92,13 @@ class NotificationRepository(
     /** [afterId] is the id of the last notification of the previous page. */
     suspend fun list(status: NotificationStatus, sort: NotificationSort, afterId: Int?): ApiResult<NotificationPage> {
         val current = session.get()
-        val result = apiCall { api.getNotifications(status.apiValue, sort.apiValue, afterId, PAGE_SIZE) }
-            .map { it.toDomain() }
+        val result = local.networkFirst(
+            own = true,
+            remote = { useSnapshot ->
+                apiCall(useSnapshot) { api.getNotifications(status.apiValue, sort.apiValue, afterId, PAGE_SIZE) }.map { it.toDomain() }
+            },
+            local = { notifications(status, sort, afterId, PAGE_SIZE) },
+        )
         if (result is ApiResult.Success && current == session.get()) setUnseen(result.data.unseenCount)
         return result
     }

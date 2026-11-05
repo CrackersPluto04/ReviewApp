@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -47,6 +48,8 @@ import com.reviewapp.android.domain.model.UserSummary
 import com.reviewapp.android.ui.components.BackButton
 import com.reviewapp.android.ui.components.EmptyState
 import com.reviewapp.android.ui.components.ErrorState
+import com.reviewapp.android.ui.components.OfflineNotice
+import com.reviewapp.android.ui.offline.LocalIsOnline
 import com.reviewapp.android.ui.components.UserAvatar
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -154,6 +157,9 @@ fun UserSearchScreen(
     ) { padding ->
         val modifier = Modifier.fillMaxSize().padding(padding)
         when {
+            !LocalIsOnline.current -> Column(modifier.padding(16.dp)) {
+                OfflineNotice("Searching users needs a connection. The people you follow are on your profile.")
+            }
             state.error != null -> ErrorState(state.error!!, viewModel::retry, modifier)
             state.searched && state.results.isEmpty() -> EmptyState("No users found.", modifier)
             state.query.isBlank() -> EmptyState("Search for other users by their username.", modifier)

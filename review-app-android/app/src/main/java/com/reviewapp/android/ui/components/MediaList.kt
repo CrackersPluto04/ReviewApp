@@ -50,7 +50,7 @@ fun MediaList(
                         onClick = onOpenMedia,
                     )
                 }
-                item { ListFooter(list.isLoading, list.error, onRetry) }
+                item { ListFooter(list, onRetry) }
             }
         }
     }

@@ -187,7 +187,7 @@ fun NotificationsScreen(
                             modifier = Modifier.padding(horizontal = 16.dp).animateItem(),
                         )
                     }
-                    item(key = "footer") { ListFooter(list.isLoading, list.error, viewModel::retry) }
+                    item(key = "footer") { ListFooter(list.isLoading, list.error, viewModel::retry, updatedAt = list.updatedAt) }
                 }
             }
         }

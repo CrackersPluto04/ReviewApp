@@ -37,6 +37,8 @@ data class SearchAllState(
     val items: List<Media> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
+    /** No connection: the results are matches from the offline library. */
+    val offline: Boolean = false,
 )
 
 data class SearchUiState(
@@ -104,7 +106,7 @@ class SearchViewModel(
         _state.update { it.copy(all = SearchAllState(isLoading = true)) }
         allJob = viewModelScope.launch {
             val all = when (val result = mediaRepository.searchAll(_state.value.query)) {
-                is ApiResult.Success -> SearchAllState(items = result.data)
+                is ApiResult.Success -> SearchAllState(items = result.data, offline = result.cachedAt != null)
                 is ApiResult.Error -> SearchAllState(error = result.message)
             }
             _state.update { it.copy(all = all) }

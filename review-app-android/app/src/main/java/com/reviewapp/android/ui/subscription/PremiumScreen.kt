@@ -50,6 +50,8 @@ import com.reviewapp.android.domain.model.Plan
 import com.reviewapp.android.domain.model.SubscriptionSummary
 import com.reviewapp.android.ui.components.BackButton
 import com.reviewapp.android.ui.components.ErrorState
+import com.reviewapp.android.ui.components.OfflineNotice
+import com.reviewapp.android.ui.offline.LocalIsOnline
 import com.reviewapp.android.ui.components.LoadingState
 import com.reviewapp.android.ui.components.PremiumBadge
 import com.reviewapp.android.ui.components.PremiumGold
@@ -99,7 +101,13 @@ fun PremiumScreen(
     ) { padding ->
         val modifier = Modifier.fillMaxSize().padding(padding)
         val plan = state.plan
+        val isOnline = LocalIsOnline.current
+        // Back online: load what failed without one
+        LaunchedEffect(isOnline) { if (isOnline && plan == null && !state.isLoading) viewModel.loadPlan() }
         when {
+            plan == null && !isOnline -> Column(modifier.padding(16.dp)) {
+                OfflineNotice("The plans and your subscription need a connection. Offline mode keeps working meanwhile.")
+            }
             plan == null && state.isLoading -> Column(modifier) { LoadingState() }
             plan == null -> Column(modifier) {
                 ErrorState(state.error ?: "Could not load the plans.", viewModel::loadPlan, Modifier.fillMaxWidth())

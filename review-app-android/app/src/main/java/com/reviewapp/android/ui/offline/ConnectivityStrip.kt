@@ -18,6 +18,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
+import kotlinx.coroutines.flow.map
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +46,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 
+/**
+ * Whether the backend can be reached, for screens whose features need a connection (camera recognition, the
+ * subscription, account changes, replies, user search): they explain it instead of failing. Provided by the root.
+ */
+val LocalIsOnline = compositionLocalOf { true }
+
 /** Activity scoped: the strip is part of the root, above the bottom bar. */
 class ConnectivityViewModel(
     connectivity: StateFlow<Connectivity>,
@@ -52,6 +60,10 @@ class ConnectivityViewModel(
 
     val banner: StateFlow<ConnectivityBanner?> = combine(connectivity, status, ::connectivityBanner)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), connectivityBanner(connectivity.value, status.value))
+
+    /** The backend can be reached (for [LocalIsOnline]). */
+    val isOnline: StateFlow<Boolean> = connectivity.map { it == Connectivity.Online }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), connectivity.value == Connectivity.Online)
 
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {

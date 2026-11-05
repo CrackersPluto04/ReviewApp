@@ -294,7 +294,7 @@ private fun LazyListScope.reviewItems(
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
-            item { ListFooter(reviews.isLoading, reviews.error, viewModel::retryReviews) }
+            item { ListFooter(reviews, viewModel::retryReviews) }
         }
     }
 }

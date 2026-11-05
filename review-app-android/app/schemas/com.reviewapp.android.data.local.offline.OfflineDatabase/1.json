@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "c95885ce94e0b5378172a4ecb9627ca9",
+    "identityHash": "202427a400cdb37006ba436d2e31f1d4",
     "entities": [
       {
         "tableName": "reviews",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `mediaType` INTEGER NOT NULL, `externalApiId` TEXT NOT NULL, `score` REAL NOT NULL, `reviewText` TEXT, `pros` TEXT, `cons` TEXT, `visibility` INTEGER NOT NULL, `createdAt` TEXT NOT NULL, `updatedAt` TEXT NOT NULL, `version` INTEGER, `syncState` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `mediaType` INTEGER NOT NULL, `externalApiId` TEXT NOT NULL, `score` REAL NOT NULL, `reviewText` TEXT, `pros` TEXT, `cons` TEXT, `visibility` INTEGER NOT NULL, `createdAt` TEXT NOT NULL, `updatedAt` TEXT NOT NULL, `version` INTEGER, `syncState` INTEGER NOT NULL, `replyCount` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -73,6 +73,12 @@
           {
             "fieldPath": "syncState",
             "columnName": "syncState",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "replyCount",
+            "columnName": "replyCount",
             "affinity": "INTEGER",
             "notNull": true
           }
@@ -232,7 +238,7 @@
       },
       {
         "tableName": "media",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`mediaType` INTEGER NOT NULL, `externalApiId` TEXT NOT NULL, `dbMediaId` INTEGER, `title` TEXT, `posterUrl` TEXT, `releaseDate` TEXT, `creator` TEXT, `detailsJson` TEXT, `lastUsedAt` INTEGER NOT NULL, `sizeBytes` INTEGER NOT NULL, PRIMARY KEY(`mediaType`, `externalApiId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`mediaType` INTEGER NOT NULL, `externalApiId` TEXT NOT NULL, `dbMediaId` INTEGER, `title` TEXT, `posterUrl` TEXT, `releaseDate` TEXT, `creator` TEXT, `lastUsedAt` INTEGER NOT NULL, PRIMARY KEY(`mediaType`, `externalApiId`))",
         "fields": [
           {
             "fieldPath": "mediaType",
@@ -272,19 +278,8 @@
             "affinity": "TEXT"
           },
           {
-            "fieldPath": "detailsJson",
-            "columnName": "detailsJson",
-            "affinity": "TEXT"
-          },
-          {
             "fieldPath": "lastUsedAt",
             "columnName": "lastUsedAt",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "sizeBytes",
-            "columnName": "sizeBytes",
             "affinity": "INTEGER",
             "notNull": true
           }
@@ -310,7 +305,7 @@
       },
       {
         "tableName": "profile",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`userId` INTEGER NOT NULL, `username` TEXT NOT NULL, `bio` TEXT, `profilePictureUrl` TEXT, `profileJson` TEXT, `syncState` INTEGER NOT NULL, PRIMARY KEY(`userId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`userId` INTEGER NOT NULL, `username` TEXT NOT NULL, `bio` TEXT, `profilePictureUrl` TEXT, `syncState` INTEGER NOT NULL, PRIMARY KEY(`userId`))",
         "fields": [
           {
             "fieldPath": "userId",
@@ -335,11 +330,6 @@
             "affinity": "TEXT"
           },
           {
-            "fieldPath": "profileJson",
-            "columnName": "profileJson",
-            "affinity": "TEXT"
-          },
-          {
             "fieldPath": "syncState",
             "columnName": "syncState",
             "affinity": "INTEGER",
@@ -355,7 +345,7 @@
       },
       {
         "tableName": "known_users",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`userId` INTEGER NOT NULL, `username` TEXT NOT NULL, `profilePictureUrl` TEXT, `profileJson` TEXT, `lastUsedAt` INTEGER NOT NULL, PRIMARY KEY(`userId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`userId` INTEGER NOT NULL, `username` TEXT NOT NULL, `profilePictureUrl` TEXT, `lastUsedAt` INTEGER NOT NULL, PRIMARY KEY(`userId`))",
         "fields": [
           {
             "fieldPath": "userId",
@@ -375,11 +365,6 @@
             "affinity": "TEXT"
           },
           {
-            "fieldPath": "profileJson",
-            "columnName": "profileJson",
-            "affinity": "TEXT"
-          },
-          {
             "fieldPath": "lastUsedAt",
             "columnName": "lastUsedAt",
             "affinity": "INTEGER",
@@ -395,12 +380,12 @@
         "indices": [
           {
             "name": "index_known_users_username",
-            "unique": true,
+            "unique": false,
             "columnNames": [
               "username"
             ],
             "orders": [],
-            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_known_users_username` ON `${TABLE_NAME}` (`username`)"
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_known_users_username` ON `${TABLE_NAME}` (`username`)"
           },
           {
             "name": "index_known_users_lastUsedAt",
@@ -583,7 +568,7 @@
       },
       {
         "tableName": "snapshots",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`key` TEXT NOT NULL, `json` TEXT NOT NULL, `savedAt` INTEGER NOT NULL, `lastUsedAt` INTEGER NOT NULL, `sizeBytes` INTEGER NOT NULL, PRIMARY KEY(`key`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`key` TEXT NOT NULL, `json` TEXT NOT NULL, `savedAt` INTEGER NOT NULL, `lastUsedAt` INTEGER NOT NULL, `sizeBytes` INTEGER NOT NULL, `reviewIds` TEXT NOT NULL, `collectionIds` TEXT NOT NULL, PRIMARY KEY(`key`))",
         "fields": [
           {
             "fieldPath": "key",
@@ -613,6 +598,18 @@
             "fieldPath": "sizeBytes",
             "columnName": "sizeBytes",
             "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reviewIds",
+            "columnName": "reviewIds",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "collectionIds",
+            "columnName": "collectionIds",
+            "affinity": "TEXT",
             "notNull": true
           }
         ],
@@ -914,7 +911,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'c95885ce94e0b5378172a4ecb9627ca9')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '202427a400cdb37006ba436d2e31f1d4')"
     ]
   }
 }

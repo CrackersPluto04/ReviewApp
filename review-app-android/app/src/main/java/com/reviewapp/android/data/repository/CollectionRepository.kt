@@ -11,6 +11,7 @@ import com.reviewapp.android.data.remote.dto.CreateCollectionRequest
 import com.reviewapp.android.data.remote.dto.ReorderMediaRequest
 import com.reviewapp.android.data.remote.dto.UpdateCollectionRequest
 import com.reviewapp.android.data.remote.map
+import com.reviewapp.android.data.sync.LocalLibrary
 import com.reviewapp.android.domain.model.CollectionDetails
 import com.reviewapp.android.domain.model.Media
 import com.reviewapp.android.domain.model.MediaCollection
@@ -72,6 +73,7 @@ class CollectionRepository(
     private val userApi: UserApi,
     private val sessionManager: SessionManager,
     private val appScope: CoroutineScope,
+    private val local: LocalLibrary,
 ) {
     private val _mine = MutableStateFlow(MyCollections())
     val mine: StateFlow<MyCollections> = _mine.asStateFlow()
@@ -103,22 +105,33 @@ class CollectionRepository(
         _mine.update { it.copy(isLoading = true, error = null) }
         loadJob = appScope.launch {
             val (collections, memberships) = coroutineScope {
-                val collections = async { apiCall { userApi.getCollections(username, DiscoverOptions.DEFAULT_COLLECTION_SORT) } }
-                val memberships = async { apiCall { collectionApi.getMemberships() } }
+                val collections = async { apiCall(useSnapshot = false) { userApi.getCollections(username, DiscoverOptions.DEFAULT_COLLECTION_SORT) } }
+                val memberships = async { apiCall(useSnapshot = false) { collectionApi.getMemberships() } }
                 collections.await() to memberships.await()
             }
+            val failure = collections as? ApiResult.Error ?: memberships as? ApiResult.Error
+            // Offline: the hearts and checkmarks come from the offline copy
+            val offline = if (failure?.isNetwork == true) offlineMine() else null
             _mine.update { current ->
-                if (collections is ApiResult.Success && memberships is ApiResult.Success) {
-                    MyCollections(
+                when {
+                    collections is ApiResult.Success && memberships is ApiResult.Success -> MyCollections(
                         collections = collections.data.map { it.toDomain() },
                         memberships = memberships.data.groupBy({ it.mediaKey }, { it.collectionId }).mapValues { it.value.toSet() },
                         isLoaded = true,
                     )
-                } else {
-                    val error = (collections as? ApiResult.Error ?: memberships as ApiResult.Error).message
-                    current.copy(isLoading = false, error = error)
+                    offline != null -> offline
+                    else -> current.copy(isLoading = false, error = failure?.message)
                 }
             }
+        }
+    }
+
+    private suspend fun offlineMine(): MyCollections? {
+        val reads = local.reads() ?: return null
+        return try {
+            MyCollections(reads.collections(DiscoverOptions.DEFAULT_COLLECTION_SORT), reads.memberships(), isLoaded = true)
+        } catch (_: Exception) {
+            null
         }
     }
 
@@ -159,11 +172,17 @@ class CollectionRepository(
         return result
     }
 
-    suspend fun userCollections(username: String, sortBy: String): ApiResult<List<MediaCollection>> =
-        apiCall { userApi.getCollections(username, sortBy) }.map { list -> list.map { it.toDomain() } }
+    suspend fun userCollections(username: String, sortBy: String): ApiResult<List<MediaCollection>> = local.networkFirst(
+        own = local.isMe(username),
+        remote = { useSnapshot -> apiCall(useSnapshot) { userApi.getCollections(username, sortBy) }.map { list -> list.map { it.toDomain() } } },
+        local = { collections(sortBy) },
+    )
 
-    suspend fun details(id: Int): ApiResult<CollectionDetails> =
-        apiCall { collectionApi.getCollection(id) }.map { it.toDomain() }
+    suspend fun details(id: Int): ApiResult<CollectionDetails> = local.networkFirst(
+        own = local.ownsCollection(id),
+        remote = { useSnapshot -> apiCall(useSnapshot) { collectionApi.getCollection(id) }.map { it.toDomain() } },
+        local = { collectionDetails(id) },
+    )
 
     suspend fun create(name: String, visibility: Visibility): ApiResult<MediaCollection> {
         val result = apiCall { collectionApi.create(CreateCollectionRequest(name.trim(), visibility.id)) }

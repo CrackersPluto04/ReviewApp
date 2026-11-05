@@ -39,6 +39,8 @@ data class ReviewEntity(
     val updatedAt: String,
     val version: Long?,
     val syncState: Int = SyncState.SYNCED,
+    /** Replies as last seen online (the changes feed doesn't carry them; kept across pulls). */
+    val replyCount: Int = 0,
 )
 
 /** The user's own collections, Favourites included. */
@@ -78,8 +80,9 @@ data class CollectionItemEntity(
 )
 
 /**
- * Media the device knows: the ones in the user's own content (essential, never evicted) and the ones the user
- * opened (cache, least recently used first out). [detailsJson] is the details screen's data when it was opened.
+ * Media the device knows: the ones in the user's own content (never evicted while referenced) and the ones the
+ * user opened (kept for the offline search, the oldest unreferenced ones dropped first). The details screen's
+ * data itself is a snapshot of `GET Media/media/...`.
  */
 @Entity(tableName = "media", primaryKeys = ["mediaType", "externalApiId"], indices = [Index("lastUsedAt")])
 data class MediaEntity(
@@ -91,30 +94,25 @@ data class MediaEntity(
     val posterUrl: String?,
     val releaseDate: String?,
     val creator: String?,
-    val detailsJson: String?,
     val lastUsedAt: Long,
-    val sizeBytes: Long = 0,
 )
 
-/** The logged-in user's own profile (a single row). */
+/** The logged-in user's own profile (a single row; the page with its counts is a snapshot). */
 @Entity(tableName = "profile")
 data class ProfileEntity(
     @PrimaryKey val userId: Int,
     val username: String,
     val bio: String?,
     val profilePictureUrl: String?,
-    /** The profile page's data (counts, badge) as last loaded. */
-    val profileJson: String?,
     val syncState: Int = SyncState.SYNCED,
 )
 
-/** Other users the device knows (follow lists, opened profiles): follows work offline only on these. */
-@Entity(tableName = "known_users", indices = [Index(value = ["username"], unique = true), Index("lastUsedAt")])
+/** Other users the device knows (the follow lists): follows work offline only on these. */
+@Entity(tableName = "known_users", indices = [Index("username"), Index("lastUsedAt")])
 data class KnownUserEntity(
     @PrimaryKey val userId: Int,
     val username: String,
     val profilePictureUrl: String?,
-    val profileJson: String?,
     val lastUsedAt: Long,
 )
 
@@ -152,7 +150,11 @@ data class AchievementsJsonEntity(
     val savedAt: Long,
 )
 
-/** The last loaded state of a list screen (home, discover with its filters, a profile's reviews, ...). */
+/**
+ * The last answer of a GET request ([key] = its path and query), served when the request fails offline: lists,
+ * details and profiles as last seen. [reviewIds] / [collectionIds] (comma-separated) are the reviews and
+ * collections it shows, so a snapshot with content its owner has hidden since can be dropped.
+ */
 @Entity(tableName = "snapshots", indices = [Index("lastUsedAt")])
 data class SnapshotEntity(
     @PrimaryKey val key: String,
@@ -160,6 +162,8 @@ data class SnapshotEntity(
     val savedAt: Long,
     val lastUsedAt: Long,
     val sizeBytes: Long,
+    val reviewIds: String = "",
+    val collectionIds: String = "",
 )
 
 /**
@@ -263,4 +267,8 @@ object SyncMetaKeys {
     const val LAST_SYNCED_AT = "last_synced_at"
     /** "true" once the first full download finished: until then the mode is Preparing. */
     const val PREPARED = "prepared"
+    /** The unseen notification count as last synced. */
+    const val UNSEEN_COUNT = "unseen_count"
+    /** Device time (epoch millis) when "Make available offline" last finished. */
+    const val LIBRARY_DOWNLOADED_AT = "library_downloaded_at"
 }

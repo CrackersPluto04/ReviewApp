@@ -72,6 +72,8 @@ import com.reviewapp.android.domain.model.RecognitionOutcome
 import com.reviewapp.android.domain.model.ScoreStats
 import com.reviewapp.android.ui.components.BackButton
 import com.reviewapp.android.ui.components.ErrorState
+import com.reviewapp.android.ui.components.OfflineNotice
+import com.reviewapp.android.ui.offline.LocalIsOnline
 import com.reviewapp.android.ui.components.LoadingState
 import com.reviewapp.android.ui.components.MediaCard
 import com.reviewapp.android.ui.components.PremiumUpsell
@@ -106,10 +108,17 @@ fun RecognitionScreen(
     ) { padding ->
         val modifier = Modifier.fillMaxSize().padding(padding)
         val allowance = state.allowance
+        val isOnline = LocalIsOnline.current
+        // Back online: load what failed without one
+        LaunchedEffect(isOnline) { if (isOnline && state.allowanceError != null) viewModel.loadAllowance() }
         when {
             !state.isLoggedIn -> Column(modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Log in to use camera recognition.", style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
                 Button(onClick = onLogin, modifier = Modifier.padding(top = 16.dp)) { Text("Log in") }
+            }
+            !isOnline && state.step == RecognitionStep.Start -> Column(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Intro()
+                OfflineNotice("Camera recognition needs a connection. It's available again when you're back online.")
             }
             state.allowanceError != null -> Column(modifier) { ErrorState(state.allowanceError!!, viewModel::loadAllowance, Modifier.fillMaxWidth()) }
             allowance == null -> Column(modifier) { LoadingState() }

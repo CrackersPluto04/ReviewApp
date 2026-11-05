@@ -1,39 +1,11 @@
 package com.reviewapp.android.data.local.offline
 
 import android.content.Context
-import androidx.room.Dao
 import androidx.room.Database
-import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.room.Upsert
-import kotlinx.coroutines.flow.Flow
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import java.io.File
-
-@Dao
-interface SyncMetaDao {
-    @Query("SELECT value FROM sync_meta WHERE `key` = :key")
-    suspend fun get(key: String): String?
-
-    @Query("SELECT value FROM sync_meta WHERE `key` = :key")
-    fun observe(key: String): Flow<String?>
-
-    @Upsert
-    suspend fun put(entry: SyncMetaEntity)
-
-    suspend fun put(key: String, value: String) = put(SyncMetaEntity(key, value))
-}
-
-@Dao
-interface OutboxDao {
-    /** Changes the backend hasn't accepted yet (waiting, being sent, or in Sync issues). */
-    @Query("SELECT COUNT(*) FROM outbox")
-    fun observeCount(): Flow<Int>
-
-    @Query("SELECT COUNT(*) FROM outbox")
-    suspend fun count(): Int
-}
 
 /**
  * The offline copy of one user's data (one file per user, so a queue can never be sent under another account),
@@ -69,6 +41,14 @@ interface OutboxDao {
 abstract class OfflineDatabase : RoomDatabase() {
     abstract fun syncMeta(): SyncMetaDao
     abstract fun outbox(): OutboxDao
+    abstract fun reviews(): ReviewDao
+    abstract fun collections(): CollectionDao
+    abstract fun media(): MediaDao
+    abstract fun profile(): ProfileDao
+    abstract fun follows(): FollowDao
+    abstract fun notifications(): NotificationDao
+    abstract fun snapshots(): SnapshotDao
+    abstract fun shadows(): ShadowDao
 
     companion object {
         @Volatile private var libraryLoaded = false

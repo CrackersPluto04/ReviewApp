@@ -73,6 +73,10 @@ enum class CacheBudget(val megabytes: Int, val label: String) {
 
     val bytes: Long get() = megabytes * 1024L * 1024L
 
+    /** A quarter for the kept API answers (lists, details), the rest for images (Coil's disk cache). */
+    val snapshotBytes: Long get() = bytes / 4
+    val imageBytes: Long get() = bytes - snapshotBytes
+
     companion object {
         val Default = Medium
     }

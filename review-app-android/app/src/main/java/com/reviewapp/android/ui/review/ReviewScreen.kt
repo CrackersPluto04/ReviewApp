@@ -65,6 +65,7 @@ import com.reviewapp.android.domain.model.MediaType
 import com.reviewapp.android.domain.model.Reply
 import com.reviewapp.android.domain.model.ReviewDetail
 import com.reviewapp.android.ui.components.BackButton
+import com.reviewapp.android.ui.offline.LocalIsOnline
 import com.reviewapp.android.ui.components.EmptyState
 import com.reviewapp.android.ui.components.ErrorState
 import com.reviewapp.android.ui.components.LoadingState
@@ -363,12 +364,20 @@ private fun ReplyBar(
                     trailingIcon = { Icon(Icons.Filled.Close, contentDescription = "Cancel reply", Modifier.size(18.dp)) },
                 )
             }
+            // Replies are online only (the target review may be hidden by the time a queued one would be sent)
+            val isOnline = LocalIsOnline.current
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
                     value = state.draft,
                     onValueChange = onDraftChange,
+                    enabled = isOnline,
                     placeholder = {
-                        Text(state.replyTarget?.username?.let { "Reply to $it..." } ?: "Write a reply...")
+                        Text(
+                            when {
+                                !isOnline -> "Replying needs a connection"
+                                else -> state.replyTarget?.username?.let { "Reply to $it..." } ?: "Write a reply..."
+                            },
+                        )
                     },
                     maxLines = 5,
                     isError = state.draftError != null || state.postError != null,
@@ -385,7 +394,7 @@ private fun ReplyBar(
                 if (state.isPosting) {
                     CircularProgressIndicator(Modifier.padding(12.dp).size(24.dp), strokeWidth = 2.dp)
                 } else {
-                    IconButton(onClick = onSend, enabled = state.canSend) {
+                    IconButton(onClick = onSend, enabled = state.canSend && isOnline) {
                         Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send reply")
                     }
                 }

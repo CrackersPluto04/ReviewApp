@@ -7,6 +7,7 @@ import com.reviewapp.android.data.remote.dto.ReviewMediaRequest
 import com.reviewapp.android.data.remote.dto.toDto
 import com.reviewapp.android.data.remote.dto.toPage
 import com.reviewapp.android.data.remote.map
+import com.reviewapp.android.data.sync.LocalLibrary
 import com.reviewapp.android.domain.model.FeedReview
 import com.reviewapp.android.domain.model.Media
 import com.reviewapp.android.domain.model.MediaReview
@@ -52,6 +53,7 @@ data class ReviewChange(
 class ReviewRepository(
     private val reviewApi: ReviewApi,
     private val appScope: CoroutineScope,
+    private val local: LocalLibrary,
 ) {
     // Average scores of the media cards. Shared by every screen, loaded once per media and refreshed
     // when the user writes a review. Few parallel requests, so long lists don't hit the rate limit.
@@ -80,8 +82,19 @@ class ReviewRepository(
         }
     }
 
+    /** The average score of a media, loaded now (the library download keeps it for offline). */
+    suspend fun statsForOffline(mediaType: MediaType, externalApiId: String): ApiResult<Unit> {
+        val result = apiCall { reviewApi.getAverageScore(externalApiId, mediaType.id) }
+        if (result is ApiResult.Success) _scoreStats.update { it + (mediaKey(mediaType, externalApiId) to result.data.toDomain()) }
+        return result.map { }
+    }
+
     /** One review with its author, a 404 when it's hidden from the current user. */
-    suspend fun review(id: Int): ApiResult<ReviewDetail> = apiCall { reviewApi.getReview(id) }.map { it.toDomain() }
+    suspend fun review(id: Int): ApiResult<ReviewDetail> = local.networkFirst(
+        own = local.ownsReview(id),
+        remote = { useSnapshot -> apiCall(useSnapshot) { reviewApi.getReview(id) }.map { it.toDomain() } },
+        local = { reviewDetail(id) },
+    )
 
     suspend fun recent(count: Int = 10): ApiResult<List<FeedReview>> =
         apiCall { reviewApi.getRecent(count) }.map { list -> list.map { it.toDomain() } }
@@ -104,9 +117,18 @@ class ReviewRepository(
     }.map { response -> response.toPage { it.toDomain() } }
 
     /** The current user's review of the media, null when they haven't reviewed it yet. */
-    suspend fun ownReview(mediaType: MediaType, externalApiId: String): ApiResult<ReviewDraft?> =
-        apiCall { reviewApi.checkReview(externalApiId, mediaType.id) }
+    suspend fun ownReview(mediaType: MediaType, externalApiId: String): ApiResult<ReviewDraft?> {
+        val result = apiCall(useSnapshot = false) { reviewApi.checkReview(externalApiId, mediaType.id) }
             .map { response -> response.reviewData?.takeIf { response.hasReviewed }?.toDraft() }
+        if (result !is ApiResult.Error || !result.isNetwork) return result
+        // "Not reviewed" is an answer too, so this can't go through networkFirst (null = no local answer there)
+        val reads = local.reads() ?: return result
+        return try {
+            ApiResult.Success(reads.ownReview(mediaType, externalApiId), cachedAt = reads.lastSyncedAt())
+        } catch (_: Exception) {
+            result
+        }
+    }
 
     suspend fun save(media: Media, draft: ReviewDraft, isEdit: Boolean): ApiResult<String> {
         val request = ReviewMediaRequest(media.toDto(), draft.toDto())

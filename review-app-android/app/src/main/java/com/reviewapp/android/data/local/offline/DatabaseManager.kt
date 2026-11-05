@@ -25,6 +25,8 @@ class OpenDatabase(val userId: Int, val db: OfflineDatabase)
 class DatabaseManager(
     context: Context,
     private val keys: DatabaseKeyStore,
+    /** The user's poster copies go with their database. */
+    private val images: OfflineImageStore? = null,
 ) {
     private val appContext = context.applicationContext
     private val dir = File(appContext.noBackupFilesDir, "offline")
@@ -37,8 +39,9 @@ class DatabaseManager(
 
     fun exists(userId: Int) = fileFor(userId).exists()
 
-    /** Bytes the user's offline database takes on disk (with its journal files). */
-    fun sizeBytes(userId: Int): Long = filesOf(fileFor(userId)).sumOf { if (it.exists()) it.length() else 0L }
+    /** Bytes the user's offline copy takes on disk (the database with its journal files, and the posters). */
+    fun sizeBytes(userId: Int): Long =
+        filesOf(fileFor(userId)).sumOf { if (it.exists()) it.length() else 0L } + (images?.sizeBytes(userId) ?: 0L)
 
     /** Opens [userId]'s database (creating it), closing another user's first. */
     suspend fun open(userId: Int): OfflineDatabase = mutex.withLock {
@@ -66,6 +69,7 @@ class DatabaseManager(
         withContext(Dispatchers.IO) {
             deleteFiles(fileFor(userId))
             keys.delete(userId)
+            images?.deleteUser(userId)
         }
     }
 
