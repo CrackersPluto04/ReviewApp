@@ -21,7 +21,15 @@ public class ApiFactory : WebApplicationFactory<Program>
     // The real limits are tiny for a test suite that sends everything from one address; RateLimitTests use 1
     public const int RelaxedPermitMultiplier = 1000;
 
-    private static readonly Lazy<ApiFactory> SharedInstance = new(() => new ApiFactory());
+    // The server is started inside the (thread-safe) Lazy: WebApplicationFactory starts it on the first use of Services /
+    // Server without a lock, so test classes starting in parallel could otherwise build two hosts, each with its own
+    // singletons (e.g. the in-memory payment provider: a checkout in one, the sync in the other)
+    private static readonly Lazy<ApiFactory> SharedInstance = new(() =>
+    {
+        var factory = new ApiFactory();
+        _ = factory.Server;
+        return factory;
+    });
 
     private readonly int _permitMultiplier;
     private readonly IReadOnlyDictionary<string, string> _settings;

@@ -234,6 +234,7 @@ builder.Services.AddScoped<IAchievementUnlockHandler, ResponseHeaderUnlockHandle
 builder.Services.AddScoped<IAchievementUnlockHandler, NotificationUnlockHandler>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ISyncService, SyncService>();
+builder.Services.AddScoped<ISyncChangesService, SyncChangesService>();
 builder.Services.AddScoped<ISecurityService, SecurityService>();
 
 // Emails are queued by the request and sent in the background

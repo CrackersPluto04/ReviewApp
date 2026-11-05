@@ -82,10 +82,11 @@ public class SubscriptionServiceTests
     }
 
     [Fact]
-    public void Entitlements_UnknownAndComingSoonFeaturesAreNeverGranted()
+    public void Entitlements_UnknownFeaturesAreNeverGranted_OfflineModeIsPremium()
     {
         Assert.False(Entitlements.IsAvailable("no-such-feature", SubscriptionTier.Premium));
-        Assert.False(Entitlements.IsAvailable("offline-mode", SubscriptionTier.Premium));
-        Assert.DoesNotContain("offline-mode", Entitlements.FeaturesFor(SubscriptionTier.Premium));
+        Assert.True(Entitlements.IsAvailable(FeatureKeys.OfflineMode, SubscriptionTier.Premium));
+        Assert.False(Entitlements.IsAvailable(FeatureKeys.OfflineMode, SubscriptionTier.Free));
+        Assert.Contains(FeatureKeys.OfflineMode, Entitlements.FeaturesFor(SubscriptionTier.Premium));
     }
 }

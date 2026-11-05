@@ -102,4 +102,64 @@ public class SyncEndpointTests : HttpTest
         (await As(user).PostAsJsonAsync(Push, new { userId = user.ID, ops = new[] { new { type = SyncOpTypes.ProfileUpdate } } }))
             .StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
+
+    /* GET changes, POST visible */
+
+    [Fact]
+    public async Task Changes_Anonymous_IsUnauthorized()
+    {
+        (await Anonymous().GetAsync("api/Sync/changes")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Changes_FirstSync_HasTheOwnContentAndTheAccount()
+    {
+        var user = await Data.UserAsync();
+        var review = await Data.ReviewAsync(user, visibility: Enums.VisibilityLevel.Private);
+        await AllWritesCommittedAsync();
+
+        var body = await ExpectAsync(await As(user).GetAsync("api/Sync/changes?since=0"), HttpStatusCode.OK);
+
+        body.Bool("fullResync").ShouldBeTrue();
+        body.GetProperty("reviews").EnumerateArray().Select(r => r.Int("id")).ShouldContain(review.ID);
+        body.GetProperty("collections").EnumerateArray().ShouldContain(c => c.Bool("isDefault"));
+        body.GetProperty("cursor").GetInt64().ShouldBeGreaterThan(0);
+        body.GetProperty("account").Int("userId").ShouldBe(user.ID);
+        body.GetProperty("deletedReviewIds").GetArrayLength().ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Changes_ContinuedPage_HasNoAccount()
+    {
+        var user = await Data.UserAsync();
+
+        var body = await ExpectAsync(await As(user).GetAsync("api/Sync/changes?since=1&continued=true"), HttpStatusCode.OK);
+
+        body.TryGetProperty("account", out _).ShouldBeFalse();
+        body.Bool("fullResync").ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Visible_AnswersWithTheStillVisibleIds()
+    {
+        var user = await Data.UserAsync();
+        var other = await Data.UserAsync();
+        var shown = await Data.ReviewAsync(other);
+        var hidden = await Data.ReviewAsync(other, visibility: Enums.VisibilityLevel.Private);
+
+        var body = await ExpectAsync(await As(user).PostAsJsonAsync("api/Sync/visible",
+            new { reviewIds = new[] { shown.ID, hidden.ID } }), HttpStatusCode.OK);
+
+        body.GetProperty("reviewIds").EnumerateArray().Select(id => id.GetInt32()).ShouldBe([shown.ID]);
+        body.GetProperty("collectionIds").GetArrayLength().ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Visible_TooManyIds_IsABadRequest()
+    {
+        var user = await Data.UserAsync();
+
+        (await As(user).PostAsJsonAsync("api/Sync/visible", new { reviewIds = Enumerable.Range(1, 1001).ToArray() }))
+            .StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
 }

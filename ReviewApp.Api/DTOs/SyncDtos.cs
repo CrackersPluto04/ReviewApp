@@ -165,3 +165,57 @@ public record SyncProfileDto
     public string? Bio { get; init; }
     public string? ProfilePictureUrl { get; init; }
 }
+
+/* The changes feed (GET api/Sync/changes) and the visibility check (POST api/Sync/visible) */
+
+public record SyncChangesDto
+{
+    // The user's own reviews and collections changed (or created) since the cursor, every visibility
+    public List<SyncReviewDto> Reviews { get; init; } = [];
+    public List<int> DeletedReviewIds { get; init; } = [];
+    public List<SyncCollectionDto> Collections { get; init; } = [];
+    public List<int> DeletedCollectionIds { get; init; } = [];
+
+    // The next request's since; everything below it has been sent
+    public long Cursor { get; init; }
+    // More changes are waiting: ask again with the cursor (and continued=true) before applying the deletions of a full resync
+    public bool HasMore { get; init; }
+    // Everything is sent from the start: what the device has but the full run doesn't contain was deleted
+    public bool FullResync { get; init; }
+
+    // First page of a run only
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SyncAccountDto? Account { get; init; }
+
+    public DateTime ServerTime { get; init; }
+}
+
+// The small, frequently changing account data, sent whole on the first page of every run
+public record SyncAccountDto
+{
+    public int UserId { get; init; }
+    public string Username { get; init; } = string.Empty;
+    public string? Bio { get; init; }
+    public string? ProfilePictureUrl { get; init; }
+    public List<UserCompactDto> Following { get; init; } = [];
+    public List<UserCompactDto> Followers { get; init; } = [];
+    // The newest ones (the server keeps at most 200 per user)
+    public List<NotificationDto> Notifications { get; init; } = [];
+    public int UnseenNotificationCount { get; init; }
+}
+
+public record SyncVisibleRequest
+{
+    [MaxLength(SyncVisibleLimits.MaxIds)]
+    public List<int>? ReviewIds { get; init; }
+    [MaxLength(SyncVisibleLimits.MaxIds)]
+    public List<int>? CollectionIds { get; init; }
+}
+
+public static class SyncVisibleLimits
+{
+    public const int MaxIds = 1000;
+}
+
+// The asked-for IDs the user can still see; the device drops its copies of the rest
+public record SyncVisibleDto(List<int> ReviewIds, List<int> CollectionIds);

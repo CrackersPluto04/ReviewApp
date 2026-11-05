@@ -17,11 +17,13 @@ public class SyncController : ControllerBase
     public const int MaxPushBytes = 512 * 1024;
 
     private readonly ISyncService _syncService;
+    private readonly ISyncChangesService _changesService;
     private readonly IUserAuthHelper _userAuthHelper;
 
-    public SyncController(ISyncService syncService, IUserAuthHelper userAuthHelper)
+    public SyncController(ISyncService syncService, ISyncChangesService changesService, IUserAuthHelper userAuthHelper)
     {
         _syncService = syncService;
+        _changesService = changesService;
         _userAuthHelper = userAuthHelper;
     }
 
@@ -53,5 +55,40 @@ public class SyncController : ControllerBase
             return BadRequest(new { error = "Every change needs its own ID.", code = "duplicate_op" });
 
         return Ok(await _syncService.PushAsync(userId, ops, cancellationToken));
+    }
+
+    // The user's own content changed since the cursor (0 = everything), oldest change first. syncedAt = when the
+    // device last finished a sync (too long ago = full resync); continued = a follow-up page of the same run
+    // (no account data, no full resync check).
+    [HttpGet("changes")]
+    [EnableRateLimiting("sync")]
+    public async Task<IActionResult> Changes([FromQuery] long since = 0, [FromQuery] DateTime? syncedAt = null,
+        [FromQuery] bool continued = false, [FromQuery] int limit = SyncChangesService.DefaultLimit, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var userId = _userAuthHelper.GetSecureUserID();
+            return Ok(await _changesService.GetChangesAsync(userId, since, syncedAt, continued, limit, cancellationToken));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+    }
+
+    // Which of the other users' reviews and collections cached on the device are still visible to the user
+    [HttpPost("visible")]
+    [EnableRateLimiting("sync")]
+    public async Task<IActionResult> Visible([FromBody] SyncVisibleRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = _userAuthHelper.GetSecureUserID();
+            return Ok(await _changesService.GetVisibleAsync(userId, request.ReviewIds ?? [], request.CollectionIds ?? [], cancellationToken));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
     }
 }

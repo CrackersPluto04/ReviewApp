@@ -45,11 +45,13 @@ public class EntitlementServiceTests : IntegrationTest
     }
 
     [Fact]
-    public async Task ComingSoonFeature_IsNotGrantedToPremium()
+    public async Task OfflineMode_IsGrantedToPremiumOnly()
     {
-        var user = await Data.UserAsync();
-        await Data.PremiumAsync(user);
+        var premium = await Data.UserAsync();
+        await Data.PremiumAsync(premium);
+        var free = await Data.UserAsync();
 
-        (await Entitlements.HasFeatureAsync(user.ID, "offline-mode")).ShouldBeFalse();
+        (await Entitlements.HasFeatureAsync(premium.ID, FeatureKeys.OfflineMode)).ShouldBeTrue();
+        (await Entitlements.HasFeatureAsync(free.ID, FeatureKeys.OfflineMode)).ShouldBeFalse();
     }
 }
