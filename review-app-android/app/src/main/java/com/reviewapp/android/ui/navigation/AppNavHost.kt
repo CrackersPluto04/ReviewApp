@@ -3,6 +3,7 @@ package com.reviewapp.android.ui.navigation
 import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -68,6 +69,8 @@ import com.reviewapp.android.ui.notifications.NotificationBadgeViewModel
 import com.reviewapp.android.ui.notifications.NotificationPollingEffect
 import com.reviewapp.android.ui.notifications.NotificationTarget
 import com.reviewapp.android.ui.notifications.NotificationsScreen
+import com.reviewapp.android.ui.offline.ConnectivityStrip
+import com.reviewapp.android.ui.offline.OfflineSettingsScreen
 import com.reviewapp.android.ui.profile.FollowListScreen
 import com.reviewapp.android.ui.profile.ProfileScreen
 import com.reviewapp.android.ui.profile.ProfileTab
@@ -129,31 +132,35 @@ fun ReviewAppRoot() {
         contentWindowInsets = WindowInsets(0),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            if (showBottomBar) {
-                NavigationBar {
-                    TopLevelTab.entries.forEach { tab ->
-                        val selected = tab == selectedTab
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                // Set here too: a restored tab can open on a nested screen (e.g. details)
-                                selectedTab = tab
-                                navController.navigateToTab(tab, reselect = selected)
-                            },
-                            icon = {
-                                // The bell is on the Home screen, so its tab shows that there is something new
-                                val showDot = tab == TopLevelTab.Home && (unseenNotifications ?: 0) > 0
-                                BadgedBox(badge = { if (showDot) Badge() }) {
-                                    Icon(if (selected) tab.selectedIcon else tab.icon, contentDescription = null)
-                                }
-                            },
-                            label = { Text(tab.label) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                            ),
-                        )
+            Column {
+                // Offline, backend unreachable or changes waiting: visible from every screen, never blocking it
+                ConnectivityStrip(aboveNavigationBar = showBottomBar)
+                if (showBottomBar) {
+                    NavigationBar {
+                        TopLevelTab.entries.forEach { tab ->
+                            val selected = tab == selectedTab
+                            NavigationBarItem(
+                                selected = selected,
+                                onClick = {
+                                    // Set here too: a restored tab can open on a nested screen (e.g. details)
+                                    selectedTab = tab
+                                    navController.navigateToTab(tab, reselect = selected)
+                                },
+                                icon = {
+                                    // The bell is on the Home screen, so its tab shows that there is something new
+                                    val showDot = tab == TopLevelTab.Home && (unseenNotifications ?: 0) > 0
+                                    BadgedBox(badge = { if (showDot) Badge() }) {
+                                        Icon(if (selected) tab.selectedIcon else tab.icon, contentDescription = null)
+                                    }
+                                },
+                                label = { Text(tab.label) },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                ),
+                            )
+                        }
                     }
                 }
             }
@@ -303,7 +310,14 @@ private fun AppNavHost(navController: NavHostController, unseenNotifications: In
                 },
             )
         }
-        composable<AccountSettingsRoute> { AccountSettingsScreen(onBack = goBack, onOpenPremium = openPremium) }
+        composable<AccountSettingsRoute> {
+            AccountSettingsScreen(
+                onBack = goBack,
+                onOpenPremium = openPremium,
+                onOpenOffline = { navController.navigate(OfflineSettingsRoute) { launchSingleTop = true } },
+            )
+        }
+        composable<OfflineSettingsRoute> { OfflineSettingsScreen(onBack = goBack, onOpenPremium = openPremium) }
         composable<PremiumRoute> { PremiumScreen(onBack = goBack, onLogin = goToLogin, onOpenRecognition = openRecognition) }
         composable<RecognitionRoute> {
             RecognitionScreen(onBack = goBack, onLogin = goToLogin, onOpenMedia = openMedia, onOpenPremium = openPremium)

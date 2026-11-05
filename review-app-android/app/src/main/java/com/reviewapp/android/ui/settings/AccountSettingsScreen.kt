@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.outlined.AlternateEmail
 import androidx.compose.material.icons.outlined.Badge
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Key
@@ -66,6 +67,7 @@ import com.reviewapp.android.ui.theme.AppTheme
 fun AccountSettingsScreen(
     onBack: () -> Unit,
     onOpenPremium: () -> Unit,
+    onOpenOffline: () -> Unit,
     viewModel: AccountSettingsViewModel = viewModel(factory = AccountSettingsViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -97,7 +99,7 @@ fun AccountSettingsScreen(
             status == null -> Box(modifier) {
                 ErrorState(state.error ?: "Could not load your account settings.", { viewModel.loadStatus() }, Modifier.fillMaxWidth())
             }
-            else -> SettingsList(state, status, viewModel, onOpenPremium, modifier)
+            else -> SettingsList(state, status, viewModel, onOpenPremium, onOpenOffline, modifier)
         }
     }
 
@@ -110,6 +112,7 @@ private fun SettingsList(
     status: SecurityStatus,
     viewModel: AccountSettingsViewModel,
     onOpenPremium: () -> Unit,
+    onOpenOffline: () -> Unit,
     modifier: Modifier,
 ) {
     LazyColumn(modifier, contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -166,6 +169,15 @@ private fun SettingsList(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
+        }
+
+        item {
+            SettingsItem(
+                icon = Icons.Outlined.CloudOff,
+                title = "Offline mode",
+                subtitle = if (state.isPremium) "Use the app without a connection" else "Premium: use the app without a connection",
+                onClick = onOpenOffline,
+            )
         }
 
         item { SectionDivider() }

@@ -9,8 +9,16 @@ import java.io.IOException
 
 sealed interface ApiResult<out T> {
     data class Success<T>(val data: T) : ApiResult<T>
-    /** [code] is the HTTP status, [reason] the API's machine readable `code` (e.g. `daily_limit`) when it sent one. */
-    data class Error(val message: String, val code: Int? = null, val reason: String? = null) : ApiResult<Nothing>
+    /**
+     * [code] is the HTTP status, [reason] the API's machine readable `code` (e.g. `daily_limit`) when it sent one.
+     * [isNetwork]: no answer at all (offline, timeout, backend down), so the offline copy may stand in.
+     */
+    data class Error(
+        val message: String,
+        val code: Int? = null,
+        val reason: String? = null,
+        val isNetwork: Boolean = false,
+    ) : ApiResult<Nothing>
 }
 
 inline fun <T, R> ApiResult<T>.map(transform: (T) -> R): ApiResult<R> = when (this) {
@@ -25,7 +33,7 @@ suspend fun <T> apiCall(block: suspend () -> T): ApiResult<T> = try {
     val body = e.response()?.errorBody()?.string()
     ApiResult.Error(ApiErrors.message(e.code(), body), e.code(), ApiErrors.reason(body))
 } catch (_: IOException) {
-    ApiResult.Error(ApiErrors.NETWORK_ERROR)
+    ApiResult.Error(ApiErrors.NETWORK_ERROR, isNetwork = true)
 } catch (_: SerializationException) {
     ApiResult.Error(ApiErrors.UNEXPECTED_RESPONSE)
 }

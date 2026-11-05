@@ -28,8 +28,52 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { it[RECOGNITION_NOTICE_KEY] = true }
     }
 
+    /**
+     * The user's offline mode switch (per account, on by default: a Premium user gets it without looking for it).
+     * Only used while the user has the `offline-mode` entitlement.
+     */
+    fun offlineEnabled(userId: Int): Flow<Boolean> = dataStore.data.map { it[offlineKey(userId)] ?: true }
+
+    suspend fun setOfflineEnabled(userId: Int, enabled: Boolean) {
+        dataStore.edit { it[offlineKey(userId)] = enabled }
+    }
+
+    /** The storage budget of the non-essential offline cache (opened media, lists); own content doesn't count. */
+    val cacheBudget: Flow<CacheBudget> = dataStore.data.map { prefs ->
+        prefs[CACHE_BUDGET_KEY]?.let { name -> CacheBudget.entries.firstOrNull { it.name == name } } ?: CacheBudget.Default
+    }
+
+    suspend fun setCacheBudget(budget: CacheBudget) {
+        dataStore.edit { it[CACHE_BUDGET_KEY] = budget.name }
+    }
+
+    /** "Make available offline" downloads only on unmetered networks. */
+    val offlineDownloadWifiOnly: Flow<Boolean> = dataStore.data.map { it[WIFI_ONLY_KEY] ?: true }
+
+    suspend fun setOfflineDownloadWifiOnly(wifiOnly: Boolean) {
+        dataStore.edit { it[WIFI_ONLY_KEY] = wifiOnly }
+    }
+
+    private fun offlineKey(userId: Int) = booleanPreferencesKey("offline_enabled_$userId")
+
     private companion object {
         val THEME_KEY = stringPreferencesKey("theme_mode")
         val RECOGNITION_NOTICE_KEY = booleanPreferencesKey("recognition_notice_dismissed")
+        val CACHE_BUDGET_KEY = stringPreferencesKey("offline_cache_budget")
+        val WIFI_ONLY_KEY = booleanPreferencesKey("offline_download_wifi_only")
+    }
+}
+
+/** The choices of the offline cache's storage budget. */
+enum class CacheBudget(val megabytes: Int, val label: String) {
+    Small(100, "100 MB"),
+    Medium(200, "200 MB"),
+    Large(500, "500 MB"),
+    Huge(1024, "1 GB");
+
+    val bytes: Long get() = megabytes * 1024L * 1024L
+
+    companion object {
+        val Default = Medium
     }
 }

@@ -37,10 +37,25 @@ import com.reviewapp.android.data.repository.ReplyRepository
 import com.reviewapp.android.data.repository.ReviewRepository
 import com.reviewapp.android.data.repository.SubscriptionRepository
 import com.reviewapp.android.data.repository.UserRepository
+import android.os.SystemClock
+import android.provider.Settings
+import com.reviewapp.android.data.local.SessionCache
+import com.reviewapp.android.data.local.offline.DatabaseKeyStore
+import com.reviewapp.android.data.local.offline.DatabaseManager
+import com.reviewapp.android.data.sync.ClockReading
+import com.reviewapp.android.data.sync.Connectivity
+import com.reviewapp.android.data.sync.ConnectivityMonitor
+import com.reviewapp.android.data.sync.DeviceClock
+import com.reviewapp.android.data.sync.OfflineGateway
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.io.IOException
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
@@ -54,14 +69,49 @@ class AppContainer(context: Context) {
 
     val appScope = CoroutineScope(SupervisorJob())
 
-    private val cookieJar = SecureCookieJar(context.sessionDataStore, CryptoStore())
+    private val sessionCrypto = CryptoStore()
+    private val cookieJar = SecureCookieJar(context.sessionDataStore, sessionCrypto)
 
     val settingsStore = SettingsStore(context.settingsDataStore)
+
+    private val clock = DeviceClock {
+        ClockReading(
+            wallMillis = System.currentTimeMillis(),
+            elapsedMillis = SystemClock.elapsedRealtime(),
+            bootCount = Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, -1),
+        )
+    }
+
+    // Asks the backend whether it answers at all while it seemed unreachable: a plain client (no cookie,
+    // no interceptors), any HTTP status counts
+    private val probeClient = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
+        .build()
+
+    val connectivityMonitor = ConnectivityMonitor(context, appScope) {
+        withContext(Dispatchers.IO) {
+            runCatching {
+                probeClient.newCall(Request.Builder().url(BuildConfig.API_BASE_URL + "Subscription/plan").build())
+                    .execute().close()
+            }.isSuccess
+        }
+    }
 
     private val okHttpClient: OkHttpClient = OkHttpClient.Builder()
         .cookieJar(cookieJar)
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
+        // Outermost: whether the backend answered at all feeds the connectivity state
+        .addInterceptor { chain ->
+            try {
+                chain.proceed(chain.request()).also { connectivityMonitor.onServerResponded() }
+            } catch (e: IOException) {
+                // A request the app cancelled (screen closed) says nothing about the connection
+                if (!chain.call().isCanceled()) connectivityMonitor.onServerUnreachable()
+                throw e
+            }
+        }
         // Any 401 means the session is gone (expired, logout-all, password change elsewhere)
         .addInterceptor { chain ->
             val response = chain.proceed(chain.request())
@@ -117,7 +167,17 @@ class AppContainer(context: Context) {
         .build()
         .create(RecognitionApi::class.java)
 
-    val sessionManager = SessionManager(authApi, cookieJar)
+    val sessionManager = SessionManager(
+        authApi = authApi,
+        cookieJar = cookieJar,
+        cache = SessionCache(context.sessionDataStore, sessionCrypto),
+        clock = clock,
+        scope = appScope,
+        isOnline = { connectivityMonitor.connectivity.value == Connectivity.Online },
+        offlineEnabled = { userId -> settingsStore.offlineEnabled(userId).first() },
+    )
+    val databaseManager = DatabaseManager(context, DatabaseKeyStore(context.sessionDataStore))
+    val offlineGateway = OfflineGateway(sessionManager, settingsStore, databaseManager, clock, appScope)
     val authRepository = AuthRepository(authApi, sessionManager)
     val mediaRepository = MediaRepository(mediaApi)
     val reviewRepository = ReviewRepository(reviewApi, appScope)

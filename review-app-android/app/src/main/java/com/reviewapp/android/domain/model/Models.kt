@@ -305,6 +305,7 @@ data class SecurityStatus(
 object FeatureKeys {
     const val PROFILE_BADGE = "profile-badge"
     const val CAMERA_RECOGNITION = "camera-recognition"
+    const val OFFLINE_MODE = "offline-mode"
 }
 
 /** How closely a recognition suggestion relates to the photo, closest first (the API's tier names). */

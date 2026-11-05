@@ -34,6 +34,10 @@ data object NotificationsRoute
 @Serializable
 data object AccountSettingsRoute
 
+/** Offline mode (Premium): the switch, its state and the offline copy's storage, or the upsell. */
+@Serializable
+data object OfflineSettingsRoute
+
 /** Plans page with the current user's subscription. */
 @Serializable
 data object PremiumRoute
