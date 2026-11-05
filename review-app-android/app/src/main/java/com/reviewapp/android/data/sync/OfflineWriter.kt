@@ -283,8 +283,9 @@ class OfflineWriter(
     /**
      * Throws away the waiting changes of the thing [seq] changes and puts back the backend's version of it (a thing
      * created offline disappears). Not while one of them is being sent: its answer may already be on the way.
+     * [after] runs in the same transaction once the shadow is back (Sync issues put a newer version on top).
      */
-    suspend fun discard(seq: Long): DiscardResult {
+    suspend fun discard(seq: Long, after: (suspend (OfflineDatabase) -> Unit)? = null): DiscardResult {
         val db = database() ?: return DiscardResult.NotFound
         val result = db.withTransaction {
             val queue = db.outbox().all()
@@ -294,6 +295,7 @@ class OfflineWriter(
             restore(db, op)
             db.outbox().delete(ops.map { it.seq })
             op.entityId?.let { db.shadows().delete(op.entityType, it) }
+            after?.invoke(db)
             DiscardResult.Discarded
         }
         // A bulk change can't be undone locally: the next pull puts the notifications back as they are
@@ -382,7 +384,8 @@ class OfflineWriter(
         return EntityRefDto(ref = create.clientRef) to listOf(create.opId)
     }
 
-    private suspend fun nextTempId(db: OfflineDatabase): Int {
+    /** The next temporary (negative) id of something created on this phone. */
+    suspend fun nextTempId(db: OfflineDatabase): Int {
         val next = db.syncMeta().get(NEXT_TEMP_ID)?.toIntOrNull() ?: -1
         db.syncMeta().put(NEXT_TEMP_ID, (next - 1).toString())
         return next

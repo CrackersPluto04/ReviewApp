@@ -75,6 +75,8 @@ import com.reviewapp.android.ui.offline.ConnectivityViewModel
 import com.reviewapp.android.ui.offline.LocalIsOnline
 import com.reviewapp.android.ui.offline.OfflineSettingsScreen
 import com.reviewapp.android.ui.offline.PendingChangesScreen
+import com.reviewapp.android.ui.offline.ConflictScreen
+import com.reviewapp.android.ui.offline.SyncSummaryHost
 import com.reviewapp.android.ui.profile.FollowListScreen
 import com.reviewapp.android.ui.profile.ProfileScreen
 import com.reviewapp.android.ui.profile.ProfileTab
@@ -195,6 +197,8 @@ fun ReviewAppRoot() {
                     modifier = Modifier.align(Alignment.TopCenter),
                 )
             }
+            // "Synced 7 changes. You unlocked 1 achievement." after changes made offline went out
+            SyncSummaryHost(snackbarHostState, onReview = { navController.navigate(PendingChangesRoute) { launchSingleTop = true } })
             // Any request can hit a Premium feature (402)
             PremiumRequiredHost(onSeePremium = { navController.navigate(PremiumRoute) { launchSingleTop = true } })
         }
@@ -337,7 +341,10 @@ private fun AppNavHost(navController: NavHostController, unseenNotifications: In
                 onOpenChanges = { navController.navigate(PendingChangesRoute) { launchSingleTop = true } },
             )
         }
-        composable<PendingChangesRoute> { PendingChangesScreen(onBack = goBack) }
+        composable<PendingChangesRoute> {
+            PendingChangesScreen(onBack = goBack, onOpenIssue = { seq -> navController.navigate(ConflictRoute(seq)) })
+        }
+        composable<ConflictRoute> { ConflictScreen(onBack = goBack) }
         composable<PremiumRoute> { PremiumScreen(onBack = goBack, onLogin = goToLogin, onOpenRecognition = openRecognition) }
         composable<RecognitionRoute> {
             RecognitionScreen(onBack = goBack, onLogin = goToLogin, onOpenMedia = openMedia, onOpenPremium = openPremium)

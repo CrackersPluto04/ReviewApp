@@ -43,6 +43,7 @@ import com.reviewapp.android.data.local.SessionCache
 import com.reviewapp.android.data.local.offline.DatabaseKeyStore
 import com.reviewapp.android.data.local.offline.DatabaseManager
 import com.reviewapp.android.data.sync.ClockReading
+import com.reviewapp.android.data.sync.ConflictResolver
 import com.reviewapp.android.data.sync.Connectivity
 import com.reviewapp.android.data.sync.ConnectivityMonitor
 import com.reviewapp.android.data.sync.DeviceClock
@@ -245,6 +246,14 @@ class AppContainer(context: Context) {
         },
     )
     private val offlineWrites = OfflineWrites(offlineWriter, syncEngine)
+    val conflictResolver = ConflictResolver(
+        database = { offlineGateway.database() },
+        writer = offlineWriter,
+        onQueued = {
+            syncEngine.requestSync()
+            SyncPushWorker.schedule(context)
+        },
+    )
 
     val authRepository = AuthRepository(authApi, sessionManager)
     val mediaRepository = MediaRepository(mediaApi, localLibrary, appScope)

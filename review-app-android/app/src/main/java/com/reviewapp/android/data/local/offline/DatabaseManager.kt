@@ -73,6 +73,28 @@ class DatabaseManager(
         }
     }
 
+    /**
+     * The other users whose offline copy on this phone still holds changes the backend hasn't accepted (their
+     * session ended without a logout, e.g. revoked). Each copy is opened on its own, only to count, and closed.
+     */
+    suspend fun othersWithChanges(exceptUserId: Int?): List<Int> = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            val ids = dir.listFiles().orEmpty().mapNotNull { FILE_NAME.matchEntire(it.name)?.groupValues?.get(1)?.toIntOrNull() }
+            ids.filter { it != exceptUserId && it != _current.value?.userId }.filter { userId ->
+                val key = (keys.read(userId) as? StoredKey.Found)?.key ?: return@filter false
+                val db = OfflineDatabase.open(appContext, fileFor(userId), key)
+                try {
+                    db.outbox().count() > 0
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not read another account's offline copy", e)
+                    false
+                } finally {
+                    db.close()
+                }
+            }
+        }
+    }
+
     private suspend fun openReadable(userId: Int): OfflineDatabase {
         dir.mkdirs()
         val file = fileFor(userId)
@@ -104,5 +126,6 @@ class DatabaseManager(
 
     private companion object {
         const val TAG = "DatabaseManager"
+        val FILE_NAME = Regex("""offline_(\d+)\.db""")
     }
 }

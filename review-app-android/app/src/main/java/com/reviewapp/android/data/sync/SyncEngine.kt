@@ -79,9 +79,13 @@ class SyncEngine(
     private val _lastOutcome = MutableStateFlow<SyncOutcome?>(null)
     val lastOutcome: StateFlow<SyncOutcome?> = _lastOutcome.asStateFlow()
 
-    /** After a push that applied changes (screens showing temporary ids reload, the hearts refresh). */
+    /** After a push that applied changes or put some in Sync issues (lists reload: real ids, markers, hearts). */
     private val _pushed = MutableSharedFlow<PushOutcome.Done>(extraBufferCapacity = 4)
     val pushed: SharedFlow<PushOutcome.Done> = _pushed.asSharedFlow()
+
+    /** After a run in the app that sent changes which had waited: the root shows the sync summary. */
+    private val _summaries = MutableSharedFlow<PushOutcome.Done>(extraBufferCapacity = 4)
+    val summaries: SharedFlow<PushOutcome.Done> = _summaries.asSharedFlow()
 
     private var lastVisibilityCheck = 0L
     private var recoveredDb: OfflineDatabase? = null
@@ -121,7 +125,7 @@ class SyncEngine(
         val db = gateway.database() ?: return@withLock null
         try {
             recoverOnce(db)
-            pushRunner.push(db).also { if (it is PushOutcome.Done && it.applied > 0) _pushed.tryEmit(it) }
+            pushRunner.push(db).also { if (it is PushOutcome.Done && (it.applied > 0 || it.issues > 0)) _pushed.tryEmit(it) }
         } catch (e: Exception) {
             Log.w(TAG, "Push failed", e)
             PushOutcome.Failed(e.message ?: "Sync failed")
@@ -165,7 +169,8 @@ class SyncEngine(
                 PushOutcome.Offline -> SyncOutcome.Failed("You're offline.", isNetwork = true)
                 PushOutcome.NeedsLogin -> SyncOutcome.Failed("Log in again to sync your changes.", isNetwork = false)
                 else -> {
-                    if (pushed is PushOutcome.Done && pushed.applied > 0) _pushed.tryEmit(pushed)
+                    if (pushed is PushOutcome.Done && (pushed.applied > 0 || pushed.issues > 0)) _pushed.tryEmit(pushed)
+                    if (pushed is PushOutcome.Done && (pushed.waited > 0 || pushed.waitedIssues > 0)) _summaries.tryEmit(pushed)
                     _pausedUntil.value = (pushed as? PushOutcome.Paused)?.untilMillis
                     // Draining only sends what waits (the copy goes away), a pull would be wasted
                     if (mode is OfflineMode.Draining) SyncOutcome.Done
@@ -265,12 +270,27 @@ class SyncEngine(
 
     private suspend fun apply(db: OfflineDatabase, set: ChangeSet) {
         db.media().upsert(set.media)
+        // Deletions first: a title reviewed again after its review was deleted arrives with a new id
+        if (set.deletedReviewIds.isNotEmpty()) db.reviews().delete(set.deletedReviewIds)
         if (set.reviews.isNotEmpty()) {
             // Reply counts aren't in the feed: keep the ones last seen online
             val counts = db.reviews().replyCounts(set.reviews.map { it.id }).associate { it.id to it.replyCount }
-            db.reviews().upsert(set.reviews.map { it.copy(replyCount = counts[it.id] ?: 0) })
+            val pendingIds = db.outbox().pendingIds(EntityType.REVIEW).toSet()
+            val reviews = set.reviews.filter { review ->
+                // One review per title: another row of the same title would make the upsert do nothing. A stale
+                // one goes; one with waiting changes (written here) stays, the push reports the conflict.
+                val other = db.reviews().byMedia(review.mediaType, review.externalApiId)?.takeIf { it.id != review.id }
+                when {
+                    other == null -> true
+                    other.id in pendingIds -> false
+                    else -> {
+                        db.reviews().delete(listOf(other.id))
+                        true
+                    }
+                }
+            }
+            db.reviews().upsert(reviews.map { it.copy(replyCount = counts[it.id] ?: 0) })
         }
-        if (set.deletedReviewIds.isNotEmpty()) db.reviews().delete(set.deletedReviewIds)
         // Upsert never deletes the row, so the items' cascade isn't triggered
         if (set.collections.isNotEmpty()) db.collections().upsert(set.collections)
         set.collectionItems.forEach { (id, items) -> db.collections().replaceItems(id, items) }

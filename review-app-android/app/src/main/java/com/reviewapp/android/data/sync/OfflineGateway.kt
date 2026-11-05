@@ -72,6 +72,17 @@ class OfflineGateway(
     /** Bumped after a local copy was deleted, so the inputs are read again. */
     private val localCopyGeneration = MutableStateFlow(0)
 
+    private val _otherAccountChanges = MutableStateFlow(false)
+    /**
+     * Another account's changes that never reached the backend are on this phone (that user's session ended
+     * without a logout). They stay until that user logs in again; the logged-in user only gets a neutral notice
+     * and a way to discard them.
+     */
+    val otherAccountChanges: StateFlow<Boolean> = _otherAccountChanges.asStateFlow()
+
+    /** Users who chose "Log out and discard": their copy goes even with changes waiting. */
+    private val discardOnLogout = java.util.Collections.synchronizedSet(HashSet<Int>())
+
     /** The logged-in user's offline database while the mode uses one, else null (the online-only path). */
     fun database(): OfflineDatabase? {
         val mode = _status.value.mode
@@ -91,6 +102,33 @@ class OfflineGateway(
         scope.launch {
             sessionManager.explicitLogouts.collect { userId -> onExplicitLogout(userId) }
         }
+        scope.launch {
+            sessionManager.state
+                .map { (it as? AuthState.LoggedIn)?.user?.id }
+                .distinctUntilChanged()
+                .collect { userId -> refreshOtherAccounts(userId) }
+        }
+    }
+
+    private suspend fun refreshOtherAccounts(userId: Int?) {
+        _otherAccountChanges.value = userId != null && try {
+            databases.othersWithChanges(userId).isNotEmpty()
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not look for other accounts' changes", e)
+            false
+        }
+    }
+
+    /** The logged-in user discards the other accounts' unsent changes (and their offline copies). */
+    suspend fun discardOtherAccounts() {
+        val userId = sessionManager.currentUser?.id
+        lock.withLock { databases.othersWithChanges(userId).forEach { databases.delete(it) } }
+        refreshOtherAccounts(userId)
+    }
+
+    /** The next logout of [userId] deletes the offline copy even with changes waiting ("Log out and discard"). */
+    fun discardOnLogout(userId: Int) {
+        discardOnLogout += userId
     }
 
     private class Inputs(
@@ -176,9 +214,10 @@ class OfflineGateway(
 
     /** Logged out on purpose: the offline copy goes too, unless changes are still waiting in it. */
     private suspend fun onExplicitLogout(userId: Int) = lock.withLock {
+        val discard = discardOnLogout.remove(userId)
         if (!databases.exists(userId)) return@withLock
         try {
-            val pending = databases.open(userId).outbox().count()
+            val pending = if (discard) 0 else databases.open(userId).outbox().count()
             if (pending == 0) databases.delete(userId) else databases.close()
         } catch (e: Exception) {
             Log.w(TAG, "Could not check the offline copy after logout", e)

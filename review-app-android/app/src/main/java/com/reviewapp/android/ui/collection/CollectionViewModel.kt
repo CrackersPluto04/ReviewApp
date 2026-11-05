@@ -69,9 +69,10 @@ class CollectionViewModel(
     init {
         load()
         viewModelScope.launch {
-            // E.g. the media was taken out of this collection from its details page
+            // E.g. the media was taken out of this collection from its details page; a sync may have changed its
+            // id or markers
             collectionRepository.changes
-                .filter { it.collectionId == collectionId && dragStartIndex == null }
+                .filter { (it.collectionId == collectionId || it.fromSync) && dragStartIndex == null }
                 .collect { load(quiet = true) }
         }
     }

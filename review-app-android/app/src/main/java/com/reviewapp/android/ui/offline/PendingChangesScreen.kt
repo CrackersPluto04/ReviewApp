@@ -1,5 +1,6 @@
 package com.reviewapp.android.ui.offline
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -44,6 +45,7 @@ import com.reviewapp.android.ui.theme.AppTheme
 @Composable
 fun PendingChangesScreen(
     onBack: () -> Unit,
+    onOpenIssue: (seq: Long) -> Unit,
     viewModel: PendingChangesViewModel = viewModel(factory = PendingChangesViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -71,17 +73,25 @@ fun PendingChangesScreen(
             !state.isLoaded -> Column(modifier) { LoadingState() }
             state.rows.isEmpty() -> EmptyState("Everything is synced.", modifier)
             else -> LazyColumn(modifier, contentPadding = PaddingValues(bottom = 24.dp)) {
-                item {
-                    Text(
-                        if (state.isOnline) "These are sent in the order you made them." else "These are sent when you're back online, in the order you made them.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(16.dp),
-                    )
+                // Sync issues first: they never go on their own
+                val (issues, waiting) = state.rows.partition { it.needsAttention }
+                if (issues.isNotEmpty()) {
+                    item { SectionTitle("Needs your attention") }
+                    item { Hint("These weren't synced. Open one to decide what happens to it; the rest of your changes still sync.") }
+                    items(issues, key = { it.seq }) { row ->
+                        ChangeRow(row, onDiscard = { viewModel.askDiscard(row) }, onOpen = { onOpenIssue(row.seq) })
+                        HorizontalDivider()
+                    }
                 }
-                items(state.rows, key = { it.seq }) { row ->
-                    ChangeRow(row, onDiscard = { viewModel.askDiscard(row) })
-                    HorizontalDivider()
+                if (waiting.isNotEmpty()) {
+                    if (issues.isNotEmpty()) item { SectionTitle("Waiting to sync") }
+                    item {
+                        Hint(if (state.isOnline) "These are sent in the order you made them." else "These are sent when you're back online, in the order you made them.")
+                    }
+                    items(waiting, key = { it.seq }) { row ->
+                        ChangeRow(row, onDiscard = { viewModel.askDiscard(row) }, onOpen = null)
+                        HorizontalDivider()
+                    }
                 }
             }
         }
@@ -101,7 +111,24 @@ fun PendingChangesScreen(
 }
 
 @Composable
-private fun ChangeRow(row: PendingChangeRow, onDiscard: () -> Unit) {
+private fun SectionTitle(text: String) = Text(
+    text,
+    style = MaterialTheme.typography.titleSmall,
+    color = MaterialTheme.colorScheme.primary,
+    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
+)
+
+@Composable
+private fun Hint(text: String) = Text(
+    text,
+    style = MaterialTheme.typography.bodyMedium,
+    color = MaterialTheme.colorScheme.onSurfaceVariant,
+    modifier = Modifier.padding(16.dp),
+)
+
+/** [onOpen]: a change in Sync issues opens its choices. */
+@Composable
+private fun ChangeRow(row: PendingChangeRow, onDiscard: () -> Unit, onOpen: (() -> Unit)?) {
     ListItem(
         leadingContent = {
             Icon(
@@ -119,9 +146,13 @@ private fun ChangeRow(row: PendingChangeRow, onDiscard: () -> Unit) {
         },
         trailingContent = {
             Column(verticalArrangement = Arrangement.Center) {
-                TextButton(onClick = onDiscard, enabled = row.canDiscard) { Text("Discard") }
+                if (onOpen != null) {
+                    TextButton(onClick = onOpen) { Text("Resolve") }
+                } else {
+                    TextButton(onClick = onDiscard, enabled = row.canDiscard) { Text("Discard") }
+                }
             }
         },
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().then(if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier),
     )
 }

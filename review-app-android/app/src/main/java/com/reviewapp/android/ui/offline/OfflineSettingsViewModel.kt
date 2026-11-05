@@ -40,7 +40,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** The open confirmation or choice of the offline settings. */
-enum class OfflineDialog { Disable, ClearCache, Budget }
+enum class OfflineDialog { Disable, ClearCache, Budget, DiscardOtherAccounts }
 
 data class OfflineSettingsUiState(
     val isLoggedIn: Boolean = false,
@@ -56,6 +56,8 @@ data class OfflineSettingsUiState(
     /** Bytes of the offline copy on this phone (database and posters). */
     val storageBytes: Long = 0,
     val dialog: OfflineDialog? = null,
+    /** Another account's unsent changes are on this phone (a neutral notice with Discard). */
+    val otherAccountChanges: Boolean = false,
 )
 
 /** The pieces of the screen that change together, combined in two steps (combine takes five flows). */
@@ -90,7 +92,7 @@ class OfflineSettingsViewModel(
         .map { (it as? AuthState.LoggedIn)?.user }
         .flatMapLatest { user ->
             if (user == null) return@flatMapLatest flowOf(OfflineSettingsUiState())
-            combine(settings.offlineEnabled(user.id), gateway.status, device, dialog) { enabled, status, device, dialog ->
+            combine(settings.offlineEnabled(user.id), gateway.status, device, dialog, gateway.otherAccountChanges) { enabled, status, device, dialog, others ->
                 OfflineSettingsUiState(
                     isLoggedIn = true,
                     entitled = user.hasFeature(FeatureKeys.OFFLINE_MODE),
@@ -104,6 +106,7 @@ class OfflineSettingsViewModel(
                     // Changes whenever the status does (a sync, a change); cheap file sizes
                     storageBytes = withContext(Dispatchers.IO) { databases.sizeBytes(user.id) },
                     dialog = dialog,
+                    otherAccountChanges = others,
                 )
             }
         }
@@ -163,6 +166,14 @@ class OfflineSettingsViewModel(
             application.imageLoader.memoryCache?.clear()
             withContext(Dispatchers.IO) { application.imageLoader.diskCache?.clear() }
             _messages.send("Cached data cleared. Your own content and waiting changes are kept.")
+        }
+    }
+
+    fun discardOtherAccounts() {
+        dialog.value = null
+        viewModelScope.launch {
+            gateway.discardOtherAccounts()
+            _messages.send("The other account's changes were discarded.")
         }
     }
 

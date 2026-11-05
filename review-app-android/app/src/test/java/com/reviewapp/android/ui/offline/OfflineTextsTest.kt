@@ -35,6 +35,13 @@ class OfflineTextsTest {
         assertEquals("2 changes need your attention", issues.text)
         assertTrue(issues.problem && issues.opensChanges)
         assertEquals("1 change needs your attention", connectivityBanner(Connectivity.Online, active.copy(pendingChanges = 1, issues = 1))!!.text)
+
+        // Issues come first, even with other changes waiting (they may be held back behind it)
+        val both = connectivityBanner(Connectivity.Online, active.copy(pendingChanges = 3, issues = 1))!!
+        assertEquals("1 change needs your attention · 2 changes waiting to sync", both.text)
+        assertTrue(both.problem)
+        // While it runs, the run says what it does
+        assertEquals("Syncing 2 changes…", connectivityBanner(Connectivity.Online, active.copy(pendingChanges = 3, issues = 1), SyncActivity(running = true))!!.text)
     }
 
     @Test

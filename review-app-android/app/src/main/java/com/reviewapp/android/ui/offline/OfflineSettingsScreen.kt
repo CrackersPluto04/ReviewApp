@@ -20,6 +20,7 @@ import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.PersonOff
 import androidx.compose.material.icons.outlined.SdStorage
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.WarningAmber
@@ -96,23 +97,36 @@ fun OfflineSettingsScreen(
                 }
             } else {
                 item { OfflineSwitch(state.enabled, onToggle = viewModel::onToggle) }
-                offlineStatusView(state.status, System.currentTimeMillis())?.let { view ->
-                    item { StatusCard(view) }
+            }
+            // Also after Premium ended: changes made offline are still sent, and issues still need the user
+            offlineStatusView(state.status, System.currentTimeMillis())?.let { view ->
+                item { StatusCard(view) }
+            }
+            if (state.status.pendingChanges > 0) {
+                item {
+                    SettingRow(
+                        Icons.Outlined.CloudUpload,
+                        "Waiting changes",
+                        listOfNotNull(
+                            state.status.toSend.takeIf { it > 0 }?.let { "${pluralize(it, "change")} to sync" },
+                            state.status.issues.takeIf { it > 0 }?.let { "$it need your attention" },
+                        ).joinToString(" · "),
+                        onClick = onOpenChanges,
+                    )
                 }
+            }
+            if (state.otherAccountChanges) {
+                item {
+                    SettingRow(
+                        Icons.Outlined.PersonOff,
+                        "Changes from another account",
+                        "This phone has changes from another account that haven't been synced. They're sent when that account logs in again. Tap to discard them.",
+                        onClick = { viewModel.openDialog(OfflineDialog.DiscardOtherAccounts) },
+                    )
+                }
+            }
+            if (state.entitled) {
                 val mode = state.status.mode
-                if (state.status.pendingChanges > 0) {
-                    item {
-                        SettingRow(
-                            Icons.Outlined.CloudUpload,
-                            "Waiting changes",
-                            listOfNotNull(
-                                state.status.toSend.takeIf { it > 0 }?.let { "${pluralize(it, "change")} to sync" },
-                                state.status.issues.takeIf { it > 0 }?.let { "$it need your attention" },
-                            ).joinToString(" · "),
-                            onClick = onOpenChanges,
-                        )
-                    }
-                }
                 if (mode is OfflineMode.Active || mode is OfflineMode.Preparing || mode is OfflineMode.ReadOnly) {
                     item { SyncRow(state, onSyncNow = viewModel::syncNow) }
                     item { Divider() }
@@ -158,6 +172,14 @@ fun OfflineSettingsScreen(
             onDismiss = viewModel::dismissDialog,
         )
         OfflineDialog.Budget -> BudgetDialog(state.budget, viewModel::setBudget, viewModel::dismissDialog)
+        OfflineDialog.DiscardOtherAccounts -> ConfirmDialog(
+            title = "Discard the other account's changes?",
+            text = "Changes made on this phone by another account that were never synced are deleted, with that " +
+                "account's offline copy. They can't be recovered.",
+            confirm = "Discard",
+            onConfirm = viewModel::discardOtherAccounts,
+            onDismiss = viewModel::dismissDialog,
+        )
         null -> Unit
     }
 }

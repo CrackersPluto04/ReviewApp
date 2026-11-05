@@ -42,6 +42,10 @@ data object OfflineSettingsRoute
 @Serializable
 data object PendingChangesRoute
 
+/** One change in Sync issues (an outbox row, by its [seq]) and the choices to resolve it. */
+@Serializable
+data class ConflictRoute(val seq: Long)
+
 /** Plans page with the current user's subscription. */
 @Serializable
 data object PremiumRoute

@@ -26,8 +26,19 @@ import kotlin.random.Random
 
 /** How sending the queue ended. */
 sealed interface PushOutcome {
-    /** Everything that can go now went (some may wait for a retry or sit in Sync issues). */
-    data class Done(val applied: Int, val issues: Int) : PushOutcome
+    /**
+     * Everything that can go now went (some may wait for a retry or sit in Sync issues). [waited] and
+     * [waitedIssues] count the changes that had waited a while (made offline, not just now), [unlocked] the
+     * achievements the run earned, [overwritten] the profile fields whose value from elsewhere mine replaced.
+     */
+    data class Done(
+        val applied: Int,
+        val issues: Int,
+        val waited: Int = 0,
+        val waitedIssues: Int = 0,
+        val unlocked: Int = 0,
+        val overwritten: List<String> = emptyList(),
+    ) : PushOutcome
     data object Offline : PushOutcome
     /** The session is gone (401): everything stays queued for after the login. */
     data object NeedsLogin : PushOutcome
@@ -52,11 +63,25 @@ class PushRunner(
 ) {
     suspend fun push(db: OfflineDatabase): PushOutcome {
         val user = userId() ?: return PushOutcome.NeedsLogin
+        val unlocked = ArrayList<UnlockedAchievement>()
+        // Delivered once for the whole run, however it ends (one grouped banner, not a burst)
+        try {
+            return pushBatches(db, user, unlocked)
+        } finally {
+            if (unlocked.isNotEmpty()) onUnlocked(unlocked.distinctBy { it.groupCode to it.tier })
+        }
+    }
+
+    private suspend fun pushBatches(db: OfflineDatabase, user: Int, unlocked: MutableList<UnlockedAchievement>): PushOutcome {
         var applied = 0
         var issues = 0
+        var waited = 0
+        var waitedIssues = 0
+        val overwritten = LinkedHashSet<String>()
+        fun done() = PushOutcome.Done(applied, issues, waited, waitedIssues, unlocked.size, overwritten.toList())
         repeat(MAX_BATCHES_PER_RUN) {
             val batch = SyncPlanner.nextBatch(db.outbox().all(), clock())
-            if (batch.isEmpty()) return PushOutcome.Done(applied, issues)
+            if (batch.isEmpty()) return done()
             db.outbox().update(batch.map { it.copy(state = OutboxState.IN_FLIGHT) })
 
             val request = SyncPushRequest(user, batch.map { it.toDto() })
@@ -74,19 +99,29 @@ class PushRunner(
                                 db.outbox().update(listOf(op.copy(state = OutboxState.PENDING)))
                                 continue
                             }
+                            val hadWaited = clock() - op.createdAt >= WAITED_MILLIS
                             when (val outcome = ResultInterpreter.outcome(answer, op, clock(), random())) {
-                                is OpOutcome.Done -> { done(db, op, answer, outcome); applied++ }
-                                is OpOutcome.Issue -> { issue(db, op, answer, outcome); issues++ }
+                                is OpOutcome.Done -> {
+                                    done(db, op, answer, outcome)
+                                    applied++
+                                    if (hadWaited) waited++
+                                    answer.previous?.keys?.let(overwritten::addAll)
+                                }
+                                is OpOutcome.Issue -> {
+                                    issue(db, op, answer, outcome)
+                                    issues++
+                                    if (hadWaited) waitedIssues++
+                                }
                                 is OpOutcome.Retry -> db.outbox().update(listOf(op.copy(state = OutboxState.PENDING, attempts = outcome.attempts, nextAttemptAt = outcome.nextAttemptAt, lastReason = outcome.reason)))
                                 OpOutcome.Waiting -> db.outbox().update(listOf(op.copy(state = OutboxState.PENDING)))
                             }
                         }
                     }
-                    if (response.unlocked.isNotEmpty()) onUnlocked(response.unlocked.map { it.toDomain() })
+                    unlocked += response.unlocked.map { it.toDomain() }
                 }
             }
         }
-        return PushOutcome.Done(applied, issues)
+        return done()
     }
 
     /** Ops left in flight by a run that never finished (app killed) wait again; the backend recognises them. */
@@ -226,9 +261,11 @@ class PushRunner(
         payload = OpJson.parseToJsonElement(payloadJson).jsonObject,
     )
 
-    private companion object {
+    companion object {
         /** A long queue continues in the next run (the rate limit lets ~20 requests through at once). */
         const val MAX_BATCHES_PER_RUN = 10
         const val DEFAULT_PAUSE_SECONDS = 30L
+        /** A change older than this when its answer came had waited (made offline): the sync summary mentions it. */
+        const val WAITED_MILLIS = 15_000L
     }
 }

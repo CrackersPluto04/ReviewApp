@@ -30,8 +30,14 @@ fun connectivityBanner(connectivity: Connectivity, status: OfflineStatus, sync: 
         Connectivity.Online -> when {
             sync.paused && status.toSend > 0 -> ConnectivityBanner("Sync paused, it continues shortly", disconnected = false, opensChanges = true)
             sync.running && status.toSend > 0 -> ConnectivityBanner("Syncing ${pluralize(status.toSend, "change")}…", disconnected = false, opensChanges = true)
+            // Issues never go on their own (and can hold back later changes of the same thing): they come first
+            attention != null -> ConnectivityBanner(
+                listOfNotNull(attention, waiting).joinToString(" · ").replaceFirstChar(Char::uppercase),
+                problem = true,
+                disconnected = false,
+                opensChanges = true,
+            )
             waiting != null -> ConnectivityBanner(waiting.replaceFirstChar(Char::uppercase), disconnected = false, opensChanges = true)
-            attention != null -> ConnectivityBanner(attention.replaceFirstChar(Char::uppercase), problem = true, disconnected = false, opensChanges = true)
             else -> null
         }
         Connectivity.ServerUnreachable -> ConnectivityBanner(

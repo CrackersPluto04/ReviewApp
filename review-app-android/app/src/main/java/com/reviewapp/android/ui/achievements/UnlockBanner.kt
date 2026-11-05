@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -51,15 +52,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/** Activity-scoped queue of unlocked tiers, shown one banner at a time (the web's achievement toasts). */
+/** Activity-scoped queue of unlocked tiers, shown one banner at a time (the web's achievement toasts); tiers that came together share one banner. */
 class UnlockBannerViewModel(
     achievementRepository: AchievementRepository,
     private val sessionManager: SessionManager,
 ) : ViewModel() {
 
-    private val queue = ArrayDeque<UnlockedAchievement>()
-    private val _current = MutableStateFlow<UnlockedAchievement?>(null)
-    val current: StateFlow<UnlockedAchievement?> = _current.asStateFlow()
+    private val queue = ArrayDeque<List<UnlockedAchievement>>()
+    private val _current = MutableStateFlow<List<UnlockedAchievement>?>(null)
+    val current: StateFlow<List<UnlockedAchievement>?> = _current.asStateFlow()
 
     private var nextJob: Job? = null
 
@@ -123,7 +124,7 @@ fun UnlockBannerHost(
 ) {
     val current by viewModel.current.collectAsStateWithLifecycle()
     // The banner keeps its content while it animates out
-    var shown by remember { mutableStateOf<UnlockedAchievement?>(null) }
+    var shown by remember { mutableStateOf<List<UnlockedAchievement>?>(null) }
     if (current != null) shown = current
 
     LaunchedEffect(current) {
@@ -141,7 +142,7 @@ fun UnlockBannerHost(
     ) {
         val unlocked = shown ?: return@AnimatedVisibility
         UnlockBanner(
-            unlocked = unlocked,
+            group = unlocked,
             onClick = {
                 viewModel.dismiss()
                 viewModel.currentUsername?.let(onOpenAchievements)
@@ -152,7 +153,9 @@ fun UnlockBannerHost(
 }
 
 @Composable
-private fun UnlockBanner(unlocked: UnlockedAchievement, onClick: () -> Unit, onClose: () -> Unit) {
+private fun UnlockBanner(group: List<UnlockedAchievement>, onClick: () -> Unit, onClose: () -> Unit) {
+    val unlocked = group.maxBy { it.tier.ordinal }
+    val (title, text) = unlockBannerText(group)
     // Dark in both themes, like the web's grey.900 toast
     Surface(
         onClick = onClick,
@@ -171,10 +174,18 @@ private fun UnlockBanner(unlocked: UnlockedAchievement, onClick: () -> Unit, onC
             )
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Achievement unlocked!", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Text("${unlocked.title} (${unlocked.tier.name})", style = MaterialTheme.typography.bodyMedium)
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(text, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             IconButton(onClick = onClose) { Icon(Icons.Filled.Close, contentDescription = "Close") }
         }
     }
 }
+
+/** The banner's title and line for tiers that came together (pure, unit-tested). */
+fun unlockBannerText(group: List<UnlockedAchievement>): Pair<String, String> =
+    if (group.size == 1) {
+        "Achievement unlocked!" to "${group[0].title} (${group[0].tier.name})"
+    } else {
+        "${group.size} achievements unlocked!" to group.joinToString(", ") { "${it.title} (${it.tier.name})" }
+    }

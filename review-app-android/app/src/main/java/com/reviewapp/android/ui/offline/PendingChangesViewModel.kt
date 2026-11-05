@@ -76,7 +76,7 @@ class PendingChangesViewModel(
             if (db == null) return@flatMapLatest flowOf(emptyList())
             db.outbox().observeAll()
                 .map { queue ->
-                    val context = contextOf(db)
+                    val context = describeContextOf(db)
                     val now = System.currentTimeMillis()
                     queue.map { op ->
                         PendingChangeRow(
@@ -118,30 +118,6 @@ class PendingChangesViewModel(
 
     fun syncNow() = syncEngine.requestSync()
 
-    /** Names for the describer: titles, collection names and usernames from the copy and the shadows. */
-    private suspend fun contextOf(db: OfflineDatabase): DescribeContext {
-        val media = db.media().all().associate { "${it.mediaType}:${it.externalApiId}" to it.title.orEmpty() }
-        val reviewTitles = HashMap<Int, String>()
-        db.reviews().all().forEach { reviewTitles[it.review.id] = it.title.orEmpty() }
-        val collectionNames = HashMap<Int, String>()
-        db.collections().all().forEach { collectionNames[it.collection.id] = it.collection.name }
-        // Deleted here: their names are only in the backend's version
-        db.shadows().all().filter { it.json != ServerShadow.DELETED }.forEach { shadow ->
-            runCatching {
-                when (shadow.entityType) {
-                    EntityType.REVIEW -> reviewTitles.getOrPut(shadow.entityId) {
-                        OpJson.decodeFromString(SyncReviewDto.serializer(), shadow.json).media.title.orEmpty()
-                    }
-                    EntityType.COLLECTION -> collectionNames.getOrPut(shadow.entityId) {
-                        OpJson.decodeFromString(SyncCollectionDto.serializer(), shadow.json).name
-                    }
-                }
-            }
-        }
-        val usernames = db.follows().knownUsers().associate { it.userId to it.username }
-        return DescribeContext(media.filterValues { it.isNotBlank() }, reviewTitles.filterValues { it.isNotBlank() }, collectionNames, usernames)
-    }
-
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
@@ -150,4 +126,28 @@ class PendingChangesViewModel(
             }
         }
     }
+}
+
+/** Names for the describer: titles, collection names and usernames from the copy and the shadows. */
+suspend fun describeContextOf(db: OfflineDatabase): DescribeContext {
+    val media = db.media().all().associate { "${it.mediaType}:${it.externalApiId}" to it.title.orEmpty() }
+    val reviewTitles = HashMap<Int, String>()
+    db.reviews().all().forEach { reviewTitles[it.review.id] = it.title.orEmpty() }
+    val collectionNames = HashMap<Int, String>()
+    db.collections().all().forEach { collectionNames[it.collection.id] = it.collection.name }
+    // Deleted here: their names are only in the backend's version
+    db.shadows().all().filter { it.json != ServerShadow.DELETED }.forEach { shadow ->
+        runCatching {
+            when (shadow.entityType) {
+                EntityType.REVIEW -> reviewTitles.getOrPut(shadow.entityId) {
+                    OpJson.decodeFromString(SyncReviewDto.serializer(), shadow.json).media.title.orEmpty()
+                }
+                EntityType.COLLECTION -> collectionNames.getOrPut(shadow.entityId) {
+                    OpJson.decodeFromString(SyncCollectionDto.serializer(), shadow.json).name
+                }
+            }
+        }
+    }
+    val usernames = db.follows().knownUsers().associate { it.userId to it.username }
+    return DescribeContext(media.filterValues { it.isNotBlank() }, reviewTitles.filterValues { it.isNotBlank() }, collectionNames, usernames)
 }

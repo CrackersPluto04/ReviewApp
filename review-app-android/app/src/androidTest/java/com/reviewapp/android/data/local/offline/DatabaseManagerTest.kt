@@ -91,4 +91,19 @@ class DatabaseManagerTest {
         assertNull(manager.current.value)
         assertNull(manager.open(alice).syncMeta().get(SyncMetaKeys.CURSOR))
     }
+
+    @Test
+    fun anotherAccountsUnsentChanges_AreFound_WithoutOpeningItForGood() = runBlocking {
+        manager.open(alice).outbox().insert(OutboxEntity(opId = "a1", type = "review.delete", entityType = EntityType.REVIEW, entityId = 1, clientRef = null, dependsOn = null, payloadJson = "{}", createdAt = 0))
+        manager.open(bob)
+
+        // Only the copies this key store can read (a developer's own copy on the device is left alone)
+        val others = manager.othersWithChanges(bob).filter { it == alice || it == bob }
+
+        assertEquals(listOf(alice), others)
+        assertEquals(bob, manager.current.value?.userId)
+        // Bob's copy without changes doesn't count for alice
+        manager.close()
+        assertTrue(manager.othersWithChanges(alice).none { it == bob })
+    }
 }
