@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.WarningAmber
@@ -72,6 +73,7 @@ fun PremiumScreen(
     onBack: () -> Unit,
     onLogin: () -> Unit,
     onOpenRecognition: () -> Unit,
+    onOpenOffline: () -> Unit,
     viewModel: PremiumViewModel = viewModel(factory = PremiumViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -112,7 +114,7 @@ fun PremiumScreen(
             plan == null -> Column(modifier) {
                 ErrorState(state.error ?: "Could not load the plans.", viewModel::loadPlan, Modifier.fillMaxWidth())
             }
-            else -> PremiumContent(state, plan, viewModel, onOpenRecognition, modifier)
+            else -> PremiumContent(state, plan, viewModel, onOpenRecognition, onOpenOffline, modifier)
         }
     }
 
@@ -128,7 +130,14 @@ fun PremiumScreen(
 }
 
 @Composable
-private fun PremiumContent(state: PremiumUiState, plan: Plan, viewModel: PremiumViewModel, onOpenRecognition: () -> Unit, modifier: Modifier) {
+private fun PremiumContent(
+    state: PremiumUiState,
+    plan: Plan,
+    viewModel: PremiumViewModel,
+    onOpenRecognition: () -> Unit,
+    onOpenOffline: () -> Unit,
+    modifier: Modifier,
+) {
     val subscription = state.subscription
     val isPremium = subscription?.isPremium == true
 
@@ -169,6 +178,21 @@ private fun PremiumContent(state: PremiumUiState, plan: Plan, viewModel: Premium
                     OutlinedButton(onClick = onOpenRecognition) {
                         Icon(Icons.Outlined.PhotoCamera, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
                         Text(if (isPremium) "Try camera recognition" else "See how it works")
+                    }
+                }
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Offline mode", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Keep using the app on a flight or in the subway: your reviews and collections stay on this phone, you can " +
+                            "edit them without a connection, and your changes sync when you're back online.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedButton(onClick = onOpenOffline) {
+                        Icon(Icons.Outlined.CloudOff, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                        Text(if (isPremium) "Offline mode settings" else "See how it works")
                     }
                 }
             }

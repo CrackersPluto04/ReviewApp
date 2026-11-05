@@ -24,8 +24,9 @@ describe('PremiumPage', () => {
         expect(screen.getByText('Camera recognition')).toBeInTheDocument();
         expect(screen.getByText('Coming soon')).toBeInTheDocument();
         expect(screen.getByText(/renews automatically every month/)).toBeInTheDocument();
-        // Logged-out visitors get neither the recognition link nor a current plan
+        // Logged-out visitors get neither the recognition link, the offline mode section nor a current plan
         expect(screen.queryByRole('button', { name: /camera recognition|how it works/ })).not.toBeInTheDocument();
+        expect(screen.queryByRole('heading', { name: 'Offline mode' })).not.toBeInTheDocument();
         expect(screen.queryByText('Your current plan')).not.toBeInTheDocument();
     });
 
@@ -103,5 +104,22 @@ describe('PremiumPage', () => {
         await user.click(await screen.findByRole('button', { name: 'See how it works' }));
 
         expect(currentLocation()).toBe('/recognize');
+    });
+
+    it('tells a subscriber where to turn on offline mode (an Android feature)', async () => {
+        servePlan();
+        server.use(capture('get', 'Subscription/status', ok(activeSubscription())).handler);
+        renderWithApp(<PremiumPage />, { user: premiumAuthUser() });
+
+        expect(await screen.findByRole('heading', { name: 'Offline mode' })).toBeInTheDocument();
+        expect(screen.getByText(/Turn it on in the app under Account settings, Offline mode/)).toBeInTheDocument();
+    });
+
+    it('shows a Free user that offline mode comes with Premium', async () => {
+        servePlan();
+        renderWithApp(<PremiumPage />, { user: authUser() });
+
+        expect(await screen.findByRole('heading', { name: 'Offline mode' })).toBeInTheDocument();
+        expect(screen.getByText(/Included in Premium, in the Android app/)).toBeInTheDocument();
     });
 });

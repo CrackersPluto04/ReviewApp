@@ -345,7 +345,14 @@ private fun AppNavHost(navController: NavHostController, unseenNotifications: In
             PendingChangesScreen(onBack = goBack, onOpenIssue = { seq -> navController.navigate(ConflictRoute(seq)) })
         }
         composable<ConflictRoute> { ConflictScreen(onBack = goBack) }
-        composable<PremiumRoute> { PremiumScreen(onBack = goBack, onLogin = goToLogin, onOpenRecognition = openRecognition) }
+        composable<PremiumRoute> {
+            PremiumScreen(
+                onBack = goBack,
+                onLogin = goToLogin,
+                onOpenRecognition = openRecognition,
+                onOpenOffline = { navController.navigate(OfflineSettingsRoute) { launchSingleTop = true } },
+            )
+        }
         composable<RecognitionRoute> {
             RecognitionScreen(onBack = goBack, onLogin = goToLogin, onOpenMedia = openMedia, onOpenPremium = openPremium)
         }

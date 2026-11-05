@@ -155,6 +155,16 @@ export function PremiumPage() {
                     {isPremium ? 'Try camera recognition' : 'See how it works'}
                 </Button>
             </Box>
+            <Box>
+                <Typography variant="h5" component="h2" fontWeight="bold">Offline mode</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    Keep using the Android app on a flight or in the subway: your reviews and collections stay on your
+                    phone, you can edit them without a connection, and your changes sync when you are back online.
+                    {isPremium
+                        ? ' Turn it on in the app under Account settings, Offline mode.'
+                        : ' Included in Premium, in the Android app.'}
+                </Typography>
+            </Box>
         </>}
 
         <Box id="terms">
