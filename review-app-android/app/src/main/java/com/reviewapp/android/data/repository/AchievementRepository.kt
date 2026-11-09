@@ -15,12 +15,18 @@ import kotlinx.coroutines.flow.asSharedFlow
 
 class AchievementRepository(private val api: AchievementApi) {
 
-    // Tiers unlocked by the current user's requests, shown as banners and reloading the owner's tab
-    private val _unlocks = MutableSharedFlow<UnlockedAchievement>(extraBufferCapacity = 16)
-    val unlocks: SharedFlow<UnlockedAchievement> = _unlocks.asSharedFlow()
+    // Tiers unlocked by the current user's requests, shown as banners and reloading the owner's tab. Tiers that came
+    // together (one response, one sync run) are one group, shown as one banner.
+    private val _unlocks = MutableSharedFlow<List<UnlockedAchievement>>(extraBufferCapacity = 16)
+    val unlocks: SharedFlow<List<UnlockedAchievement>> = _unlocks.asSharedFlow()
 
     suspend fun achievements(username: String): ApiResult<List<Achievement>> =
         apiCall { api.getAchievements(username) }.map { list -> list.map { it.toDomain() } }
+
+    /** Unlocks that came another way: the sync's answer (offline changes earn them when they are sent). */
+    fun onUnlocked(unlocked: List<UnlockedAchievement>) {
+        if (unlocked.isNotEmpty()) _unlocks.tryEmit(unlocked)
+    }
 
     /** Called by the OkHttp interceptor for every response with the [UNLOCK_HEADER]. */
     fun onUnlockHeader(raw: String) {
@@ -30,7 +36,7 @@ class AchievementRepository(private val api: AchievementApi) {
             Log.w(TAG, "Could not parse $UNLOCK_HEADER")
             return
         }
-        unlocked.forEach { _unlocks.tryEmit(it) }
+        onUnlocked(unlocked)
     }
 
     companion object {

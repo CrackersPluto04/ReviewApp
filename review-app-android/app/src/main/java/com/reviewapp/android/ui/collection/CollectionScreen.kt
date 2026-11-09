@@ -60,6 +60,7 @@ import com.reviewapp.android.ui.components.EmptyState
 import com.reviewapp.android.ui.components.ErrorState
 import com.reviewapp.android.ui.components.LoadingState
 import com.reviewapp.android.ui.components.Poster
+import com.reviewapp.android.ui.components.SyncBadge
 import com.reviewapp.android.ui.components.icon
 import com.reviewapp.android.util.formatDate
 import com.reviewapp.android.util.pluralize
@@ -196,7 +197,9 @@ private fun CollectionInfo(collection: MediaCollection, showReorderHint: Boolean
                         pluralize(collection.mediaCount, "media", "media"),
                     ).joinToString(" • "),
                     style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
                 )
+                SyncBadge(collection.syncState, compact = true)
             }
         }
         if (showReorderHint) {
@@ -268,6 +271,7 @@ private fun ReorderableCollectionItemScope.CollectionMediaTile(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            SyncBadge(item.syncState, Modifier.padding(top = 2.dp))
         }
     }
 }

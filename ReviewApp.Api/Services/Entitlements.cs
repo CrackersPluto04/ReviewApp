@@ -8,6 +8,7 @@ public static class FeatureKeys
 {
     public const string ProfileBadge = "profile-badge";
     public const string CameraRecognition = "camera-recognition";
+    public const string OfflineMode = "offline-mode";
 }
 
 public record PremiumFeature(string Key, string Title, string Description, SubscriptionTier MinimumTier, bool ComingSoon = false);
@@ -22,8 +23,10 @@ public static class Entitlements
         new(FeatureKeys.CameraRecognition, "Camera recognition",
             "Take a photo of a figure, poster, album cover or other collectible and get the movies, series and music it relates to.",
             SubscriptionTier.Premium),
-        // Announced on the plans page, not enforced anywhere yet
-        new("offline-mode", "Offline mode", "Use the mobile app without an internet connection.", SubscriptionTier.Premium, ComingSoon: true)
+        // Decided on the device (the sync endpoints stay open, so changes made offline arrive after Premium lapses)
+        new(FeatureKeys.OfflineMode, "Offline mode",
+            "Keep using the Android app without an internet connection: your reviews and collections are kept on the phone, and your changes sync when you are back online.",
+            SubscriptionTier.Premium)
     ];
 
     public static bool IsAvailable(string featureKey, SubscriptionTier tier)

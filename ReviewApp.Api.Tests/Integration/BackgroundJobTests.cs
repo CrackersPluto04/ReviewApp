@@ -5,6 +5,7 @@ using ReviewApp.Api.Enums;
 using ReviewApp.Api.Services;
 using ReviewApp.Api.Services.Interfaces;
 using ReviewApp.Api.Services.Payments;
+using ReviewApp.Api.Services.Sync;
 using ReviewApp.Api.Tests.Support;
 
 namespace ReviewApp.Api.Tests.Integration;
@@ -31,6 +32,55 @@ public class BackgroundJobTests : IntegrationTest
         var left = await Query().Notifications.Where(n => n.RecipientUserID == user.ID).Select(n => n.ID).ToListAsync();
         left.ShouldBe([oldUnseen.ID, recentSeen.ID], ignoreOrder: true);
         left.ShouldNotContain(oldSeen.ID);
+    }
+
+    // F1: media stored from a failed lookup (before the fix) are deleted when unused, fetched again when used
+    [Fact]
+    public async Task Cleanup_DeletesUnusedIncompleteMediaAndRepairsUsedOnes()
+    {
+        var user = await Data.UserAsync();
+        var unused = await Data.MediaAsync(title: DataCleanupService.IncompleteTitle);
+        var reviewed = await Data.MediaAsync(title: DataCleanupService.IncompleteTitle);
+        var collected = await Data.MediaAsync(MediaType.Music, externalId: TestData.Unique("track"), title: "");
+        var stillUnknown = await Data.MediaAsync(title: DataCleanupService.IncompleteTitle);
+        var complete = await Data.MediaAsync();
+        await Data.ReviewAsync(user, reviewed);
+        await Data.ReviewAsync(user, stillUnknown);
+        await Data.CollectionAsync(user, media: collected);
+        App.Tmdb.MarkUnknown(stillUnknown.ExternalApiID);
+
+        await RunCleanupAsync();
+
+        var media = await Query().Media.Where(m => new[] { unused.ID, reviewed.ID, collected.ID, stillUnknown.ID, complete.ID }.Contains(m.ID))
+            .ToDictionaryAsync(m => m.ID);
+        media.ContainsKey(unused.ID).ShouldBeFalse();
+        media[reviewed.ID].Title.ShouldBe($"Movie {reviewed.ExternalApiID}");
+        media[collected.ID].Title.ShouldBe($"Track {collected.ExternalApiID}");
+        media[stillUnknown.ID].Title.ShouldBe(DataCleanupService.IncompleteTitle);
+        media[complete.ID].Title.ShouldBe(complete.Title);
+    }
+
+    [Fact]
+    public async Task Cleanup_DeletesSyncRecordsAfterTheRetention()
+    {
+        var user = await Data.UserAsync();
+        var old = DateTime.UtcNow - SyncRetention.Retention - TimeSpan.FromHours(1);
+        var recent = DateTime.UtcNow.AddDays(-29);
+        await using (var context = TestDatabase.CreateContext())
+        {
+            context.SyncOperations.AddRange(
+                new SyncOperation { UserID = user.ID, OperationID = Guid.NewGuid(), EntityType = SyncEntityType.Review, ResultJson = "{}", CreatedAt = old },
+                new SyncOperation { UserID = user.ID, OperationID = Guid.NewGuid(), EntityType = SyncEntityType.Review, ResultJson = "{}", CreatedAt = recent });
+            context.SyncTombstones.AddRange(
+                new SyncTombstone { UserID = user.ID, EntityType = SyncEntityType.Review, EntityID = 1, DeletedAt = old },
+                new SyncTombstone { UserID = user.ID, EntityType = SyncEntityType.Collection, EntityID = 2, DeletedAt = recent });
+            await context.SaveChangesAsync();
+        }
+
+        await RunCleanupAsync();
+
+        (await Query().SyncOperations.Where(o => o.UserID == user.ID).Select(o => o.CreatedAt).SingleAsync()).ShouldBe(recent, TimeSpan.FromSeconds(1));
+        (await Query().SyncTombstones.Where(t => t.UserID == user.ID).Select(t => t.EntityID).SingleAsync()).ShouldBe(2);
     }
 
     [Fact]

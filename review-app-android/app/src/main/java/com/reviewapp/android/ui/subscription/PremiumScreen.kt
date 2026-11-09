@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.WarningAmber
@@ -50,6 +51,8 @@ import com.reviewapp.android.domain.model.Plan
 import com.reviewapp.android.domain.model.SubscriptionSummary
 import com.reviewapp.android.ui.components.BackButton
 import com.reviewapp.android.ui.components.ErrorState
+import com.reviewapp.android.ui.components.OfflineNotice
+import com.reviewapp.android.ui.offline.LocalIsOnline
 import com.reviewapp.android.ui.components.LoadingState
 import com.reviewapp.android.ui.components.PremiumBadge
 import com.reviewapp.android.ui.components.PremiumGold
@@ -70,6 +73,7 @@ fun PremiumScreen(
     onBack: () -> Unit,
     onLogin: () -> Unit,
     onOpenRecognition: () -> Unit,
+    onOpenOffline: () -> Unit,
     viewModel: PremiumViewModel = viewModel(factory = PremiumViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -99,12 +103,18 @@ fun PremiumScreen(
     ) { padding ->
         val modifier = Modifier.fillMaxSize().padding(padding)
         val plan = state.plan
+        val isOnline = LocalIsOnline.current
+        // Back online: load what failed without one
+        LaunchedEffect(isOnline) { if (isOnline && plan == null && !state.isLoading) viewModel.loadPlan() }
         when {
+            plan == null && !isOnline -> Column(modifier.padding(16.dp)) {
+                OfflineNotice("The plans and your subscription need a connection. Offline mode keeps working meanwhile.")
+            }
             plan == null && state.isLoading -> Column(modifier) { LoadingState() }
             plan == null -> Column(modifier) {
                 ErrorState(state.error ?: "Could not load the plans.", viewModel::loadPlan, Modifier.fillMaxWidth())
             }
-            else -> PremiumContent(state, plan, viewModel, onOpenRecognition, modifier)
+            else -> PremiumContent(state, plan, viewModel, onOpenRecognition, onOpenOffline, modifier)
         }
     }
 
@@ -120,7 +130,14 @@ fun PremiumScreen(
 }
 
 @Composable
-private fun PremiumContent(state: PremiumUiState, plan: Plan, viewModel: PremiumViewModel, onOpenRecognition: () -> Unit, modifier: Modifier) {
+private fun PremiumContent(
+    state: PremiumUiState,
+    plan: Plan,
+    viewModel: PremiumViewModel,
+    onOpenRecognition: () -> Unit,
+    onOpenOffline: () -> Unit,
+    modifier: Modifier,
+) {
     val subscription = state.subscription
     val isPremium = subscription?.isPremium == true
 
@@ -161,6 +178,21 @@ private fun PremiumContent(state: PremiumUiState, plan: Plan, viewModel: Premium
                     OutlinedButton(onClick = onOpenRecognition) {
                         Icon(Icons.Outlined.PhotoCamera, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
                         Text(if (isPremium) "Try camera recognition" else "See how it works")
+                    }
+                }
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Offline mode", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Keep using the app on a flight or in the subway: your reviews and collections stay on this phone, you can " +
+                            "edit them without a connection, and your changes sync when you're back online.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedButton(onClick = onOpenOffline) {
+                        Icon(Icons.Outlined.CloudOff, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                        Text(if (isPremium) "Offline mode settings" else "See how it works")
                     }
                 }
             }

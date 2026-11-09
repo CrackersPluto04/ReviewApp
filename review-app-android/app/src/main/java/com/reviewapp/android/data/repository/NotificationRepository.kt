@@ -7,6 +7,10 @@ import com.reviewapp.android.data.remote.NotificationApi
 import com.reviewapp.android.data.remote.apiCall
 import com.reviewapp.android.data.remote.dto.SetSeenRequest
 import com.reviewapp.android.data.remote.map
+import com.reviewapp.android.data.sync.LocalLibrary
+import com.reviewapp.android.data.sync.OfflineWriteException
+import com.reviewapp.android.data.sync.OfflineWrites
+import com.reviewapp.android.data.local.offline.EntityType
 import com.reviewapp.android.domain.model.NotificationPage
 import com.reviewapp.android.domain.model.NotificationSort
 import com.reviewapp.android.domain.model.NotificationStatus
@@ -31,6 +35,8 @@ class NotificationRepository(
     private val api: NotificationApi,
     private val sessionManager: SessionManager,
     private val scope: CoroutineScope,
+    private val local: LocalLibrary,
+    private val offline: OfflineWrites,
 ) {
     private val _unseenCount = MutableStateFlow(0)
     val unseenCount: StateFlow<Int> = _unseenCount.asStateFlow()
@@ -57,8 +63,13 @@ class NotificationRepository(
     suspend fun refreshUnseen() {
         if (!isLoggedIn) return
         val current = session.get()
-        val result = apiCall { api.getUnseenCount() }
-        if (result is ApiResult.Success && current == session.get()) _unseenCount.value = result.data.count
+        val result = local.networkFirst(
+            own = true,
+            pendingTypes = listOf(EntityType.NOTIFICATION),
+            remote = { useSnapshot -> apiCall(useSnapshot) { api.getUnseenCount() }.map { it.count } },
+            local = { unseenCount() },
+        )
+        if (result is ApiResult.Success && current == session.get()) _unseenCount.value = result.data
     }
 
     /**
@@ -86,23 +97,46 @@ class NotificationRepository(
     /** [afterId] is the id of the last notification of the previous page. */
     suspend fun list(status: NotificationStatus, sort: NotificationSort, afterId: Int?): ApiResult<NotificationPage> {
         val current = session.get()
-        val result = apiCall { api.getNotifications(status.apiValue, sort.apiValue, afterId, PAGE_SIZE) }
-            .map { it.toDomain() }
+        val result = local.networkFirst(
+            own = true,
+            pendingTypes = listOf(EntityType.NOTIFICATION),
+            remote = { useSnapshot ->
+                apiCall(useSnapshot) { api.getNotifications(status.apiValue, sort.apiValue, afterId, PAGE_SIZE) }.map { it.toDomain() }
+            },
+            local = { notifications(status, sort, afterId, PAGE_SIZE) },
+        )
         if (result is ApiResult.Success && current == session.get()) setUnseen(result.data.unseenCount)
         return result
     }
 
-    suspend fun setSeen(id: Int, seen: Boolean): ApiResult<Unit> = apiCall { api.setSeen(id, SetSeenRequest(seen)) }
+    suspend fun setSeen(id: Int, seen: Boolean): ApiResult<Unit> =
+        if (offline.writer.canWrite()) offlineWrite { offline.writer.setNotificationSeen(id, seen) }
+        else apiCall { api.setSeen(id, SetSeenRequest(seen)) }
 
-    suspend fun markAllSeen(): ApiResult<Unit> = apiCall { api.markAllSeen() }
+    suspend fun markAllSeen(): ApiResult<Unit> =
+        if (offline.writer.canWrite()) offlineWrite { offline.writer.markAllNotificationsSeen() }
+        else apiCall { api.markAllSeen() }
 
     /** Already gone (e.g. deleted on the web) counts as deleted. */
-    suspend fun delete(id: Int): ApiResult<Unit> = when (val result = apiCall { api.delete(id) }) {
-        is ApiResult.Error -> if (result.code == 404) ApiResult.Success(Unit) else result
-        is ApiResult.Success -> result
+    suspend fun delete(id: Int): ApiResult<Unit> {
+        if (offline.writer.canWrite()) return offlineWrite { offline.writer.deleteNotification(id) }
+        return when (val result = apiCall { api.delete(id) }) {
+            is ApiResult.Error -> if (result.code == 404) ApiResult.Success(Unit) else result
+            is ApiResult.Success -> result
+        }
     }
 
-    suspend fun deleteSeen(): ApiResult<Unit> = apiCall { api.deleteSeen() }
+    suspend fun deleteSeen(): ApiResult<Unit> =
+        if (offline.writer.canWrite()) offlineWrite { offline.writer.deleteSeenNotifications() }
+        else apiCall { api.deleteSeen() }
+
+    // Offline mode: applied to the offline copy and queued; a notification removed meanwhile counts as done
+    private suspend fun offlineWrite(write: suspend () -> Unit): ApiResult<Unit> = try {
+        write()
+        ApiResult.Success(Unit)
+    } catch (e: OfflineWriteException) {
+        ApiResult.Success(Unit)
+    }
 
     companion object {
         const val PAGE_SIZE = 20

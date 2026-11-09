@@ -187,7 +187,7 @@ fun NotificationsScreen(
                             modifier = Modifier.padding(horizontal = 16.dp).animateItem(),
                         )
                     }
-                    item(key = "footer") { ListFooter(list.isLoading, list.error, viewModel::retry) }
+                    item(key = "footer") { ListFooter(list.isLoading, list.error, viewModel::retry, updatedAt = list.updatedAt) }
                 }
             }
         }
@@ -262,6 +262,7 @@ private fun NotificationCard(
                             style = MaterialTheme.typography.bodySmall,
                             color = colors.onSurfaceVariant,
                         )
+                        com.reviewapp.android.ui.components.SyncBadge(notification.syncState, Modifier.padding(top = 2.dp))
                     }
                     IconButton(onClick = onToggleSeen) {
                         Icon(

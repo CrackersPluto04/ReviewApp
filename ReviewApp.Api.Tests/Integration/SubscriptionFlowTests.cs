@@ -304,7 +304,8 @@ public class SubscriptionFlowTests : IntegrationTest
         plan.Tier.ShouldBe("Premium");
         plan.PriceAmount.ShouldBe(4.99m);
         plan.Currency.ShouldBe("EUR");
-        plan.Features.ShouldContain(f => f.ComingSoon);
-        plan.Features.ShouldContain(f => !f.ComingSoon);
+        // Every catalog feature, offline mode included now that it is built
+        plan.Features.Select(f => f.Key).ShouldBe(ReviewApp.Api.Services.Entitlements.Catalog.Select(f => f.Key));
+        plan.Features.ShouldContain(f => f.Key == ReviewApp.Api.Services.FeatureKeys.OfflineMode && !f.ComingSoon);
     }
 }

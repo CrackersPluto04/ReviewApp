@@ -3,6 +3,7 @@ package com.reviewapp.android.ui.navigation
 import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,6 +31,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -68,6 +70,13 @@ import com.reviewapp.android.ui.notifications.NotificationBadgeViewModel
 import com.reviewapp.android.ui.notifications.NotificationPollingEffect
 import com.reviewapp.android.ui.notifications.NotificationTarget
 import com.reviewapp.android.ui.notifications.NotificationsScreen
+import com.reviewapp.android.ui.offline.ConnectivityStrip
+import com.reviewapp.android.ui.offline.ConnectivityViewModel
+import com.reviewapp.android.ui.offline.LocalIsOnline
+import com.reviewapp.android.ui.offline.OfflineSettingsScreen
+import com.reviewapp.android.ui.offline.PendingChangesScreen
+import com.reviewapp.android.ui.offline.ConflictScreen
+import com.reviewapp.android.ui.offline.SyncSummaryHost
 import com.reviewapp.android.ui.profile.FollowListScreen
 import com.reviewapp.android.ui.profile.ProfileScreen
 import com.reviewapp.android.ui.profile.ProfileTab
@@ -124,60 +133,75 @@ fun ReviewAppRoot() {
     NotificationPollingEffect(badgeViewModel, isLoggedIn = unseenNotifications != null)
     NewIntentDeepLinks(navController)
 
-    Scaffold(
-        // Every screen has its own Scaffold for its top bar, this one only adds the bottom bar
-        contentWindowInsets = WindowInsets(0),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        bottomBar = {
-            if (showBottomBar) {
-                NavigationBar {
-                    TopLevelTab.entries.forEach { tab ->
-                        val selected = tab == selectedTab
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                // Set here too: a restored tab can open on a nested screen (e.g. details)
-                                selectedTab = tab
-                                navController.navigateToTab(tab, reselect = selected)
-                            },
-                            icon = {
-                                // The bell is on the Home screen, so its tab shows that there is something new
-                                val showDot = tab == TopLevelTab.Home && (unseenNotifications ?: 0) > 0
-                                BadgedBox(badge = { if (showDot) Badge() }) {
-                                    Icon(if (selected) tab.selectedIcon else tab.icon, contentDescription = null)
-                                }
-                            },
-                            label = { Text(tab.label) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                            ),
-                        )
+    // Screens whose features need a connection explain it instead of failing
+    val connectivityViewModel: ConnectivityViewModel = viewModel(factory = ConnectivityViewModel.Factory)
+    val isOnline by connectivityViewModel.isOnline.collectAsStateWithLifecycle()
+    CompositionLocalProvider(LocalIsOnline provides isOnline) {
+        Scaffold(
+            // Every screen has its own Scaffold for its top bar, this one only adds the bottom bar
+            contentWindowInsets = WindowInsets(0),
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            bottomBar = {
+                Column {
+                    // Offline, backend unreachable or changes waiting: visible from every screen, never blocking it
+                    ConnectivityStrip(
+                        aboveNavigationBar = showBottomBar,
+                        onOpenChanges = { navController.navigate(PendingChangesRoute) { launchSingleTop = true } },
+                        viewModel = connectivityViewModel,
+                    )
+                    if (showBottomBar) {
+                        NavigationBar {
+                            TopLevelTab.entries.forEach { tab ->
+                                val selected = tab == selectedTab
+                                NavigationBarItem(
+                                    selected = selected,
+                                    onClick = {
+                                        // Set here too: a restored tab can open on a nested screen (e.g. details)
+                                        selectedTab = tab
+                                        navController.navigateToTab(tab, reselect = selected)
+                                    },
+                                    icon = {
+                                        // The bell is on the Home screen, so its tab shows that there is something new
+                                        val showDot = tab == TopLevelTab.Home && (unseenNotifications ?: 0) > 0
+                                        BadgedBox(badge = { if (showDot) Badge() }) {
+                                            Icon(if (selected) tab.selectedIcon else tab.icon, contentDescription = null)
+                                        }
+                                    },
+                                    label = { Text(tab.label) },
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                                        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                    ),
+                                )
+                            }
+                        }
                     }
                 }
+            },
+        ) { padding ->
+            CollectionActionsHost(snackbarHostState) {
+                AppNavHost(
+                    navController,
+                    unseenNotifications,
+                    // Consuming the bottom bar's padding stops the inner Scaffolds adding the system bar inset again
+                    Modifier.padding(padding).consumeWindowInsets(padding),
+                )
             }
-        },
-    ) { padding ->
-        CollectionActionsHost(snackbarHostState) {
-            AppNavHost(
-                navController,
-                unseenNotifications,
-                // Consuming the bottom bar's padding stops the inner Scaffolds adding the system bar inset again
-                Modifier.padding(padding).consumeWindowInsets(padding),
-            )
+            // Over every screen, unlocks can come from any request
+            Box(Modifier.fillMaxWidth()) {
+                UnlockBannerHost(
+                    onOpenAchievements = { username ->
+                        navController.navigate(ProfileRoute(username, ProfileTab.Achievements.name))
+                    },
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            }
+            // "Synced 7 changes. You unlocked 1 achievement." after changes made offline went out
+            SyncSummaryHost(snackbarHostState, onReview = { navController.navigate(PendingChangesRoute) { launchSingleTop = true } })
+            // Any request can hit a Premium feature (402)
+            PremiumRequiredHost(onSeePremium = { navController.navigate(PremiumRoute) { launchSingleTop = true } })
         }
-        // Over every screen, unlocks can come from any request
-        Box(Modifier.fillMaxWidth()) {
-            UnlockBannerHost(
-                onOpenAchievements = { username ->
-                    navController.navigate(ProfileRoute(username, ProfileTab.Achievements.name))
-                },
-                modifier = Modifier.align(Alignment.TopCenter),
-            )
-        }
-        // Any request can hit a Premium feature (402)
-        PremiumRequiredHost(onSeePremium = { navController.navigate(PremiumRoute) { launchSingleTop = true } })
     }
 }
 
@@ -303,8 +327,32 @@ private fun AppNavHost(navController: NavHostController, unseenNotifications: In
                 },
             )
         }
-        composable<AccountSettingsRoute> { AccountSettingsScreen(onBack = goBack, onOpenPremium = openPremium) }
-        composable<PremiumRoute> { PremiumScreen(onBack = goBack, onLogin = goToLogin, onOpenRecognition = openRecognition) }
+        composable<AccountSettingsRoute> {
+            AccountSettingsScreen(
+                onBack = goBack,
+                onOpenPremium = openPremium,
+                onOpenOffline = { navController.navigate(OfflineSettingsRoute) { launchSingleTop = true } },
+            )
+        }
+        composable<OfflineSettingsRoute> {
+            OfflineSettingsScreen(
+                onBack = goBack,
+                onOpenPremium = openPremium,
+                onOpenChanges = { navController.navigate(PendingChangesRoute) { launchSingleTop = true } },
+            )
+        }
+        composable<PendingChangesRoute> {
+            PendingChangesScreen(onBack = goBack, onOpenIssue = { seq -> navController.navigate(ConflictRoute(seq)) })
+        }
+        composable<ConflictRoute> { ConflictScreen(onBack = goBack) }
+        composable<PremiumRoute> {
+            PremiumScreen(
+                onBack = goBack,
+                onLogin = goToLogin,
+                onOpenRecognition = openRecognition,
+                onOpenOffline = { navController.navigate(OfflineSettingsRoute) { launchSingleTop = true } },
+            )
+        }
         composable<RecognitionRoute> {
             RecognitionScreen(onBack = goBack, onLogin = goToLogin, onOpenMedia = openMedia, onOpenPremium = openPremium)
         }

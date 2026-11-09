@@ -54,7 +54,21 @@ describe('ChangeUsernameDialog', () => {
         await user.type(field, name);
 
         expect(save()).toHaveProperty('disabled', invalid);
-        expect(screen.queryByText('Must be between 3 and 20 characters.') !== null).toBe(invalid);
+        expect(screen.queryByText('Username must be between 3 and 20 characters.') !== null).toBe(invalid);
+    });
+
+    it.each([
+        ['a/b.c', "Username can only contain letters, numbers, '_' and '-'."],
+        ['Search', 'This username is reserved, please choose another one.'],
+    ])('rejects %s, which would break profile links', async (name, message) => {
+        const { user, field } = renderDialog();
+
+        await user.clear(field);
+        await user.type(field, name);
+
+        expect(save()).toBeDisabled();
+        expect(screen.getByText(message)).toBeInTheDocument();
+        expect(field).toHaveAttribute('aria-invalid', 'true');
     });
 
     it('shows the save error and lets the user retry', async () => {

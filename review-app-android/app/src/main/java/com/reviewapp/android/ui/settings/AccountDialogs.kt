@@ -36,7 +36,8 @@ fun AccountDialogs(state: AccountSettingsUiState, viewModel: AccountSettingsView
         is SettingsDialog.Email -> EmailDialog(dialog.form, state.isSubmitting, viewModel)
         is SettingsDialog.Password -> PasswordDialog(dialog.form, state.isSubmitting, viewModel)
         is SettingsDialog.TwoFactor -> TwoFactorDialog(dialog.flow, state.codeResendSecondsLeft, viewModel)
-        SettingsDialog.LogoutAll -> LogoutAllDialog(state.isSubmitting, state.dialogError, viewModel)
+        SettingsDialog.LogoutAll -> LogoutAllDialog(state.isSubmitting, state.dialogError, state.pendingChanges, viewModel)
+        is SettingsDialog.LogoutPending -> LogoutPendingDialog(dialog.count, state.isSubmitting, state.dialogError, state.isOnline, viewModel)
     }
 }
 
@@ -246,7 +247,7 @@ private fun TwoFactorDialog(flow: TwoFactorFlow, resendSecondsLeft: Int, viewMod
 }
 
 @Composable
-private fun LogoutAllDialog(isSubmitting: Boolean, error: String?, viewModel: AccountSettingsViewModel) {
+private fun LogoutAllDialog(isSubmitting: Boolean, error: String?, pendingChanges: Int, viewModel: AccountSettingsViewModel) {
     FormDialog(
         title = "Log out of all devices",
         confirmText = "Log out everywhere",
@@ -260,6 +261,36 @@ private fun LogoutAllDialog(isSubmitting: Boolean, error: String?, viewModel: Ac
             "Every device where you are logged in, including this one, will be logged out. Use this if " +
                 "you think someone else has access to your account.",
         )
+        if (pendingChanges > 0) {
+            Hint(
+                (if (pendingChanges == 1) "1 change on this phone hasn't" else "$pendingChanges changes on this phone haven't") +
+                    " been synced yet. They stay on this phone and are sent when you log in again.",
+            )
+        }
+        error?.let { MessageBanner(it, isError = true) }
+    }
+}
+
+/** Logging out would lose the changes that never reached the backend: sync them first, or discard them. */
+@Composable
+private fun LogoutPendingDialog(count: Int, isSubmitting: Boolean, error: String?, isOnline: Boolean, viewModel: AccountSettingsViewModel) {
+    FormDialog(
+        title = "Changes not synced",
+        confirmText = "Log out and discard",
+        confirmEnabled = true,
+        isSubmitting = isSubmitting,
+        onConfirm = viewModel::discardAndLogout,
+        onDismiss = viewModel::dismissDialog,
+        destructive = true,
+        extraButton = {
+            TextButton(onClick = viewModel::syncThenLogout, enabled = isOnline && !isSubmitting) { Text("Sync first") }
+        },
+    ) {
+        Hint(
+            if (count == 1) "1 change hasn't been synced and will be lost if you log out now."
+            else "$count changes haven't been synced and will be lost if you log out now.",
+        )
+        if (!isOnline) Hint("You're offline: connect to sync them first.")
         error?.let { MessageBanner(it, isError = true) }
     }
 }

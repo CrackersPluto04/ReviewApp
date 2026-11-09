@@ -131,6 +131,11 @@ public class ReviewService : IReviewService
         return (Math.Round(average, 1), count);
     }
 
+    private const string AlreadyReviewedMessage = "Media already reviewed, please use edit instead.";
+
+    private static ReviewFields FieldsOf(ReviewDto dto) =>
+        new(dto.Score, dto.ReviewText, dto.Pros, dto.Cons, dto.VisibilityLevel);
+
     public async Task<(bool Success, string Message)> CreateReviewAsync(int userId, ReviewMediaDto dto)
     {
         // Check if media exists, if not add it to the database and get ID
@@ -140,28 +145,11 @@ public class ReviewService : IReviewService
             return (false, "Invalid media type. Failed to add media.");
         }
 
-        // Check if user has reviewed this media already
-        if (await _context.Reviews.AnyAsync(r => r.UserID == userId && r.MediaID == mediaId))
-        {
-            return (false, "Media already reviewed, please use edit instead.");
-        }
+        var result = await CreateCoreAsync(userId, mediaId, FieldsOf(dto.ReviewDto));
+        if (result.Status == ReviewWriteStatus.AlreadyReviewed)
+            return (false, AlreadyReviewedMessage);
 
-        // Create new review
-        var review = new Review
-        {
-            UserID = userId,
-            MediaID = mediaId,
-            Score = dto.ReviewDto.Score,
-            ReviewText = dto.ReviewDto.ReviewText,
-            Pros = dto.ReviewDto.Pros,
-            Cons = dto.ReviewDto.Cons,
-            VisibilityLevel = dto.ReviewDto.VisibilityLevel
-        };
-        _context.Reviews.Add(review);
-        await _context.SaveChangesAsync();
-
-        await _achievementService.EvaluateAsync(userId, MediaReviewMetric(dto.MediaDto.MediaType),
-            AchievementMetric.TotalReviews, AchievementMetric.LowScoreReviews);
+        await _achievementService.EvaluateAsync(userId, CreateMetrics(dto.MediaDto.MediaType));
 
         return (true, "Review created successfully!");
     }
@@ -176,40 +164,100 @@ public class ReviewService : IReviewService
         }
 
         // Check if user has not reviewed this media already
-        var review = await _context.Reviews.FirstOrDefaultAsync(r => r.UserID == userId && r.MediaID == media.ID);
-        if (review == null)
+        var reviewId = await _context.Reviews
+            .Where(r => r.UserID == userId && r.MediaID == media.ID)
+            .Select(r => (int?)r.ID)
+            .FirstOrDefaultAsync();
+        if (reviewId == null)
         {
             return (false, "Review not found, please use create instead.");
         }
 
-        // Update existing review
-        review.Score = dto.ReviewDto.Score;
-        review.ReviewText = dto.ReviewDto.ReviewText;
-        review.Pros = dto.ReviewDto.Pros;
-        review.Cons = dto.ReviewDto.Cons;
-        review.VisibilityLevel = dto.ReviewDto.VisibilityLevel;
+        await UpdateCoreAsync(userId, reviewId.Value, FieldsOf(dto.ReviewDto));
 
-        await _context.SaveChangesAsync();
-
-        // The score may have crossed the low score limit
-        await _achievementService.EvaluateAsync(userId, AchievementMetric.LowScoreReviews);
+        await _achievementService.EvaluateAsync(userId, UpdateMetrics);
 
         return (true, "Review edited successfully!");
     }
 
     public async Task<(bool Success, string Message)> DeleteReviewAsync(int userId, int reviewId)
     {
-        // Check if review exists
+        var result = await DeleteCoreAsync(userId, reviewId);
+        return result.Status == ReviewWriteStatus.Deleted
+            ? (true, "Review deleted successfully!")
+            : (false, "Review not found.");
+    }
+
+    /* Core writes (also used by the offline sync) */
+
+    public async Task<ReviewWriteResult> CreateCoreAsync(int userId, int mediaId, ReviewFields fields, DateTime? createdAt = null)
+    {
+        var existing = await _context.Reviews.FirstOrDefaultAsync(r => r.UserID == userId && r.MediaID == mediaId);
+        if (existing != null)
+            return new ReviewWriteResult(ReviewWriteStatus.AlreadyReviewed, existing);
+
+        var review = new Review
+        {
+            UserID = userId,
+            MediaID = mediaId,
+            CreatedAt = createdAt ?? DateTime.UtcNow
+        };
+        Apply(review, fields);
+        _context.Reviews.Add(review);
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (DbErrors.IsUniqueViolation(ex))
+        {
+            // A parallel request created it first (unique index on user + media)
+            _context.Entry(review).State = EntityState.Detached;
+            var winner = await _context.Reviews.FirstAsync(r => r.UserID == userId && r.MediaID == mediaId);
+            return new ReviewWriteResult(ReviewWriteStatus.AlreadyReviewed, winner);
+        }
+
+        return new ReviewWriteResult(ReviewWriteStatus.Created, review);
+    }
+
+    public async Task<ReviewWriteResult> UpdateCoreAsync(int userId, int reviewId, ReviewFields fields)
+    {
         var review = await _context.Reviews.FirstOrDefaultAsync(r => r.UserID == userId && r.ID == reviewId);
         if (review == null)
-            return (false, "Review not found.");
+            return new ReviewWriteResult(ReviewWriteStatus.NotFound);
 
-        // Delete review if exists
-        _context.Reviews.Remove(review);
+        Apply(review, fields);
         await _context.SaveChangesAsync();
-
-        return (true, "Review deleted successfully!");
+        return new ReviewWriteResult(ReviewWriteStatus.Updated, review);
     }
+
+    public async Task<ReviewWriteResult> DeleteCoreAsync(int userId, int reviewId)
+    {
+        var review = await _context.Reviews.FirstOrDefaultAsync(r => r.UserID == userId && r.ID == reviewId);
+        if (review == null)
+            return new ReviewWriteResult(ReviewWriteStatus.NotFound);
+
+        // The tombstone tells offline devices to drop their copy (same SaveChanges, so both or neither happen)
+        _context.Reviews.Remove(review);
+        _context.SyncTombstones.Add(new SyncTombstone { UserID = userId, EntityType = SyncEntityType.Review, EntityID = review.ID });
+        await _context.SaveChangesAsync();
+        return new ReviewWriteResult(ReviewWriteStatus.Deleted, review);
+    }
+
+    private static void Apply(Review review, ReviewFields fields)
+    {
+        review.Score = fields.Score;
+        review.ReviewText = fields.ReviewText;
+        review.Pros = fields.Pros;
+        review.Cons = fields.Cons;
+        review.VisibilityLevel = fields.VisibilityLevel;
+    }
+
+    // What a new review can change in the achievements
+    public static AchievementMetric[] CreateMetrics(MediaType mediaType) =>
+        [MediaReviewMetric(mediaType), AchievementMetric.TotalReviews, AchievementMetric.LowScoreReviews];
+
+    // An edit can only move the score across the low score limit
+    public static readonly AchievementMetric[] UpdateMetrics = [AchievementMetric.LowScoreReviews];
 
     private static AchievementMetric MediaReviewMetric(MediaType mediaType) => mediaType switch
     {

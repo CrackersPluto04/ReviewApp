@@ -9,14 +9,20 @@ import com.reviewapp.android.data.AuthState
 import com.reviewapp.android.data.SessionManager
 import com.reviewapp.android.data.remote.ApiResult
 import com.reviewapp.android.data.repository.AccountRepository
+import com.reviewapp.android.data.sync.Connectivity
+import com.reviewapp.android.data.sync.ConnectivityMonitor
+import com.reviewapp.android.data.sync.OfflineGateway
+import com.reviewapp.android.data.sync.SyncEngine
 import com.reviewapp.android.di.appContainer
 import com.reviewapp.android.domain.model.SecurityStatus
+import com.reviewapp.android.util.pluralize
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -28,6 +34,8 @@ sealed interface SettingsDialog {
     data class Password(val form: PasswordForm) : SettingsDialog
     data class TwoFactor(val flow: TwoFactorFlow) : SettingsDialog
     data object LogoutAll : SettingsDialog
+    /** Logging out with changes the backend hasn't accepted yet: sync first, or discard them. */
+    data class LogoutPending(val count: Int) : SettingsDialog
 }
 
 data class AccountSettingsUiState(
@@ -45,6 +53,9 @@ data class AccountSettingsUiState(
     val verificationResendSecondsLeft: Int = 0,
     /** Seconds until a new 2FA code can be requested. */
     val codeResendSecondsLeft: Int = 0,
+    /** Changes on this phone the backend hasn't accepted yet (offline mode). */
+    val pendingChanges: Int = 0,
+    val isOnline: Boolean = true,
 )
 
 sealed interface AccountSettingsEvent {
@@ -60,6 +71,9 @@ sealed interface AccountSettingsEvent {
 class AccountSettingsViewModel(
     private val repository: AccountRepository,
     private val sessionManager: SessionManager,
+    private val gateway: OfflineGateway,
+    private val syncEngine: SyncEngine,
+    connectivity: ConnectivityMonitor,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AccountSettingsUiState())
@@ -81,6 +95,10 @@ class AccountSettingsViewModel(
                     AuthState.Loading -> Unit
                 }
             }
+        }
+        viewModelScope.launch {
+            combine(gateway.status, connectivity.connectivity) { status, online -> status.pendingChanges to (online == Connectivity.Online) }
+                .collect { (pending, online) -> _state.update { it.copy(pendingChanges = pending, isOnline = online) } }
         }
         loadStatus()
     }
@@ -255,8 +273,51 @@ class AccountSettingsViewModel(
         )
     }
 
+    /** Changes still waiting would be lost: the user decides first (sync first, discard, cancel). */
     fun logout() {
+        val pending = gateway.status.value.pendingChanges
+        if (pending > 0) {
+            openDialog(SettingsDialog.LogoutPending(pending))
+            return
+        }
         viewModelScope.launch { sessionManager.logout() }
+    }
+
+    /** Sends what waits, then logs out if nothing is left (changes in Sync issues need a decision first). */
+    fun syncThenLogout() {
+        if (_state.value.isSubmitting) return
+        _state.update { it.copy(isSubmitting = true, dialogError = null) }
+        viewModelScope.launch {
+            syncEngine.syncNow()
+            val left = try {
+                gateway.database()?.outbox()?.count() ?: 0
+            } catch (_: Exception) {
+                0
+            }
+            if (left == 0) {
+                _state.update { it.copy(isSubmitting = false, dialog = null) }
+                sessionManager.logout()
+            } else {
+                _state.update {
+                    it.copy(
+                        isSubmitting = false,
+                        dialog = SettingsDialog.LogoutPending(left),
+                        dialogError = "${pluralize(left, "change")} couldn't be synced. Check the waiting changes, or log out and discard them.",
+                    )
+                }
+            }
+        }
+    }
+
+    /** Logs out and deletes this account's offline copy with the changes that were never sent. */
+    fun discardAndLogout() {
+        if (_state.value.isSubmitting) return
+        val userId = sessionManager.currentUser?.id ?: return
+        _state.update { it.copy(isSubmitting = true, dialog = null) }
+        viewModelScope.launch {
+            gateway.discardOnLogout(userId)
+            sessionManager.logout()
+        }
     }
 
     private fun <T> submit(
@@ -298,7 +359,7 @@ class AccountSettingsViewModel(
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val c = appContainer()
-                AccountSettingsViewModel(c.accountRepository, c.sessionManager)
+                AccountSettingsViewModel(c.accountRepository, c.sessionManager, c.offlineGateway, c.syncEngine, c.connectivityMonitor)
             }
         }
     }

@@ -34,6 +34,18 @@ data object NotificationsRoute
 @Serializable
 data object AccountSettingsRoute
 
+/** Offline mode (Premium): the switch, its state and the offline copy's storage, or the upsell. */
+@Serializable
+data object OfflineSettingsRoute
+
+/** The changes made offline that the backend hasn't accepted yet, with Discard. */
+@Serializable
+data object PendingChangesRoute
+
+/** One change in Sync issues (an outbox row, by its [seq]) and the choices to resolve it. */
+@Serializable
+data class ConflictRoute(val seq: Long)
+
 /** Plans page with the current user's subscription. */
 @Serializable
 data object PremiumRoute

@@ -294,7 +294,7 @@ private fun LazyListScope.reviewItems(
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
-            item { ListFooter(reviews.isLoading, reviews.error, viewModel::retryReviews) }
+            item { ListFooter(reviews, viewModel::retryReviews) }
         }
     }
 }
@@ -541,6 +541,7 @@ private fun CollectionCard(collection: MediaCollection, onClick: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                com.reviewapp.android.ui.components.SyncBadge(collection.syncState, Modifier.padding(top = 4.dp))
             }
             when {
                 collection.isDefault -> Icon(Icons.Filled.Favorite, contentDescription = "Favourites", tint = FavouriteRed)

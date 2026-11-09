@@ -99,12 +99,13 @@ class ApiParsingTest {
     fun authUser_readsTierAndEntitlements() {
         val user = json.decodeFromString<LoginResponse>(
             """{"message":"Logged in successfully","user":{"id":3,"username":"bob","profilePictureUrl":null,
-               "isEmailConfirmed":false,"tier":"Premium","isPremium":true,"entitlements":["profile-badge","camera-recognition"]}}""",
+               "isEmailConfirmed":false,"tier":"Premium","isPremium":true,"entitlements":["profile-badge","camera-recognition","offline-mode"]}}""",
         ).user!!.toDomain()
 
         assertTrue(user.isPremium)
         assertTrue(user.hasFeature(FeatureKeys.CAMERA_RECOGNITION))
-        assertFalse(user.hasFeature("offline-mode"))
+        assertTrue(user.hasFeature(FeatureKeys.OFFLINE_MODE))
+        assertFalse(user.hasFeature("stats"))
     }
 
     @Test
@@ -127,10 +128,11 @@ class ApiParsingTest {
         val plan = json.decodeFromString<PlanDto>(
             """{"tier":"Premium","priceAmount":4.99,"currency":"EUR","interval":"month","features":[
                {"key":"profile-badge","title":"Premium badge","description":"A badge.","comingSoon":false},
-               {"key":"offline-mode","title":"Offline mode","description":"Offline.","comingSoon":true}]}""",
+               {"key":"offline-mode","title":"Offline mode","description":"Offline.","comingSoon":false},
+               {"key":"stats","title":"Statistics","description":"Charts.","comingSoon":true}]}""",
         ).toDomain()
         assertEquals(4.99, plan.priceAmount, 0.0)
-        assertEquals(listOf(false, true), plan.features.map { it.comingSoon })
+        assertEquals(listOf(false, false, true), plan.features.map { it.comingSoon })
     }
 
     @Test

@@ -1,0 +1,34 @@
+using ReviewApp.Api.Enums;
+using System.ComponentModel.DataAnnotations;
+
+namespace ReviewApp.Api.DAL.Entities;
+
+// An offline change that was applied, keyed by the ID the device gave it. Inserted in the same transaction as the
+// change itself, so a change sent again (its answer was lost, the app was killed, two syncs overlapped) is
+// recognised and answered from ResultJson instead of being applied twice. Kept for Sync retention days.
+public class SyncOperation
+{
+    public const int MaxClientRefLength = 64;
+
+    public int ID { get; set; }
+
+    public int UserID { get; set; }
+    public User User { get; set; } = null!;
+
+    // Unique per user
+    public Guid OperationID { get; set; }
+
+    // The device's temporary reference of what this change created (a review or collection made offline), so later
+    // changes can point at it before they know its real ID, even in a later request. Unique per user when set.
+    [MaxLength(MaxClientRefLength)]
+    public string? ClientRef { get; set; }
+
+    public SyncEntityType EntityType { get; set; }
+    // The row the change applied to (for a create: the new row)
+    public int? EntityID { get; set; }
+
+    // The per-change result the device got (or should have got) the first time
+    public string ResultJson { get; set; } = string.Empty;
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}

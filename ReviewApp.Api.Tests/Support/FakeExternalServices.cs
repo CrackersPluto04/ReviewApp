@@ -13,20 +13,27 @@ namespace ReviewApp.Api.Tests.Support;
 public class FakeTmdbService : ITmdbService
 {
     private readonly ConcurrentDictionary<string, byte> _unknown = new();
+    private readonly ConcurrentDictionary<string, byte> _failingIds = new();
     private readonly ConcurrentDictionary<string, List<TmdbItemDto>> _titleHits = new();
     private readonly ConcurrentDictionary<string, byte> _failingTitles = new();
     private readonly ConcurrentDictionary<int, int> _movieCollections = new();
     private readonly ConcurrentDictionary<int, List<TmdbItemDto>> _collections = new();
     private readonly ConcurrentDictionary<string, TmdbPersonDto> _people = new();
     private readonly ConcurrentDictionary<int, TmdbPersonCreditsDto> _credits = new();
+    private readonly ConcurrentDictionary<string, int> _lookupsById = new();
     private int _lookups;
     private int _recognitionLookups;
 
+    // All lookups by ID (shared by the parallel tests, so only for "unchanged" checks of unique data use LookupsOf)
     public int Lookups => _lookups;
+    // Lookups of one (unique) ID, safe with tests running in parallel
+    public int LookupsOf(string id) => _lookupsById.TryGetValue(id, out var count) ? count : 0;
     // Calls of the Find* / collection / person methods
     public int RecognitionLookups => _recognitionLookups;
 
     public void MarkUnknown(string id) => _unknown[id] = 0;
+    // Strict lookups of this ID fail like an outage
+    public void FailById(string id) => _failingIds[id] = 0;
 
     // The hits a movie or series title search returns (empty = not found)
     public void ScriptTitle(string title, params TmdbItemDto[] hits) => _titleHits[title] = [.. hits];
@@ -102,9 +109,21 @@ public class FakeTmdbService : ITmdbService
     public Task<TmdbItemDto> GetMovieByIdAsync(string id) => Task.FromResult(Item("Movie", id));
     public Task<TmdbItemDto> GetSeriesByIdAsync(string id) => Task.FromResult(Item("Series", id));
 
+    public Task<TmdbItemDto?> FindMovieByIdAsync(string id, CancellationToken cancellationToken) => Task.FromResult(StrictItem("Movie", id));
+    public Task<TmdbItemDto?> FindSeriesByIdAsync(string id, CancellationToken cancellationToken) => Task.FromResult(StrictItem("Series", id));
+
+    private TmdbItemDto? StrictItem(string kind, string id)
+    {
+        if (_failingIds.ContainsKey(id))
+            throw new MediaSourceUnavailableException("TMDb");
+        var item = Item(kind, id);
+        return item.ID <= 0 ? null : item;
+    }
+
     private TmdbItemDto Item(string kind, string id)
     {
         Interlocked.Increment(ref _lookups);
+        _lookupsById.AddOrUpdate(id, 1, (_, count) => count + 1);
         if (_unknown.ContainsKey(id) || !int.TryParse(id, out var numericId))
             return new TmdbItemDto();
 
@@ -131,10 +150,19 @@ public class FakeTmdbService : ITmdbService
 public class FakeSpotifyService : ISpotifyService
 {
     private readonly ConcurrentDictionary<string, byte> _unknown = new();
+    private readonly ConcurrentDictionary<string, byte> _failingIds = new();
     private readonly ConcurrentDictionary<string, List<SpotifyTrackDto>> _titleHits = new();
     private readonly ConcurrentDictionary<string, byte> _failingTitles = new();
 
     public void MarkUnknown(string id) => _unknown[id] = 0;
+    public void FailById(string id) => _failingIds[id] = 0;
+
+    public Task<SpotifyTrackDto?> FindTrackByIdAsync(string id, CancellationToken cancellationToken)
+    {
+        if (_failingIds.ContainsKey(id))
+            throw new MediaSourceUnavailableException("Spotify");
+        return Task.FromResult(_unknown.ContainsKey(id) ? null : (SpotifyTrackDto?)Track(id));
+    }
 
     public void ScriptTitle(string title, params SpotifyTrackDto[] hits) => _titleHits[title] = [.. hits];
     public void FailTitle(string title) => _failingTitles[title] = 0;

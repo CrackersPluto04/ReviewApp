@@ -144,6 +144,7 @@ fun ProfileReviewCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    SyncBadge(review.syncState, Modifier.padding(top = 4.dp))
                 }
             }
             Spacer(Modifier.width(8.dp))

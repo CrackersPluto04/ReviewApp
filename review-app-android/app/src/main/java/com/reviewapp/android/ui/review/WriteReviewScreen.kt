@@ -106,6 +106,14 @@ private fun ReviewForm(state: WriteReviewUiState, viewModel: WriteReviewViewMode
     ) {
         state.media?.let { MediaSummary(it) }
 
+        if (state.restoredDraft) {
+            Text(
+                "Your unsaved changes are back. Save them, or go back to throw them away.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+
         ScoreSlider(score = draft.score, onScoreChange = { score -> viewModel.updateDraft { copy(score = score) } })
 
         LimitedTextField(

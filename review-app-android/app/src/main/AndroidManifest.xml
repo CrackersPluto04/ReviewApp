@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Offline mode: whether a validated network exists (the connectivity strip, syncing when it returns) -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Camera recognition. Asked for only when the user opens the camera; picking a photo needs no permission
          (system photo picker). Not required, so the app still installs on devices without a camera. -->
     <uses-permission android:name="android.permission.CAMERA" />

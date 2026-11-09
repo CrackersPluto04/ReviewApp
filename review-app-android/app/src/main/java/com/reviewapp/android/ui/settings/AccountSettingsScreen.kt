@@ -10,10 +10,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.outlined.AlternateEmail
 import androidx.compose.material.icons.outlined.Badge
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Key
@@ -55,6 +57,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.reviewapp.android.domain.model.SecurityStatus
 import com.reviewapp.android.ui.components.BackButton
 import com.reviewapp.android.ui.components.ErrorState
+import com.reviewapp.android.ui.components.OfflineNotice
+import com.reviewapp.android.ui.offline.LocalIsOnline
 import com.reviewapp.android.ui.components.LoadingState
 import com.reviewapp.android.ui.components.PremiumBadge
 import com.reviewapp.android.ui.components.PremiumUpsell
@@ -66,6 +70,7 @@ import com.reviewapp.android.ui.theme.AppTheme
 fun AccountSettingsScreen(
     onBack: () -> Unit,
     onOpenPremium: () -> Unit,
+    onOpenOffline: () -> Unit,
     viewModel: AccountSettingsViewModel = viewModel(factory = AccountSettingsViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -92,12 +97,17 @@ fun AccountSettingsScreen(
     ) { padding ->
         val status = state.status
         val modifier = Modifier.fillMaxSize().padding(padding)
+        val isOnline = LocalIsOnline.current
+        // Back online: load what failed without one
+        LaunchedEffect(isOnline) { if (isOnline && status == null && !state.isLoading) viewModel.loadStatus() }
         when {
             status == null && state.isLoading -> Box(modifier) { LoadingState() }
+            // Offline: what works without a connection (Premium, offline mode, log out) stays reachable
+            status == null && !isOnline -> SettingsList(state, null, viewModel, onOpenPremium, onOpenOffline, modifier)
             status == null -> Box(modifier) {
                 ErrorState(state.error ?: "Could not load your account settings.", { viewModel.loadStatus() }, Modifier.fillMaxWidth())
             }
-            else -> SettingsList(state, status, viewModel, onOpenPremium, modifier)
+            else -> SettingsList(state, status, viewModel, onOpenPremium, onOpenOffline, modifier)
         }
     }
 
@@ -107,86 +117,123 @@ fun AccountSettingsScreen(
 @Composable
 private fun SettingsList(
     state: AccountSettingsUiState,
-    status: SecurityStatus,
+    /** Null offline: the account and security sections need the backend. */
+    status: SecurityStatus?,
     viewModel: AccountSettingsViewModel,
     onOpenPremium: () -> Unit,
+    onOpenOffline: () -> Unit,
     modifier: Modifier,
 ) {
     LazyColumn(modifier, contentPadding = PaddingValues(bottom = 24.dp)) {
-        item { SectionHeader("Account") }
-        item {
-            SettingsItem(
-                icon = Icons.Outlined.Badge,
-                title = "Username",
-                subtitle = state.username,
-                onClick = viewModel::openUsername,
-            )
+        if (status == null) {
+            item {
+                OfflineNotice(
+                    "Changing your username, email, password or two-factor settings needs a connection.",
+                    Modifier.padding(16.dp),
+                )
+            }
+        } else {
+            accountSections(state, status, viewModel)
         }
-        item {
-            SettingsItem(
-                icon = Icons.Outlined.AlternateEmail,
-                title = "Email",
-                subtitle = status.email + (status.pendingEmail?.let { "\nPending: $it" } ?: ""),
-                onClick = viewModel::openEmail,
-            )
-        }
-        item {
-            SettingsItem(
-                icon = Icons.Outlined.Password,
-                title = "Password",
-                subtitle = "Change your password",
-                onClick = viewModel::openPassword,
-            )
-        }
-
-        item { SectionDivider() }
-        item { SectionHeader("Security") }
-        item { VerificationItem(state, status, viewModel::resendVerification) }
-        status.pendingEmail?.let { pending ->
-            item { PendingEmailCard(pending, enabled = !state.isSubmitting, onCancel = viewModel::cancelPendingEmail) }
-        }
-        item { TwoFactorItem(status, onOpen = viewModel::openTwoFactor) }
 
         item { SectionDivider() }
         item { SectionHeader("Subscription") }
-        item {
-            if (state.isPremium) {
-                SettingsItem(
-                    icon = Icons.Outlined.WorkspacePremium,
-                    title = "Premium",
-                    subtitle = "Manage your subscription and payment details",
-                    onClick = onOpenPremium,
-                    trailing = { PremiumBadge() },
-                )
-            } else {
-                PremiumUpsell(
-                    onSeePremium = onOpenPremium,
-                    title = "You're on the Free plan",
-                    message = "Subscribe to Premium to unlock exclusive features.",
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                )
-            }
-        }
+        subscriptionAndRest(state, viewModel, onOpenPremium, onOpenOffline)
+    }
+}
 
-        item { SectionDivider() }
-        item { SectionHeader("Sessions") }
-        item {
+private fun LazyListScope.accountSections(
+    state: AccountSettingsUiState,
+    status: SecurityStatus,
+    viewModel: AccountSettingsViewModel,
+) {
+    item { SectionHeader("Account") }
+    item {
+        SettingsItem(
+            icon = Icons.Outlined.Badge,
+            title = "Username",
+            subtitle = state.username,
+            onClick = viewModel::openUsername,
+        )
+    }
+    item {
+        SettingsItem(
+            icon = Icons.Outlined.AlternateEmail,
+            title = "Email",
+            subtitle = status.email + (status.pendingEmail?.let { "\nPending: $it" } ?: ""),
+            onClick = viewModel::openEmail,
+        )
+    }
+    item {
+        SettingsItem(
+            icon = Icons.Outlined.Password,
+            title = "Password",
+            subtitle = "Change your password",
+            onClick = viewModel::openPassword,
+        )
+    }
+
+    item { SectionDivider() }
+    item { SectionHeader("Security") }
+    item { VerificationItem(state, status, viewModel::resendVerification) }
+    status.pendingEmail?.let { pending ->
+        item { PendingEmailCard(pending, enabled = !state.isSubmitting, onCancel = viewModel::cancelPendingEmail) }
+    }
+    item { TwoFactorItem(status, onOpen = viewModel::openTwoFactor) }
+}
+
+private fun LazyListScope.subscriptionAndRest(
+    state: AccountSettingsUiState,
+    viewModel: AccountSettingsViewModel,
+    onOpenPremium: () -> Unit,
+    onOpenOffline: () -> Unit,
+) {
+    item {
+        if (state.isPremium) {
             SettingsItem(
-                icon = Icons.AutoMirrored.Filled.Logout,
-                title = "Log out",
-                subtitle = "Log out on this device",
-                onClick = viewModel::logout,
+                icon = Icons.Outlined.WorkspacePremium,
+                title = "Premium",
+                subtitle = "Manage your subscription and payment details",
+                onClick = onOpenPremium,
+                trailing = { PremiumBadge() },
+            )
+        } else {
+            PremiumUpsell(
+                onSeePremium = onOpenPremium,
+                title = "You're on the Free plan",
+                message = "Subscribe to Premium to unlock exclusive features.",
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             )
         }
-        item {
-            SettingsItem(
-                icon = Icons.Outlined.Devices,
-                title = "Log out of all devices",
-                subtitle = "Every device, this one included",
-                onClick = viewModel::askLogoutAll,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
+    }
+
+    item {
+        SettingsItem(
+            icon = Icons.Outlined.CloudOff,
+            title = "Offline mode",
+            subtitle = if (state.isPremium) "Use the app without a connection" else "Premium: use the app without a connection",
+            onClick = onOpenOffline,
+        )
+    }
+
+    item { SectionDivider() }
+    item { SectionHeader("Sessions") }
+    item {
+        SettingsItem(
+            icon = Icons.AutoMirrored.Filled.Logout,
+            title = "Log out",
+            subtitle = "Log out on this device",
+            onClick = viewModel::logout,
+        )
+    }
+    item {
+        SettingsItem(
+            icon = Icons.Outlined.Devices,
+            title = "Log out of all devices",
+            subtitle = "Every device, this one included",
+            onClick = viewModel::askLogoutAll,
+            color = MaterialTheme.colorScheme.error,
+        )
     }
 }
 

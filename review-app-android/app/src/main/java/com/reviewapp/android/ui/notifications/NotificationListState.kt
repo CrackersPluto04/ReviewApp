@@ -18,6 +18,8 @@ data class NotificationListState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val loaded: Boolean = false,
+    /** The list is the offline copy from this time (epoch millis). */
+    val updatedAt: Long? = null,
 ) {
     val canLoadMore: Boolean get() = loaded && hasMore && !isLoading && error == null
     val isEmpty: Boolean get() = loaded && items.isEmpty() && !isLoading && error == null

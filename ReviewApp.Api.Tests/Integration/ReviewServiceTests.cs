@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using ReviewApp.Api.DAL.Entities;
 using ReviewApp.Api.DTOs;
 using ReviewApp.Api.Enums;
+using ReviewApp.Api.Services;
 using ReviewApp.Api.Services.Interfaces;
 using ReviewApp.Api.Tests.Support;
 
@@ -65,7 +66,7 @@ public class ReviewServiceTests : IntegrationTest
         (await Query().Reviews.CountAsync(r => r.UserID == user.ID)).ShouldBe(1);
     }
 
-    [Fact(Skip = "Known issue F5 (FINDINGS.md): one review per user and media is only checked in code, there is no unique index")]
+    [Fact]
     public async Task Create_ConcurrentRequestsForTheSameMedia_StoreOneReview()
     {
         var user = await Data.UserAsync();
@@ -87,6 +88,25 @@ public class ReviewServiceTests : IntegrationTest
         };
 
         (await Reviews.CreateReviewAsync(user.ID, dto)).Success.ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData(false, MediaLookupStatus.Unknown)]
+    [InlineData(true, MediaLookupStatus.Unavailable)]
+    public async Task Create_MediaTheSourceCantResolve_StoresNothing(bool outage, MediaLookupStatus expected)
+    {
+        var user = await Data.UserAsync();
+        var externalId = TestData.Unique("7");
+        if (outage) App.Tmdb.FailById(externalId); else App.Tmdb.MarkUnknown(externalId);
+        var dto = new ReviewMediaDto
+        {
+            MediaDto = new MediaDto { ID = externalId + "Movie", ExternalApiID = externalId, MediaType = MediaType.Movie },
+            ReviewDto = new ReviewDto { Score = 5 }
+        };
+
+        (await Should.ThrowAsync<MediaResolutionException>(() => Reviews.CreateReviewAsync(user.ID, dto))).Status.ShouldBe(expected);
+        (await Query().Reviews.AnyAsync(r => r.UserID == user.ID)).ShouldBeFalse();
+        (await Query().Media.AnyAsync(m => m.ExternalApiID == externalId)).ShouldBeFalse();
     }
 
     [Fact]
@@ -338,9 +358,9 @@ public class ReviewServiceTests : IntegrationTest
     public async Task Paging_PageSizeIsCappedAtFifty()
     {
         var media = await Data.MediaAsync();
-        var author = await Data.UserAsync();
+        // One review per user and media (unique index), so 51 authors
         for (var i = 0; i < 51; i++)
-            await Data.ReviewAsync(author, media);
+            await Data.ReviewAsync(await Data.UserAsync(), media);
 
         var page = await Reviews.GetMediaReviewsAsync(media.MediaType, media.ExternalApiID, new ReviewFilterParams { PageSize = 100_000 });
 

@@ -51,6 +51,18 @@ public class TmdbService : ITmdbService
         return await FetchFromTmdbAsync<TmdbItemDto>($"tv/{Uri.EscapeDataString(id)}");
     }
 
+    /* Strict lookups by ID (an unknown ID is null, failures throw MediaSourceUnavailableException) */
+
+    public async Task<TmdbItemDto?> FindMovieByIdAsync(string id, CancellationToken cancellationToken) =>
+        Known(await FetchStrictAsync<TmdbItemDto>($"movie/{Uri.EscapeDataString(id)}", cancellationToken, badRequestIsNotFound: true));
+
+    public async Task<TmdbItemDto?> FindSeriesByIdAsync(string id, CancellationToken cancellationToken) =>
+        Known(await FetchStrictAsync<TmdbItemDto>($"tv/{Uri.EscapeDataString(id)}", cancellationToken, badRequestIsNotFound: true));
+
+    // TMDb's "not found" (and the empty item of a 404) has no ID and no title
+    private static TmdbItemDto? Known(TmdbItemDto item) =>
+        item.ID <= 0 || (item.Title ?? item.Name) is null ? null : item;
+
     /* Camera recognition lookups (strict: failures throw MediaSourceUnavailableException) */
 
     public async Task<List<TmdbItemDto>> FindMoviesAsync(string title, CancellationToken cancellationToken)
@@ -107,13 +119,15 @@ public class TmdbService : ITmdbService
         return JsonSerializer.Deserialize<T>(jsonString) ?? new T();
     }
 
-    // Like FetchFromTmdbAsync, but only "not found" is an empty result; any other failure throws
-    private async Task<T> FetchStrictAsync<T>(string endpoint, CancellationToken cancellationToken) where T : class, new()
+    // Like FetchFromTmdbAsync, but only "not found" is an empty result; any other failure throws.
+    // Lookups by ID also treat 400 as not found (TMDb answers it for malformed IDs)
+    private async Task<T> FetchStrictAsync<T>(string endpoint, CancellationToken cancellationToken, bool badRequestIsNotFound = false) where T : class, new()
     {
         try
         {
             using var response = await _httpClient.GetAsync(WithApiKey(endpoint), cancellationToken);
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound
+                || (badRequestIsNotFound && response.StatusCode == System.Net.HttpStatusCode.BadRequest))
                 return new T();
             if (!response.IsSuccessStatusCode)
                 throw new MediaSourceUnavailableException("TMDb");

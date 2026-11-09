@@ -17,6 +17,10 @@ data class PagedList<T>(
     val endReached: Boolean = false,
     val isLoading: Boolean = false,
     val error: String? = null,
+    /** The next page needs a connection: the list stops at what the device has, without an error. */
+    val offlineEnd: Boolean = false,
+    /** The items are the device's offline copy from this time (epoch millis), not a fresh answer. */
+    val updatedAt: Long? = null,
 ) {
     val isInitialLoading: Boolean get() = isLoading && items.isEmpty()
     val isEmpty: Boolean get() = items.isEmpty() && !isLoading && error == null && page > 0
@@ -62,11 +66,11 @@ class PagedLoader<T>(
         job = scope.launch { load(current.page + 1) }
     }
 
-    /** Retries the page that failed (the first one when the list is still empty). */
+    /** Retries the page that failed (the first one when the list is still empty), or continues an offline end. */
     fun retry() {
         val current = _state.value
         if (current.page == 0) return reload()
-        _state.update { it.copy(error = null, isLoading = true) }
+        _state.update { it.copy(error = null, isLoading = true, offlineEnd = false, endReached = false) }
         job = scope.launch { load(current.page + 1) }
     }
 
@@ -84,7 +88,14 @@ class PagedLoader<T>(
 
     private suspend fun load(page: Int) {
         when (val result = fetch(page)) {
-            is ApiResult.Error -> _state.update { it.copy(isLoading = false, error = result.message) }
+            // Offline after the first page: stop at what's there instead of failing
+            is ApiResult.Error -> _state.update {
+                when {
+                    result.isNetwork && page > 1 -> it.copy(isLoading = false, endReached = true, offlineEnd = true)
+                    result.isNetwork -> it.copy(isLoading = false, error = OFFLINE_NOT_SAVED)
+                    else -> it.copy(isLoading = false, error = result.message)
+                }
+            }
             is ApiResult.Success -> _state.update { current ->
                 val base = if (page == 1) emptyList() else current.items
                 val seen = base.mapTo(HashSet()) { itemKey(it) }
@@ -96,8 +107,16 @@ class PagedLoader<T>(
                     endReached = !result.data.hasMore || result.data.items.isEmpty(),
                     isLoading = false,
                     error = null,
+                    offlineEnd = false,
+                    // The oldest copy shown decides how old the list is
+                    updatedAt = if (page == 1) result.cachedAt else listOfNotNull(current.updatedAt, result.cachedAt).minOrNull(),
                 )
             }
         }
+    }
+
+    companion object {
+        /** A list without a connection and without an offline copy. */
+        const val OFFLINE_NOT_SAVED = "You're offline, and this list isn't saved on this phone. It loads when you're back online."
     }
 }

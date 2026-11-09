@@ -55,21 +55,29 @@ public class ControllerSmokeTests : HttpTest
         (await Anonymous().GetAsync($"api/User/{TestData.Unique("nobody")}/reviews")).StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
-    [Fact(Skip = "Known issue F2 (FINDINGS.md): the followers / following lists answer 200 [] for an unknown user, the other profile lists 404")]
+    [Fact]
     public async Task User_FollowerListsOfAnUnknownUser_Are404()
     {
         var name = TestData.Unique("nobody");
 
-        (await Anonymous().GetAsync($"api/User/{name}/followers")).StatusCode.ShouldBe(HttpStatusCode.NotFound);
-        (await Anonymous().GetAsync($"api/User/{name}/following")).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await ErrorAsync(await Anonymous().GetAsync($"api/User/{name}/followers"), HttpStatusCode.NotFound)).ShouldBe("User profile not found.");
+        (await ErrorAsync(await Anonymous().GetAsync($"api/User/{name}/following"), HttpStatusCode.NotFound)).ShouldBe("User profile not found.");
     }
 
-    [Fact(Skip = "Known issue F3 (FINDINGS.md): 'search' is a valid username, but GET api/User/search is the user search route")]
-    public async Task User_NamedSearch_HasAReachableProfile()
+    // F3: route words like "search" can't be usernames (GET api/User/search is the user search), nor characters that break URLs
+    [Theory]
+    [InlineData("search", "This username is reserved, please choose another one.")]
+    [InlineData("ADMIN", "This username is reserved, please choose another one.")]
+    [InlineData("a/b-c", "Username can only contain letters, numbers, '_' and '-'.")]
+    [InlineData("dot.name", "Username can only contain letters, numbers, '_' and '-'.")]
+    public async Task User_UsernamesThatBreakUrls_AreRejected(string username, string error)
     {
-        var user = await Data.UserAsync(u => u.Username = "search");
+        (await ErrorAsync(await Anonymous().PostAsJsonAsync("api/Auth/register",
+            new { username, email = $"{TestData.Unique("reg")}@test.local", password = TestData.Password }), HttpStatusCode.BadRequest))
+            .ShouldBe(error);
 
-        (await ExpectAsync(await Anonymous().GetAsync("api/User/search"), HttpStatusCode.OK)).Int("id").ShouldBe(user.ID);
+        var user = await Data.UserAsync();
+        (await ErrorAsync(await As(user).PatchAsJsonAsync("api/User/me", new { username }), HttpStatusCode.BadRequest)).ShouldBe(error);
     }
 
     /* Reviews */
@@ -226,6 +234,39 @@ public class ControllerSmokeTests : HttpTest
         (await Anonymous().GetAsync("api/Media/search/series")).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         (await Anonymous().GetAsync("api/Media/media/Book/1")).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
+
+    // F1: a title the source doesn't know is 404 media_not_found, an outage 503 source_unavailable, and nothing is stored
+    [Fact]
+    public async Task Media_UnknownOrUnavailableTitles_AreReportedNotStored()
+    {
+        var unknown = TestData.Unique("8");
+        var down = TestData.Unique("8");
+        App.Tmdb.MarkUnknown(unknown);
+        App.Tmdb.FailById(down);
+        var user = await Data.UserAsync();
+        var client = As(user);
+        var collection = await Data.CollectionAsync(user);
+        var owner = client;
+
+        (await ExpectAsync(await Anonymous().GetAsync($"api/Media/media/Movie/{unknown}"), HttpStatusCode.NotFound)).Str("code").ShouldBe("media_not_found");
+        (await ExpectAsync(await Anonymous().GetAsync($"api/Media/media/Movie/{down}"), HttpStatusCode.ServiceUnavailable)).Str("code").ShouldBe("source_unavailable");
+
+        (await ExpectAsync(await client.PostAsJsonAsync("api/Review", ReviewRequest(unknown)), HttpStatusCode.NotFound)).Str("code").ShouldBe("media_not_found");
+        (await ExpectAsync(await client.PostAsJsonAsync("api/Review", ReviewRequest(down)), HttpStatusCode.ServiceUnavailable)).Str("code").ShouldBe("source_unavailable");
+
+        (await ExpectAsync(await owner.PostAsJsonAsync($"api/Collection/{collection.ID}/media", new { type = MediaType.Movie, externalApiID = unknown }), HttpStatusCode.NotFound))
+            .Str("code").ShouldBe("media_not_found");
+        (await ExpectAsync(await owner.PostAsJsonAsync($"api/Collection/{collection.ID}/media", new { type = MediaType.Movie, externalApiID = down }), HttpStatusCode.ServiceUnavailable))
+            .Str("code").ShouldBe("source_unavailable");
+
+        (await Query().Media.AnyAsync(m => m.ExternalApiID == unknown || m.ExternalApiID == down)).ShouldBeFalse();
+    }
+
+    private static object ReviewRequest(string externalId) => new
+    {
+        mediaDto = new { id = externalId + "Movie", externalApiID = externalId, mediaType = MediaType.Movie },
+        reviewDto = new { score = 7, visibilityLevel = VisibilityLevel.Public }
+    };
 
     /* Notifications */
 

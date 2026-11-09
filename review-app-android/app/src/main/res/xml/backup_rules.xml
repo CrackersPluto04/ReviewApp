@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Backup rules for Android 11 and lower. The session cookie is encrypted with a
-     device-bound Keystore key, so a restored copy could never be decrypted anyway. -->
+<!-- Backup rules for Android 11 and lower. The session DataStore (the session cookie, the cached user of offline
+     mode and the offline databases' keys) is encrypted with device-bound Keystore keys, so a restored copy could
+     never be decrypted anyway. The offline databases themselves are in noBackupFilesDir, never backed up. -->
 <full-backup-content>
     <exclude domain="file" path="datastore/session.preferences_pb" />
 </full-backup-content>

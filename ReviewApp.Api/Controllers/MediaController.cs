@@ -2,6 +2,8 @@
 using Microsoft.AspNetCore.RateLimiting;
 using ReviewApp.Api.DTOs;
 using ReviewApp.Api.Enums;
+using ReviewApp.Api.Filters;
+using ReviewApp.Api.Services;
 using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Controllers;
@@ -23,35 +25,17 @@ public class MediaController : ControllerBase
     }
 
     [HttpGet("media/{mediaType}/{externalApiId}")]
-    public async Task<IActionResult> GetExternalMediaById([FromRoute] MediaType mediaType, [FromRoute] string externalApiId)
+    public async Task<IActionResult> GetExternalMediaById([FromRoute] MediaType mediaType, [FromRoute] string externalApiId, CancellationToken cancellationToken)
     {
-        object? mediaDto = mediaType switch
+        var lookup = await _mediaService.LookupAsync(mediaType, externalApiId, cancellationToken);
+        return lookup.Status switch
         {
-            MediaType.Movie => await _tmdbService.GetMovieByIdAsync(externalApiId),
-            MediaType.Series => await _tmdbService.GetSeriesByIdAsync(externalApiId),
-            MediaType.Music => await _spotifyService.GetMusicByIdAsync(externalApiId),
-            _ => null
+            MediaLookupStatus.Found => Ok(lookup.Media),
+            MediaLookupStatus.Unknown => NotFound(new { error = MediaErrorFilter.NotFoundMessage, code = MediaErrorFilter.NotFoundCode }),
+            MediaLookupStatus.Unavailable => StatusCode(StatusCodes.Status503ServiceUnavailable,
+                new { error = MediaErrorFilter.UnavailableMessage, code = MediaErrorFilter.UnavailableCode }),
+            _ => BadRequest(new { error = "Invalid media type." })
         };
-
-        if (mediaDto == null)
-        {
-            return BadRequest(new { error = "Invalid media type." });
-        }
-
-        MediaDto? formattedMedia = mediaType switch
-        {
-            MediaType.Movie => _mediaService.ToMediaDto(MediaType.Movie, (TmdbItemDto)mediaDto),
-            MediaType.Series => _mediaService.ToMediaDto(MediaType.Series, (TmdbItemDto)mediaDto),
-            MediaType.Music => _mediaService.ToMediaDto(MediaType.Music, (SpotifyTrackDto)mediaDto),
-            _ => null
-        };
-
-        if (formattedMedia == null)
-        {
-            return BadRequest(new { error = "Invalid media type." });
-        }
-
-        return Ok(formattedMedia);
     }
 
     [HttpGet("search/movie")]

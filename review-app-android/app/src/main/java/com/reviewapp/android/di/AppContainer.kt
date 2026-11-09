@@ -37,10 +37,45 @@ import com.reviewapp.android.data.repository.ReplyRepository
 import com.reviewapp.android.data.repository.ReviewRepository
 import com.reviewapp.android.data.repository.SubscriptionRepository
 import com.reviewapp.android.data.repository.UserRepository
+import android.os.SystemClock
+import android.provider.Settings
+import com.reviewapp.android.data.local.SessionCache
+import com.reviewapp.android.data.local.offline.DatabaseKeyStore
+import com.reviewapp.android.data.local.offline.DatabaseManager
+import com.reviewapp.android.data.sync.ClockReading
+import com.reviewapp.android.data.sync.ConflictResolver
+import com.reviewapp.android.data.sync.Connectivity
+import com.reviewapp.android.data.sync.ConnectivityMonitor
+import com.reviewapp.android.data.sync.DeviceClock
+import com.reviewapp.android.data.sync.OfflineGateway
+import com.reviewapp.android.data.local.CacheBudget
+import com.reviewapp.android.data.local.offline.OfflineImageStore
+import com.reviewapp.android.data.remote.ProbingCallFactory
+import com.reviewapp.android.data.remote.SyncApi
+import com.reviewapp.android.data.sync.LocalLibrary
+import com.reviewapp.android.data.sync.SnapshotInterceptor
+import com.reviewapp.android.data.sync.SyncEngine
+import com.reviewapp.android.data.sync.PushRunner
+import com.reviewapp.android.data.sync.OfflineWriter
+import com.reviewapp.android.data.sync.OfflineWrites
+import com.reviewapp.android.data.sync.SyncPushWorker
+import com.reviewapp.android.data.local.offline.PendingUnlockEntity
+import com.reviewapp.android.data.remote.dto.UnlockedAchievementDto
+import com.reviewapp.android.domain.model.UnlockedAchievement
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import java.net.URI
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.io.IOException
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
@@ -54,14 +89,68 @@ class AppContainer(context: Context) {
 
     val appScope = CoroutineScope(SupervisorJob())
 
-    private val cookieJar = SecureCookieJar(context.sessionDataStore, CryptoStore())
+    private val sessionCrypto = CryptoStore()
+    private val cookieJar = SecureCookieJar(context.sessionDataStore, sessionCrypto)
 
     val settingsStore = SettingsStore(context.settingsDataStore)
+
+    private val clock = DeviceClock {
+        ClockReading(
+            wallMillis = System.currentTimeMillis(),
+            elapsedMillis = SystemClock.elapsedRealtime(),
+            bootCount = Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, -1),
+        )
+    }
+
+    // Asks the backend whether it answers at all while it seemed unreachable: a plain client (no cookie,
+    // no interceptors), any HTTP status counts
+    private val probeClient = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
+        .build()
+
+    val connectivityMonitor = ConnectivityMonitor(context, appScope) {
+        withContext(Dispatchers.IO) {
+            runCatching {
+                probeClient.newCall(Request.Builder().url(BuildConfig.API_BASE_URL + "Subscription/plan").build())
+                    .execute().close()
+            }.isSuccess
+        }
+    }
+
+    private val cacheBudgetBytes = settingsStore.cacheBudget.map { it.snapshotBytes }
+        .stateIn(appScope, SharingStarted.Eagerly, CacheBudget.Default.snapshotBytes)
+
+    /** The posters of the user's own content, for offline (a plain client: public CDN images, no cookie). */
+    val offlineImages = OfflineImageStore(
+        context,
+        OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build(),
+    )
+
+    // Offline mode: GET answers are kept and served again when there is no answer (only while the user's offline
+    // copy is open; the gateway is created below, the lambda reads it per request)
+    val snapshotInterceptor = SnapshotInterceptor(
+        database = { offlineGateway.database() },
+        budgetBytes = { cacheBudgetBytes.value },
+        apiBasePath = URI(BuildConfig.API_BASE_URL).path,
+    )
 
     private val okHttpClient: OkHttpClient = OkHttpClient.Builder()
         .cookieJar(cookieJar)
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
+        // Outermost, so the connectivity interceptor below still sees a request that got no answer
+        .addInterceptor(snapshotInterceptor)
+        // Whether the backend answered at all feeds the connectivity state
+        .addInterceptor { chain ->
+            try {
+                chain.proceed(chain.request()).also { connectivityMonitor.onServerResponded() }
+            } catch (e: IOException) {
+                // A request the app cancelled (screen closed) says nothing about the connection
+                if (!chain.call().isCanceled()) connectivityMonitor.onServerUnreachable()
+                throw e
+            }
+        }
         // Any 401 means the session is gone (expired, logout-all, password change elsewhere)
         .addInterceptor { chain ->
             val response = chain.proceed(chain.request())
@@ -75,7 +164,10 @@ class AppContainer(context: Context) {
         .addInterceptor { chain ->
             val request = chain.request()
             val response = chain.proceed(request)
-            response.header(AchievementRepository.UNLOCK_HEADER)?.let(achievementRepository::onUnlockHeader)
+            // The sync reports its unlocks in its body (shown together, or later after a background push)
+            if (!request.url.encodedPath.contains("/Sync/")) {
+                response.header(AchievementRepository.UNLOCK_HEADER)?.let(achievementRepository::onUnlockHeader)
+            }
             if (response.isSuccessful && request.method != "GET") notificationRepository.onMutation()
             response
         }
@@ -89,7 +181,8 @@ class AppContainer(context: Context) {
 
     private val retrofit: Retrofit = Retrofit.Builder()
         .baseUrl(BuildConfig.API_BASE_URL)
-        .client(okHttpClient)
+        // Tags each request with its apiCall's probe (whether a snapshot may answer it)
+        .callFactory(ProbingCallFactory(okHttpClient))
         .addConverterFactory(ApiJson.asConverterFactory("application/json; charset=utf-8".toMediaType()))
         .build()
 
@@ -108,24 +201,92 @@ class AppContainer(context: Context) {
     // A recognition uploads a photo and waits for the AI and the media lookups: longer timeouts than the other
     // calls, with the same cookie jar and interceptors (401 / 402 / unlock / notification handling)
     private val recognitionApi: RecognitionApi = retrofit.newBuilder()
-        .client(
-            okHttpClient.newBuilder()
-                .writeTimeout(60, TimeUnit.SECONDS)
-                .readTimeout(90, TimeUnit.SECONDS)
-                .build(),
+        .callFactory(
+            ProbingCallFactory(
+                okHttpClient.newBuilder()
+                    .writeTimeout(60, TimeUnit.SECONDS)
+                    .readTimeout(90, TimeUnit.SECONDS)
+                    .build(),
+            ),
         )
         .build()
         .create(RecognitionApi::class.java)
+    private val syncApi: SyncApi = retrofit.create(SyncApi::class.java)
 
-    val sessionManager = SessionManager(authApi, cookieJar)
+    val sessionManager = SessionManager(
+        authApi = authApi,
+        cookieJar = cookieJar,
+        cache = SessionCache(context.sessionDataStore, sessionCrypto),
+        clock = clock,
+        scope = appScope,
+        isOnline = { connectivityMonitor.connectivity.value == Connectivity.Online },
+        offlineEnabled = { userId -> settingsStore.offlineEnabled(userId).first() },
+    )
+    val databaseManager = DatabaseManager(context, DatabaseKeyStore(context.sessionDataStore), offlineImages)
+    val offlineGateway = OfflineGateway(sessionManager, settingsStore, databaseManager, clock, appScope)
+    val localLibrary = LocalLibrary(offlineGateway, sessionManager)
+
+    /** Set by the application: whether an activity is visible (unlocks of a background push wait for the next open). */
+    @Volatile var isInForeground: Boolean = false
+
+    private val pushRunner = PushRunner(
+        syncApi = syncApi,
+        userId = { sessionManager.currentUser?.id },
+        onUnlocked = { unlocked -> deliverUnlocks(unlocked) },
+    )
+    val syncEngine = SyncEngine(syncApi, offlineGateway, connectivityMonitor, snapshotInterceptor, pushRunner, appScope)
+    val offlineWriter = OfflineWriter(
+        database = { offlineGateway.database() },
+        offlineActive = { offlineGateway.status.value.mode.canEditOffline },
+        currentUser = { sessionManager.currentUser },
+        onQueued = {
+            syncEngine.requestSync()
+            // Sent even if the app is closed before the connection comes back
+            SyncPushWorker.schedule(context)
+        },
+    )
+    private val offlineWrites = OfflineWrites(offlineWriter, syncEngine)
+    val conflictResolver = ConflictResolver(
+        database = { offlineGateway.database() },
+        writer = offlineWriter,
+        onQueued = {
+            syncEngine.requestSync()
+            SyncPushWorker.schedule(context)
+        },
+    )
+
     val authRepository = AuthRepository(authApi, sessionManager)
-    val mediaRepository = MediaRepository(mediaApi)
-    val reviewRepository = ReviewRepository(reviewApi, appScope)
-    val userRepository = UserRepository(userApi, followerApi, sessionManager)
-    val collectionRepository = CollectionRepository(collectionApi, userApi, sessionManager, appScope)
+    val mediaRepository = MediaRepository(mediaApi, localLibrary, appScope)
+    val reviewRepository = ReviewRepository(reviewApi, appScope, localLibrary, offlineWrites)
+    val userRepository = UserRepository(userApi, followerApi, sessionManager, localLibrary, offlineWrites)
+    val collectionRepository = CollectionRepository(collectionApi, userApi, sessionManager, appScope, localLibrary, offlineWrites)
     val replyRepository = ReplyRepository(replyApi)
-    val notificationRepository = NotificationRepository(notificationApi, sessionManager, appScope)
+    val notificationRepository = NotificationRepository(notificationApi, sessionManager, appScope, localLibrary, offlineWrites)
     val achievementRepository = AchievementRepository(achievementApi)
+
+    /** Unlocks earned by sent offline changes: banners now, or after the next app open when it is in the background. */
+    private suspend fun deliverUnlocks(unlocked: List<UnlockedAchievement>) {
+        if (isInForeground) {
+            achievementRepository.onUnlocked(unlocked)
+            return
+        }
+        val json = ApiJson.encodeToString(
+            ListSerializer(UnlockedAchievementDto.serializer()),
+            unlocked.map { UnlockedAchievementDto(it.groupCode, it.title, it.tier.name) },
+        )
+        offlineGateway.database()?.pendingUnlocks()?.insert(PendingUnlockEntity(json = json, createdAt = System.currentTimeMillis()))
+    }
+
+    /** On opening the app: the unlocks a background push earned. */
+    suspend fun showPendingUnlocks() {
+        val db = offlineGateway.database() ?: return
+        val stored = db.pendingUnlocks().all()
+        if (stored.isEmpty()) return
+        db.pendingUnlocks().clear()
+        stored.flatMap { row ->
+            runCatching { ApiJson.decodeFromString(ListSerializer(UnlockedAchievementDto.serializer()), row.json) }.getOrDefault(emptyList())
+        }.map { it.toDomain() }.let(achievementRepository::onUnlocked)
+    }
     val accountRepository = AccountRepository(userApi, securityApi, authApi, sessionManager)
     val subscriptionRepository = SubscriptionRepository(subscriptionApi, sessionManager, appScope)
     val recognitionRepository = RecognitionRepository(recognitionApi, mediaRepository)

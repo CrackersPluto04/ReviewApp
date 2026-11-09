@@ -32,4 +32,9 @@ public class Review
 
     [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
     public DateTime UpdatedAt { get; set; }
+
+    // SQL Server rowversion: changes on every write of the row (the SetUpdatedAt trigger's own update included).
+    // The base version an offline edit is checked against, and the cursor of the sync's changes feed.
+    // Not a concurrency token, so web edits keep "last write wins".
+    public long RowVersion { get; set; }
 }

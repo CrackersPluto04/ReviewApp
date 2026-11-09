@@ -111,8 +111,27 @@ public class NotificationService : INotificationService
         var pageSize = Math.Clamp(p.PageSize, 1, MaxPageSize);
 
         // Fetch one extra to know if there are more
-        var rows = await query
-            .Take(pageSize + 1)
+        var items = await ToDtosAsync(query, pageSize + 1);
+
+        return new NotificationPageDto
+        {
+            Items = items.Take(pageSize).ToList(),
+            HasMore = items.Count > pageSize,
+            TotalCount = totalCount,
+            UnseenCount = unseenCount
+        };
+    }
+
+    // The newest ones (at most MaxPerUser exist), for the offline sync's copy
+    public Task<List<NotificationDto>> GetLatestAsync(int userId, int count = MaxPerUser) =>
+        ToDtosAsync(_context.Notifications.AsNoTracking()
+            .Where(n => n.RecipientUserID == userId)
+            .OrderByDescending(n => n.ID), Math.Clamp(count, 1, MaxPerUser));
+
+    private static async Task<List<NotificationDto>> ToDtosAsync(IQueryable<Notification> ordered, int take)
+    {
+        var rows = await ordered
+            .Take(take)
             .Select(n => new
             {
                 n.ID,
@@ -129,27 +148,21 @@ public class NotificationService : INotificationService
             })
             .ToListAsync();
 
-        return new NotificationPageDto
+        return rows.Select(n => new NotificationDto
         {
-            Items = rows.Take(pageSize).Select(n => new NotificationDto
-            {
-                ID = n.ID,
-                Type = n.Type.ToString(),
-                Title = n.Title,
-                Message = n.Message,
-                IsSeen = n.IsSeen,
-                // Stored as UTC, but read back as Unspecified, which would serialize without the "Z"
-                CreatedAt = DateTime.SpecifyKind(n.CreatedAt, DateTimeKind.Utc),
-                ActorUsername = n.ActorUsername,
-                ActorProfilePictureUrl = n.ActorProfilePictureUrl,
-                ReviewID = n.ReviewID,
-                ReplyID = n.ReplyID,
-                GroupCode = n.GroupCode
-            }).ToList(),
-            HasMore = rows.Count > pageSize,
-            TotalCount = totalCount,
-            UnseenCount = unseenCount
-        };
+            ID = n.ID,
+            Type = n.Type.ToString(),
+            Title = n.Title,
+            Message = n.Message,
+            IsSeen = n.IsSeen,
+            // Stored as UTC, but read back as Unspecified, which would serialize without the "Z"
+            CreatedAt = DateTime.SpecifyKind(n.CreatedAt, DateTimeKind.Utc),
+            ActorUsername = n.ActorUsername,
+            ActorProfilePictureUrl = n.ActorProfilePictureUrl,
+            ReviewID = n.ReviewID,
+            ReplyID = n.ReplyID,
+            GroupCode = n.GroupCode
+        }).ToList();
     }
 
     public Task<int> GetUnseenCountAsync(int userId) =>
@@ -161,9 +174,10 @@ public class NotificationService : INotificationService
             .Where(n => n.ID == notificationId && n.RecipientUserID == userId)
             .ExecuteUpdateAsync(s => s.SetProperty(n => n.IsSeen, isSeen)) > 0;
 
-    public Task<int> MarkAllSeenAsync(int userId) =>
+    // upToId: only notifications up to this ID (the offline sync must not touch ones the device never saw)
+    public Task<int> MarkAllSeenAsync(int userId, int? upToId = null) =>
         _context.Notifications
-            .Where(n => n.RecipientUserID == userId && !n.IsSeen)
+            .Where(n => n.RecipientUserID == userId && !n.IsSeen && (upToId == null || n.ID <= upToId))
             .ExecuteUpdateAsync(s => s.SetProperty(n => n.IsSeen, true));
 
     public async Task<bool> DeleteAsync(int userId, int notificationId) =>
@@ -171,9 +185,9 @@ public class NotificationService : INotificationService
             .Where(n => n.ID == notificationId && n.RecipientUserID == userId)
             .ExecuteDeleteAsync() > 0;
 
-    public Task<int> DeleteSeenAsync(int userId) =>
+    public Task<int> DeleteSeenAsync(int userId, int? upToId = null) =>
         _context.Notifications
-            .Where(n => n.RecipientUserID == userId && n.IsSeen)
+            .Where(n => n.RecipientUserID == userId && n.IsSeen && (upToId == null || n.ID <= upToId))
             .ExecuteDeleteAsync();
 
     private async Task EnforceCapAsync(int userId)

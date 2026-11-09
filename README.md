@@ -66,8 +66,17 @@ Movie and series data comes from [TMDb](https://www.themoviedb.org/), music data
 - One monthly **Premium** plan, paid through [Stripe](https://stripe.com/) (test mode only). The Premium page shows Free vs Premium, the Subscribe button (Stripe Checkout), and for subscribers the status, dates, cancel / resume and "Manage payment details" (the Stripe customer portal).
 - Cancelling stops renewal and keeps access until the end of the paid period. A failed payment gets a 5 day grace period. Subscribers get a gold badge and avatar ring, notifications for started, failed, cancelled and ended subscriptions, and emails for the same events.
 - The local subscription state only ever changes from what Stripe reports: webhooks are just triggers to fetch the current subscription, so they are idempotent and order-independent. A background job re-checks lapsed subscriptions.
-- Features are locked by key on the server (`[RequiresFeature]`); without access the API answers **402**, and both clients turn that into a "This is a Premium feature" dialog. The first Premium feature is camera recognition: take or pick a photo of a figure, poster, album cover or other collectible, an AI vision model (Google Gemini) describes it, and the app lists the related movies, series and music (resolved through TMDb / Spotify, closest relation first, 10 at a time plus "Show more"), with a daily allowance per user. Photos are processed in memory only and never stored.
+- Features are locked by key on the server (`[RequiresFeature]`); without access the API answers **402**, and both clients turn that into a "This is a Premium feature" dialog. Premium includes **offline mode** in the Android app (see below) and **camera recognition**: take or pick a photo of a figure, poster, album cover or other collectible, an AI vision model (Google Gemini) describes it, and the app lists the related movies, series and music (resolved through TMDb / Spotify, closest relation first, 10 at a time plus "Show more"), with a daily allowance per user. Photos are processed in memory only and never stored.
 - In Development a **Fake** provider activates a subscription without any payment (see [Subscriptions in development](#subscriptions-in-development)).
+
+### Offline mode (Android, Premium)
+
+- The Android app keeps working with no connection, e.g. on a flight or in the subway. Your own reviews, collections, profile, follow lists, notifications and achievements are kept on the phone, together with what you opened (media details, cover art, other users' pages) within an adjustable cache budget. "Make my library available offline" (Wi-Fi only by default) loads the details and covers of everything in your reviews and collections before a trip.
+- Offline you can write, edit and delete reviews, create, rename, delete and reorder collections, add and remove titles (the hearts too), edit your bio and picture, follow and unfollow, and mark or delete notifications. Every change shows at once with a "Waiting to sync" marker; a list of waiting changes in plain language lets you discard one. Review text you were typing survives the app being closed.
+- When the connection returns, the app syncs by itself (and a background job sends the changes even if the app is closed). Each change is applied exactly once, in the order you made it, through a batch endpoint that answers per change. Several edits of one thing are combined, things created offline can be used right away (their temporary IDs become the real ones), and a 429 just pauses the sync. Achievements earned by the sync are shown together with a summary ("Synced 7 changes. You unlocked 1 achievement.").
+- Conflicts are never resolved silently: changes to different fields are merged automatically, and the rest goes to "Sync issues", where you choose (keep mine, use the other version or edit a combination of both texts, recreate something deleted elsewhere, rename or merge a collection whose name is taken). The web app keeps "last write wins".
+- The app opens logged in without a connection for up to 7 days after the backend last confirmed your session and Premium; after that the data stays readable but editing waits for a connection. Changes you made stay yours: they are still sent after Premium ends, and logging out with unsent changes warns first.
+- The data on the phone is encrypted (SQLCipher, one database per account, key wrapped by the Android Keystore) and excluded from backups. Replies, searches of new titles, camera recognition and account changes need a connection.
 
 ### General
 
@@ -76,7 +85,7 @@ Movie and series data comes from [TMDb](https://www.themoviedb.org/), music data
 
 ### Android app
 
-The native Android client covers the web app's features: auth with 2FA, home feed, search and discover, media details, reviews and reply threads, profiles and follow lists, collections with drag-to-reorder, Favourites and add-to-collection shortcuts on every media card, achievements, notifications, account settings and the Premium subscription (payment pages open in the browser and return to the app through a `reviewapp://subscription/{result}` deep link). Sessions persist across restarts in an encrypted cookie store. Review pages also open from `reviewapp://review/{reviewId}?replyId={replyId}` deep links.
+The native Android client covers the web app's features: auth with 2FA, home feed, search and discover, media details, reviews and reply threads, profiles and follow lists, collections with drag-to-reorder, Favourites and add-to-collection shortcuts on every media card, achievements, notifications, account settings and the Premium subscription (payment pages open in the browser and return to the app through a `reviewapp://subscription/{result}` deep link). Sessions persist across restarts in an encrypted cookie store. Review pages also open from `reviewapp://review/{reviewId}?replyId={replyId}` deep links. Premium users also get camera recognition (CameraX or the photo picker) and offline mode (above).
 
 ## Tech stack
 
@@ -85,12 +94,12 @@ The native Android client covers the web app's features: auth with 2FA, home fee
 | Backend | ASP.NET Core 8 Web API (C#), Entity Framework Core 8, Swagger (Swashbuckle) |
 | Database | SQL Server (a few invariants are enforced by triggers created in migrations) |
 | Web frontend | [Preact](https://preactjs.com/) (via `preact/compat`) + TypeScript, [Vite](https://vitejs.dev/), [MUI 7](https://mui.com/), React Router 7, [dnd-kit](https://dndkit.com/) |
-| Android | Kotlin, Jetpack Compose + Material 3, Navigation Compose (type-safe routes), Retrofit + OkHttp + kotlinx.serialization, Coil, DataStore, [Reorderable](https://github.com/Calvin-LL/Reorderable). Min SDK 26, target SDK 37 |
+| Android | Kotlin, Jetpack Compose + Material 3, Navigation Compose (type-safe routes), Retrofit + OkHttp + kotlinx.serialization, Coil, DataStore, [Reorderable](https://github.com/Calvin-LL/Reorderable), CameraX, Room (KSP) on [SQLCipher](https://www.zetetic.net/sqlcipher/), WorkManager. Min SDK 26, target SDK 37 |
 | Auth | JWT (HS256) in an httpOnly `__Host-` cookie, server-side revocation, BCrypt password hashing, email-based 2FA |
 | Email | MailKit over SMTP, sent by a background queue |
 | Payments | Stripe (Stripe.net, test mode), plus a Development-only Fake provider |
 | External APIs | TMDb (movies/series), Spotify Web API (music) |
-| Tests | Backend: xUnit, Shouldly, NSubstitute, `WebApplicationFactory`, real SQL Server. Web: Vitest, jsdom, Testing Library, MSW. Android: JUnit. All three run in GitHub Actions |
+| Tests | Backend: xUnit, Shouldly, NSubstitute, `WebApplicationFactory`, real SQL Server. Web: Vitest, jsdom, Testing Library, MSW. Android: JUnit, plus AndroidX instrumented tests on an emulator. All three run in GitHub Actions (the Android instrumented tests locally) |
 
 ## Project structure
 
@@ -99,10 +108,11 @@ ReviewApp/
 ├── ReviewApp.Api/              # ASP.NET Core Web API
 │   ├── Controllers/            # Auth, Security, User, Media, Review, ReviewReply,
 │   │                           # Collection, Follower, Achievement, Notification,
-│   │                           # Subscription
+│   │                           # Subscription, Recognition, Sync
 │   ├── Services/               # Business logic, TMDb/Spotify clients, email queue
 │   │                           # and sender, achievement and notification logic,
-│   │                           # subscriptions and entitlements, background jobs
+│   │                           # subscriptions and entitlements, camera recognition,
+│   │                           # offline sync (Sync/), background jobs
 │   ├── DAL/                    # AppDbContext, entities, achievement seed data
 │   ├── DTOs/                   # Request/response contracts
 │   ├── Enums/                  # Shared enums (visibility, media type, tiers, ...)
@@ -124,12 +134,14 @@ ReviewApp/
     └── app/src/
         ├── main/java/com/reviewapp/android/
         │   ├── di/             # Manual dependency container
-        │   ├── data/           # Retrofit APIs, DTOs, repositories, encrypted session store
+        │   ├── data/           # Retrofit APIs, DTOs, repositories, encrypted session store,
+        │   │                   # offline database (local/offline/) and sync (sync/)
         │   ├── domain/         # Domain models
         │   ├── ui/             # Screens + ViewModels per feature, navigation, theme
         │   └── util/           # Validation, formatting, filters (mirroring the web app)
         ├── debug/              # Debug-only network config that trusts the local dev certificate
-        └── test/               # JVM unit tests
+        ├── test/               # JVM unit tests
+        └── androidTest/        # Instrumented tests (encrypted database, sync scenarios)
 ```
 
 Other folders: `.github/workflows/` (the three test workflows plus `claude.yml`) and `_specs/` (the feature specs the work was planned from).
@@ -258,6 +270,16 @@ The app calls `https://localhost:7140/api/` and reaches the API on your machine 
 
    You can also open `review-app-android/` in Android Studio and run the `app` configuration. Release builds trust only the system CAs.
 
+5. **Trying offline mode** (optional). It needs a Premium account: with the Fake subscription provider (the committed setting, or `Subscription__Provider=Fake` if your local settings use Stripe), subscribing on the Premium screen activates Premium without payment. Turn airplane mode on, and because `adb reverse` tunnels through adb (the API would still answer), also cut the tunnel; restore it to come back online:
+
+   ```bash
+   adb shell cmd connectivity airplane-mode enable
+   adb reverse --remove tcp:7140
+   # ... use the app offline ...
+   adb reverse tcp:7140 tcp:7140
+   adb shell cmd connectivity airplane-mode disable
+   ```
+
 ## Configuration reference
 
 All backend settings live in `ReviewApp.Api/appsettings*.json` or environment variables (e.g. `Jwt__Key`).
@@ -308,16 +330,19 @@ Every part has its own suite and its own GitHub Actions workflow (`.github/workf
 
   In CI (`frontend-tests.yml`): type check, tests with coverage and a production build.
 
-- **Android** (`review-app-android/app/src/test/`, JUnit): JVM unit tests for validation, formatting, API JSON parsing, achievement filtering/sorting, reply-thread and notification-list state, collection membership caching, the account-settings forms and the subscription card rules. There are no emulator (instrumented) tests.
+- **Android** (`review-app-android/app/src/test/`, JUnit): JVM unit tests for validation, formatting, API JSON parsing, achievement filtering/sorting, reply-thread and notification-list state, collection membership caching, the account-settings forms, the subscription card rules and the offline mode rules (grace period, connectivity, the changes feed, combining and ordering queued changes, retries, conflict resolution, the texts). Instrumented tests (`app/src/androidTest/`) run on an emulator or device: the encrypted offline database and the sync's failure scenarios (lost answers, drops between batches, 401, 429, conflicts, the app killed mid-sync, every conflict resolution) against a scripted backend.
 
   ```bash
   cd review-app-android
   ./gradlew testDebugUnitTest
+  ./gradlew connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
   ```
 
-  In CI (`android-tests.yml`): JDK 25, then the unit tests and a debug build. The workflow creates a throwaway self-signed `aspnet_dev_cert.pem`, because the real one is gitignored and the debug resources need the file.
+  Without that property Gradle uninstalls the app after the instrumented run, which also logs it out and deletes its offline data.
 
-**Known issues found by the tests.** Bugs the suites found but that were deliberately not fixed are listed in [ReviewApp.Api.Tests/FINDINGS.md](ReviewApp.Api.Tests/FINDINGS.md) (F1–F6 open) and [review-app/tests/FINDINGS.md](review-app/tests/FINDINGS.md) (W1–W19, all open). Each one has a skipped test that describes the correct behaviour; un-skip it when you fix the issue.
+  In CI (`android-tests.yml`): JDK 25, then the unit tests and a debug build (no emulator, so the instrumented tests run locally). The workflow creates a throwaway self-signed `aspnet_dev_cert.pem`, because the real one is gitignored and the debug resources need the file.
+
+**Known issues found by the tests.** Bugs the suites found but that were deliberately not fixed are listed in [ReviewApp.Api.Tests/FINDINGS.md](ReviewApp.Api.Tests/FINDINGS.md) (F1–F6, all fixed since, their tests are now regression tests) and [review-app/tests/FINDINGS.md](review-app/tests/FINDINGS.md) (W1–W19, all open). Each one has a skipped test that describes the correct behaviour; un-skip it when you fix the issue.
 
 ## Building for production
 
@@ -343,6 +368,7 @@ The frontend and the Android app currently have the API address hardcoded to `ht
 - **Revocation**: each token carries a per-user version that is checked on every request. Bumping the version (password change, confirmed email change, "log out of all devices") ends every session, including pending 2FA logins.
 - **Security tokens**: email-verification links, email-change links and 2FA codes are stored only as SHA-256 hashes. Each one is single-use and expires. Codes burn after 5 wrong attempts, and resends have a 60 s cooldown. Links are confirmed by a POST from the frontend, so mail scanners that prefetch links can't use them up.
 - **Rate limiting**: a global limit of 300 requests per minute, plus stricter policies for login/registration/2FA (10 per 10 min per IP), credential changes (5 per 10 min), email links, email sending, subscription actions that call the payment provider (15 per 10 min per user) and the TMDb/Spotify-backed media endpoints (60 per minute). Rejected requests get `429` with a JSON error body.
+- **Offline data**: the Android offline copy is a SQLCipher database per account, its random key wrapped by an Android Keystore key, kept in `noBackupFilesDir` and excluded from backups and device transfers. Changes are only ever sent by the account that made them (the server checks the user too), and the sync endpoints have their own rate limit (a burst of 20, then one request every 6 s).
 - **Payments**: card details never touch this app, payment pages are Stripe's. Webhooks are signature-verified, and the stored subscription changes only from what Stripe reports. Premium access is read from the database on every request, never from the JWT, so changes apply on the next request.
 - **Other measures**: logins for unknown emails take as long as real ones (checked against a dummy BCrypt hash), so response times don't reveal which emails are registered. Passwords are capped so they stay within BCrypt's 72-byte limit, HSTS is on outside Development, and email bodies are never logged.
 
@@ -353,9 +379,9 @@ The frontend and the Android app currently have the API address hardcoded to `ht
 - Notifications are in-app only. There are no browser push or Android system notifications yet.
 - Email links (verification, email change) open the web frontend, and the Android app doesn't handle them.
 - Rate-limit counters and the outgoing email queue are kept in memory, so restarting the API resets them. Every email flow has a resend option.
-- Premium is a single monthly plan in Stripe **test mode**, and its only gated feature is a placeholder preview. Cancelling a subscription is not yet tied to account deletion, which doesn't exist.
-- The bugs the test suites found are recorded but not fixed (see [Testing](#testing)). The most serious is W12 in the web app, a request loop on the review page.
-- Android has no emulator (instrumented) tests.
+- Premium is a single monthly plan in Stripe **test mode**. Cancelling a subscription is not yet tied to account deletion, which doesn't exist.
+- Offline mode: replies can't be written offline, and a review saved offline is always sent (there are no device-only drafts). A session revoked elsewhere (password change, "log out of all devices") only reaches a phone in offline mode when it is back online, at most 7 days later; this is by design.
+- The web app's bugs found by its test suite are recorded but not fixed (see [Testing](#testing)). The most serious is W12, a request loop on the review page.
 
 ## License
 

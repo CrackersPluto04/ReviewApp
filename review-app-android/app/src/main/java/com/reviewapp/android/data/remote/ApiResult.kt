@@ -1,6 +1,8 @@
 package com.reviewapp.android.data.remote
 
 import com.reviewapp.android.data.remote.dto.ErrorResponse
+import kotlinx.coroutines.asContextElement
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
@@ -8,24 +10,47 @@ import retrofit2.HttpException
 import java.io.IOException
 
 sealed interface ApiResult<out T> {
-    data class Success<T>(val data: T) : ApiResult<T>
-    /** [code] is the HTTP status, [reason] the API's machine readable `code` (e.g. `daily_limit`) when it sent one. */
-    data class Error(val message: String, val code: Int? = null, val reason: String? = null) : ApiResult<Nothing>
+    /**
+     * [cachedAt]: the data is the device's offline copy from that time (epoch millis), not a fresh answer (see
+     * `SnapshotInterceptor` and `LocalLibrary`).
+     */
+    data class Success<T>(val data: T, val cachedAt: Long? = null) : ApiResult<T>
+    /**
+     * [code] is the HTTP status, [reason] the API's machine readable `code` (e.g. `daily_limit`) when it sent one.
+     * [isNetwork]: no answer at all (offline, timeout, backend down), so the offline copy may stand in.
+     */
+    data class Error(
+        val message: String,
+        val code: Int? = null,
+        val reason: String? = null,
+        val isNetwork: Boolean = false,
+        /** The `Retry-After` of a 429 (or 503), in seconds. */
+        val retryAfterSeconds: Long? = null,
+    ) : ApiResult<Nothing>
 }
 
 inline fun <T, R> ApiResult<T>.map(transform: (T) -> R): ApiResult<R> = when (this) {
-    is ApiResult.Success -> ApiResult.Success(transform(data))
+    is ApiResult.Success -> ApiResult.Success(transform(data), cachedAt)
     is ApiResult.Error -> this
 }
 
-/** Runs a Retrofit call and turns every expected failure into [ApiResult.Error]. Cancellation is rethrown. */
-suspend fun <T> apiCall(block: suspend () -> T): ApiResult<T> = try {
-    ApiResult.Success(block())
+/**
+ * Runs a Retrofit call and turns every expected failure into [ApiResult.Error]. Cancellation is rethrown.
+ *
+ * With offline mode a GET that gets no answer may be answered from its last snapshot (then [ApiResult.Success.cachedAt]
+ * is set); [useSnapshot] false refuses that, for the user's own content, which the caller reads from the offline
+ * database instead (complete, and it will include changes made offline).
+ */
+suspend fun <T> apiCall(useSnapshot: Boolean = true, block: suspend () -> T): ApiResult<T> = try {
+    val probe = CallProbe(allowSnapshot = useSnapshot)
+    val data = withContext(CallProbe.current.asContextElement(probe)) { block() }
+    ApiResult.Success(data, probe.servedSnapshotAt)
 } catch (e: HttpException) {
     val body = e.response()?.errorBody()?.string()
-    ApiResult.Error(ApiErrors.message(e.code(), body), e.code(), ApiErrors.reason(body))
+    val retryAfter = e.response()?.headers()?.get("Retry-After")?.trim()?.toLongOrNull()
+    ApiResult.Error(ApiErrors.message(e.code(), body), e.code(), ApiErrors.reason(body), retryAfterSeconds = retryAfter)
 } catch (_: IOException) {
-    ApiResult.Error(ApiErrors.NETWORK_ERROR)
+    ApiResult.Error(ApiErrors.NETWORK_ERROR, isNetwork = true)
 } catch (_: SerializationException) {
     ApiResult.Error(ApiErrors.UNEXPECTED_RESPONSE)
 }

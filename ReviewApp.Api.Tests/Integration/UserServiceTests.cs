@@ -189,6 +189,8 @@ public class UserServiceTests : IntegrationTest
         var followers = await Users.GetUserFollowersAsync(target.Username, viewer.ID);
         var following = await Users.GetUserFollowingAsync(target.Username, viewer.ID);
 
+        followers.ShouldNotBeNull();
+        following.ShouldNotBeNull();
         followers.Select(f => f.Username).ShouldBe([a.Username, b.Username], ignoreOrder: true);
         followers.Single(f => f.ID == a.ID).IsFollowedByCurrentUser.ShouldBe(true);
         followers.Single(f => f.ID == b.ID).IsFollowedByCurrentUser.ShouldBe(false);
@@ -196,11 +198,20 @@ public class UserServiceTests : IntegrationTest
     }
 
     [Fact]
-    public async Task FollowerLists_UnknownUser_AreEmpty()
+    public async Task FollowerLists_UserWithoutFollows_AreEmpty()
+    {
+        var user = await Data.UserAsync();
+
+        (await Users.GetUserFollowersAsync(user.Username, null)).ShouldBe([]);
+        (await Users.GetUserFollowingAsync(user.Username, null)).ShouldBe([]);
+    }
+
+    [Fact]
+    public async Task FollowerLists_UnknownUser_AreNotFound()
     {
         var name = TestData.Unique("nobody");
 
-        (await Users.GetUserFollowersAsync(name, null)).ShouldBeEmpty();
-        (await Users.GetUserFollowingAsync(name, null)).ShouldBeEmpty();
+        (await Users.GetUserFollowersAsync(name, null)).ShouldBeNull();
+        (await Users.GetUserFollowingAsync(name, null)).ShouldBeNull();
     }
 }

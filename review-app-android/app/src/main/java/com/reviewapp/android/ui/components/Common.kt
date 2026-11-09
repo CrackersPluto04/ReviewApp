@@ -19,12 +19,16 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ImageNotSupported
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.RateReview
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import com.reviewapp.android.ui.PagedList
+import com.reviewapp.android.util.formatAgo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberUpdatedState
@@ -169,14 +173,76 @@ fun InfiniteListEffect(listState: LazyListState, buffer: Int = 4, onLoadMore: ()
     }
 }
 
-/** Footer of an infinite list: a spinner while loading, an error with retry when a page failed. */
+/**
+ * Footer of an infinite list: a spinner while loading, an error with retry when a page failed. Offline lists say
+ * so: [offlineEnd] = the next page needs a connection, [updatedAt] = the items are the device's copy from then.
+ */
 @Composable
-fun ListFooter(isLoading: Boolean, error: String?, onRetry: () -> Unit) {
+fun ListFooter(
+    isLoading: Boolean,
+    error: String?,
+    onRetry: () -> Unit,
+    offlineEnd: Boolean = false,
+    updatedAt: Long? = null,
+) {
     when {
         isLoading -> Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(Modifier.size(28.dp))
         }
         error != null -> ErrorState(error, onRetry, Modifier.fillMaxWidth().padding(16.dp))
+        offlineEnd || updatedAt != null -> OfflineListNote(offlineEnd, updatedAt, onRetry)
+    }
+}
+
+/** A short note that something works differently, or not at all, without a connection. */
+@Composable
+fun OfflineNotice(text: String, modifier: Modifier = Modifier) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(12.dp),
+    ) {
+        Icon(
+            Icons.Outlined.CloudOff,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(end = 12.dp).size(20.dp),
+        )
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** Shorthand for a [PagedList]'s footer. */
+@Composable
+fun ListFooter(list: PagedList<*>, onRetry: () -> Unit) =
+    ListFooter(list.isLoading, list.error, onRetry, list.offlineEnd, list.updatedAt)
+
+@Composable
+private fun OfflineListNote(offlineEnd: Boolean, updatedAt: Long?, onRetry: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        if (offlineEnd) {
+            Text(
+                "You're offline. That's everything saved on this phone.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        }
+        updatedAt?.let {
+            Text(
+                "Updated ${formatAgo(it, System.currentTimeMillis())}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (offlineEnd) TextButton(onClick = onRetry) { Text("Try again") }
     }
 }
 

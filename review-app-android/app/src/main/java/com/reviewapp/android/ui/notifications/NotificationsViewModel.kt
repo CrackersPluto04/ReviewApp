@@ -107,7 +107,7 @@ class NotificationsViewModel(
             val result = repository.list(current.status, current.sort, current.list.cursor)
             updateList { list ->
                 when (result) {
-                    is ApiResult.Success -> list.merged(result.data)
+                    is ApiResult.Success -> list.merged(result.data).copy(updatedAt = result.cachedAt)
                     is ApiResult.Error -> list.failed(result.message)
                 }
             }

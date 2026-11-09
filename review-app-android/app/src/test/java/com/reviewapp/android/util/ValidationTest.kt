@@ -59,6 +59,18 @@ class ValidationTest {
         assertEquals("Username is required.", Validation.usernameError("   "))
     }
 
+    /** Same rule as the API's UsernameRules: usernames are part of profile URLs. */
+    @Test
+    fun username_onlyUsesUrlSafeCharactersAndNoRouteWords() {
+        listOf("Ben_2004", "movie-fan", "searcher").forEach { assertNull(it, Validation.usernameError(it)) }
+        listOf("a/b", "dot.name", "two words", "Bálint", "what?").forEach {
+            assertEquals(it, "Username can only contain letters, numbers, '_' and '-'.", Validation.usernameError(it))
+        }
+        listOf("search", "SEARCH", "admin").forEach {
+            assertEquals(it, "This username is reserved, please choose another one.", Validation.usernameError(it))
+        }
+    }
+
     @Test
     fun passwords_respectBcryptSafeLimits() {
         assertNull(Validation.newPasswordError("12345678"))

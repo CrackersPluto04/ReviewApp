@@ -69,9 +69,10 @@ class CollectionViewModel(
     init {
         load()
         viewModelScope.launch {
-            // E.g. the media was taken out of this collection from its details page
+            // E.g. the media was taken out of this collection from its details page; a sync may have changed its
+            // id or markers
             collectionRepository.changes
-                .filter { it.collectionId == collectionId && dragStartIndex == null }
+                .filter { (it.collectionId == collectionId || it.fromSync) && dragStartIndex == null }
                 .collect { load(quiet = true) }
         }
     }
@@ -109,7 +110,8 @@ class CollectionViewModel(
         val end = _state.value.items.indexOfFirst { it.dbMediaId == dbMediaId }
         if (end < 0 || end == start) return
         viewModelScope.launch {
-            val result = reorderMutex.withLock { collectionRepository.reorder(collectionId, dbMediaId, end) }
+            val order = _state.value.items.map { it.media }
+            val result = reorderMutex.withLock { collectionRepository.reorder(collectionId, dbMediaId, end, order) }
             if (result is ApiResult.Error) {
                 _events.send(CollectionEvent.Message(result.message))
                 load(quiet = true)

@@ -32,6 +32,7 @@ import com.reviewapp.android.ui.components.ErrorState
 import com.reviewapp.android.ui.components.LoadingState
 import com.reviewapp.android.ui.components.MediaCard
 import com.reviewapp.android.ui.components.MediaList
+import com.reviewapp.android.ui.components.OfflineNotice
 import com.reviewapp.android.ui.components.SearchField
 import com.reviewapp.android.ui.components.SectionTitle
 
@@ -91,6 +92,7 @@ fun SearchScreen(
             )
         } else {
             val list by viewModel.listState(tab).collectAsStateWithLifecycle()
+            val offline = list.updatedAt != null
             MediaList(
                 list = list,
                 scoreStats = scoreStats,
@@ -98,12 +100,17 @@ fun SearchScreen(
                 onOpenMedia = onOpenMedia,
                 onLoadMore = { viewModel.loadMore(tab) },
                 onRetry = { viewModel.retry(tab) },
-                emptyMessage = "No ${tab.label.lowercase()} found for \"${state.query}\".",
+                emptyMessage = if (offline) OFFLINE_EMPTY else "No ${tab.label.lowercase()} found for \"${state.query}\".",
                 modifier = contentModifier,
+                header = if (offline) ({ item { OfflineNotice(OFFLINE_RESULTS) } }) else null,
             )
         }
     }
 }
+
+private const val OFFLINE_RESULTS =
+    "You're offline. These are matches from your offline library: your reviews, collections and titles you've opened."
+private const val OFFLINE_EMPTY = "Nothing in your offline library matches. Searching new titles needs a connection."
 
 /** Up to 5 results of each type, grouped, with a "See all" link to the type's tab. */
 @Composable
@@ -121,10 +128,11 @@ private fun SearchAllContent(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = modifier,
     ) {
+        if (all.offline) item { OfflineNotice(OFFLINE_RESULTS) }
         when {
             all.isLoading -> item { LoadingState() }
             all.error != null -> item { ErrorState(all.error, onRetry) }
-            all.items.isEmpty() -> item { EmptyState("No results found.") }
+            all.items.isEmpty() -> item { EmptyState(if (all.offline) OFFLINE_EMPTY else "No results found.") }
             else -> SearchTab.entries.filter { it.mediaType != null }.forEach { tab ->
                 val group = all.items.filter { it.mediaType == tab.mediaType }
                 if (group.isEmpty()) return@forEach

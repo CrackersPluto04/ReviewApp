@@ -128,6 +128,9 @@ public class UserController : ControllerBase
     public async Task<IActionResult> GetUserFollowers([FromRoute] string username)
     {
         var followers = await _userService.GetUserFollowersAsync(username, _userAuthHelper.GetOptionalUserID());
+        if (followers == null)
+            return NotFound(new { error = "User profile not found." });
+
         return Ok(followers);
     }
 
@@ -135,6 +138,9 @@ public class UserController : ControllerBase
     public async Task<IActionResult> GetUserFollowing([FromRoute] string username)
     {
         var following = await _userService.GetUserFollowingAsync(username, _userAuthHelper.GetOptionalUserID());
+        if (following == null)
+            return NotFound(new { error = "User profile not found." });
+
         return Ok(following);
     }
 }

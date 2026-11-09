@@ -7,7 +7,9 @@ public abstract class Media
 {
     public int ID { get; set; }
 
+    // Limited so it can be part of the unique (MediaType, ExternalApiID) index; TMDb and Spotify IDs are far shorter
     [Required]
+    [MaxLength(64)]
     public string ExternalApiID { get; set; } = null!;
 
     [Required]
