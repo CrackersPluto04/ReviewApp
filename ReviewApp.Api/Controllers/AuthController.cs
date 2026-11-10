@@ -11,6 +11,11 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Controllers;
 
+/// <summary>
+/// Registration, login (including the second step of a two-factor login), logout and the session check.
+/// The session is an httpOnly cookie issued through <see cref="ITokenService"/>; clients never see the token.
+/// Login and registration share the per-IP <c>auth-attempt</c> rate limit.
+/// </summary>
 [Route("api/[controller]")]
 [ApiController]
 public class AuthController : ControllerBase
@@ -34,6 +39,14 @@ public class AuthController : ControllerBase
         _entitlementService = entitlementService;
     }
 
+    /// <summary>
+    /// Creates an account and sends the address verification email. Does not log the user in.
+    /// </summary>
+    /// <param name="request">Username, email and password; the first two are trimmed.</param>
+    /// <returns>A confirmation message.</returns>
+    /// <response code="200">Registered; the verification email is on its way.</response>
+    /// <response code="400">Invalid username (see <c>UsernameRules</c>), or the username or email is taken.</response>
+    /// <response code="429">The <c>auth-attempt</c> rate limit was hit.</response>
     [HttpPost("register")]
     [EnableRateLimiting("auth-attempt")]
     public async Task<IActionResult> Register([FromBody] UserRegisterDto request)
@@ -88,6 +101,15 @@ public class AuthController : ControllerBase
         return Ok(new { message = "Registration successful! We sent you an email to verify your address. You can log in now." });
     }
 
+    /// <summary>
+    /// Logs in with email and password. Accounts with two-factor authentication get no session yet: a code is
+    /// emailed and a short-lived challenge token returned for <see cref="LoginTwoFactor"/>.
+    /// </summary>
+    /// <param name="request">Email and password.</param>
+    /// <returns>The logged-in user, or <c>{ twoFactorRequired, challengeToken }</c> for a two-factor account.</returns>
+    /// <response code="200">Logged in (session cookie set), or the second step is required.</response>
+    /// <response code="401">Wrong email or password. The two cases are indistinguishable.</response>
+    /// <response code="429">The <c>auth-attempt</c> rate limit was hit.</response>
     [HttpPost("login")]
     [EnableRateLimiting("auth-attempt")]
     public async Task<IActionResult> Login([FromBody] UserLoginDto request)
@@ -120,7 +142,14 @@ public class AuthController : ControllerBase
         return Ok(new { message = "Logged in successfully", user = await ToAuthUserAsync(user) });
     }
 
-    // Second step of a 2FA login: the session cookie is only issued here
+    /// <summary>
+    /// Second step of a two-factor login. The session cookie is only issued here.
+    /// </summary>
+    /// <param name="request">The challenge token from login and the emailed code.</param>
+    /// <returns>The logged-in user.</returns>
+    /// <response code="200">Logged in (session cookie set).</response>
+    /// <response code="401">The challenge expired or was revoked, or the code is wrong.</response>
+    /// <response code="429">The <c>auth-attempt</c> rate limit was hit.</response>
     [HttpPost("login/2fa")]
     [EnableRateLimiting("auth-attempt")]
     public async Task<IActionResult> LoginTwoFactor([FromBody] TwoFactorLoginDto request)
@@ -134,6 +163,14 @@ public class AuthController : ControllerBase
         return Ok(new { message = Message, user = await ToAuthUserAsync(User!) });
     }
 
+    /// <summary>
+    /// Emails a new login code for a pending two-factor login. Resends have a 60 second cooldown.
+    /// </summary>
+    /// <param name="request">The challenge token from login.</param>
+    /// <returns>A confirmation message.</returns>
+    /// <response code="200">A new code was sent.</response>
+    /// <response code="400">The challenge is invalid or expired, or the cooldown has not passed.</response>
+    /// <response code="429">The <c>email-send</c> rate limit was hit.</response>
     [HttpPost("login/2fa/resend")]
     [EnableRateLimiting("email-send")]
     public async Task<IActionResult> ResendTwoFactorCode([FromBody] TwoFactorResendDto request)
@@ -145,6 +182,10 @@ public class AuthController : ControllerBase
         return Ok(new { message = Message });
     }
 
+    /// <summary>
+    /// Clears this browser's session cookie. Other devices stay logged in; see <see cref="LogoutAll"/>.
+    /// </summary>
+    /// <response code="200">Logged out.</response>
     [HttpPost("logout")]
     public IActionResult Logout()
     {
@@ -152,6 +193,12 @@ public class AuthController : ControllerBase
         return Ok(new { message = "Logged out successfully" });
     }
 
+    /// <summary>
+    /// Logs the user out of every device, including this one, by bumping <c>TokenVersion</c>, which invalidates
+    /// all tokens issued so far.
+    /// </summary>
+    /// <response code="200">All sessions revoked.</response>
+    /// <response code="401">Not logged in, or the user no longer exists.</response>
     [HttpPost("logout-all")]
     [Authorize]
     public async Task<IActionResult> LogoutAll()
@@ -175,6 +222,14 @@ public class AuthController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Returns the logged-in user, including tier and entitlements. Clients call it on start-up to restore their
+    /// session and again after anything that can change those fields, such as a subscription change.
+    /// </summary>
+    /// <returns>The user as the clients store it: ID, username, picture, email confirmation, tier and entitlements.</returns>
+    /// <response code="200">The current user.</response>
+    /// <response code="401">No valid session.</response>
+    /// <response code="404">The user behind the session no longer exists.</response>
     [HttpGet("check-auth")]
     [Authorize]
     public async Task<IActionResult> CheckAuth()

@@ -2,6 +2,9 @@
 
 namespace ReviewApp.Api.DTOs;
 
+/// <summary>
+/// A user's public profile, as seen by one particular viewer.
+/// </summary>
 public record UserProfileDto
 {
     public int ID { get; init; }
@@ -14,8 +17,9 @@ public record UserProfileDto
 
     public int FollowersCount { get; init; }
     public int FollowingCount { get; init; }
+    /// <summary>Whether the viewer follows this user; false for anonymous viewers.</summary>
     public bool IsFollowedByCurrentUser { get; init; }
 
-    // Public Premium badge: only this flag, never any subscription details
+    /// <summary>The public Premium badge: only this flag, never any subscription details.</summary>
     public bool IsPremium { get; init; }
 }
