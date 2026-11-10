@@ -3,10 +3,13 @@ using ReviewApp.Api.Enums;
 
 namespace ReviewApp.Api.DAL;
 
-// Achievement definitions, seeded with HasData. IDs must stay stable once migrated:
-// add new tiers with new IDs and a new migration instead of renumbering.
+/// <summary>
+/// Achievement definitions, seeded with <c>HasData</c>. IDs must stay stable once migrated: user progress rows
+/// refer to them, so add new tiers with new IDs and a new migration instead of renumbering.
+/// </summary>
 public static class AchievementSeed
 {
+    /// <summary>Every tier of every achievement, three tiers (bronze, silver, gold) per card.</summary>
     public static readonly Achievement[] Achievements =
     [
         // Movie Master
@@ -45,6 +48,7 @@ public static class AchievementSeed
         Tier(21, "CURATOR", "Curator", "Create 10 collections of your own.", AchievementCategories.Collection, AchievementMetric.CollectionsCreated, "curator", 10, AchievementTier.Gold),
     ];
 
+    // The code of a tier is derived from its group and tier name, e.g. MOVIE_MASTER_BRONZE
     private static Achievement Tier(int id, string groupCode, string title, string description,
         AchievementCategories categories, AchievementMetric metric, string iconKey, int target, AchievementTier tier) => new()
     {

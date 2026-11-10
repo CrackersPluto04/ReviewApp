@@ -2,11 +2,14 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ReviewApp.Api.DAL.Entities;
 
-// Provider notifications that were received, for deduplication and audit. Payloads are never stored.
+/// <summary>
+/// A provider notification that was received, for deduplication and audit. Payloads are never stored.
+/// </summary>
 public class SubscriptionEvent
 {
     public int ID { get; set; }
 
+    /// <summary>The provider's event ID, unique: a redelivery of the same event is recognised by it.</summary>
     [MaxLength(100)]
     public string ProviderEventID { get; set; } = string.Empty;
 
@@ -14,5 +17,6 @@ public class SubscriptionEvent
     public string Type { get; set; } = string.Empty;
 
     public DateTime ReceivedAt { get; set; } = DateTime.UtcNow;
-    public DateTime? ProcessedAt { get; set; } // null while unprocessed, so a provider retry can pick it up again
+    /// <summary>Null while unprocessed, so a provider retry can pick the event up again after a failure.</summary>
+    public DateTime? ProcessedAt { get; set; }
 }

@@ -4,12 +4,17 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Filters;
 
-// Locks an endpoint behind a feature (see Entitlements). Use together with [Authorize].
-// A user without access gets 402 { error, code: "premium_required", feature }, which the clients turn into the upsell.
+/// <summary>
+/// Locks an endpoint behind a feature (see <see cref="Services.Entitlements"/>). Use it together with
+/// <c>[Authorize]</c>. A user without access gets 402 <c>{ error, code: "premium_required", feature }</c>, which the
+/// clients turn into the upsell. The tier is read from the database on every request, so subscribing or expiring
+/// takes effect at once.
+/// </summary>
 public class RequiresFeatureAttribute : TypeFilterAttribute
 {
     public const string PremiumRequiredCode = "premium_required";
 
+    /// <param name="featureKey">A key from <see cref="Services.FeatureKeys"/>.</param>
     public RequiresFeatureAttribute(string featureKey) : base(typeof(RequiresFeatureFilter))
     {
         Arguments = [featureKey];

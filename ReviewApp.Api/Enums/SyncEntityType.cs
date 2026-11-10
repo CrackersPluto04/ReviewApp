@@ -1,6 +1,9 @@
 namespace ReviewApp.Api.Enums;
 
-// What an offline change (SyncOperation) or a deletion record (SyncTombstone) is about
+/// <summary>
+/// What an offline change (<c>SyncOperation</c>) or a deletion record (<c>SyncTombstone</c>) is about. Tombstones
+/// only use <see cref="Review"/> and <see cref="Collection"/>.
+/// </summary>
 public enum SyncEntityType
 {
     Review,
