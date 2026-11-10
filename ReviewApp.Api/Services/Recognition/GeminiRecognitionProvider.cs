@@ -6,10 +6,12 @@ using System.Text.Json.Serialization;
 
 namespace ReviewApp.Api.Services.Recognition;
 
-// Google Gemini through its REST API (generateContent): the photo inline, the instructions as the system instruction,
-// structured JSON output. Falls back to the next configured model when one is overloaded or out of quota, retries the
-// last one. Logs status codes and token counts only, never the photo or the answer; the API key goes in a header, so
-// it never shows up in a logged URL.
+/// <summary>
+/// Google Gemini through its REST API (<c>generateContent</c>): the photo inline, the instructions as the system
+/// instruction, structured JSON output. Falls back to the next configured model when one is overloaded or out of
+/// quota, and retries the last one. Logs status codes and token counts only, never the photo or the answer; the API
+/// key goes in a header, so it never shows up in a logged URL.
+/// </summary>
 public class GeminiRecognitionProvider : IRecognitionProvider
 {
     // Thinking tokens count against the output limit, so this leaves plenty of room for the answer itself
@@ -36,9 +38,13 @@ public class GeminiRecognitionProvider : IRecognitionProvider
         _httpClient.Timeout = Timeout.InfiniteTimeSpan;
     }
 
-    // The configured model, then the fallback models. A model that can't answer right now (overloaded, out of quota,
-    // timed out, server error) is swapped for the next one at once: an overloaded model rarely recovers within seconds,
-    // and the user is waiting. Only the last model of the chain is retried, with a growing, jittered delay.
+    /// <summary>
+    /// Tries the configured model, then the fallback models. A model that cannot answer right now (overloaded, out
+    /// of quota, timed out, server error) is swapped for the next one at once: an overloaded model rarely recovers
+    /// within seconds, and the user is waiting. Only the last model of the chain is retried, with a growing,
+    /// jittered delay.
+    /// </summary>
+    /// <inheritdoc cref="IRecognitionProvider.RecognizeAsync"/>
     public async Task<string?> RecognizeAsync(byte[] image, string mimeType, CancellationToken cancellationToken)
     {
         var body = JsonSerializer.Serialize(BuildRequest(image, mimeType), JsonOptions);

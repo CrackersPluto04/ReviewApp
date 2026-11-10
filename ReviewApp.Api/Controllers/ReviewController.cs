@@ -27,7 +27,7 @@ public class ReviewController : ControllerBase
     }
 
     /// <summary>
-    /// Lists the reviews of one title that the viewer may see, filtered and paged.
+    /// Lists the public reviews of one title, filtered and paged.
     /// </summary>
     /// <param name="mediaType">Movie, series or music.</param>
     /// <param name="externalApiId">The TMDb or Spotify ID.</param>

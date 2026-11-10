@@ -9,10 +9,15 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services.Recognition;
 
-// The recognition pipeline: cheap checks first (image, one at a time, daily allowance), then the AI call, which is
-// counted as soon as it answered, then TMDb / Spotify resolution, ranking and the stored list for "Show more".
-// The AI call and the counting don't follow the request's cancellation: a client that gives up after the provider
-// was paid still uses up the recognition, so cancelling can't be used to get free ones.
+/// <summary>
+/// The recognition pipeline: cheap checks first (image, one at a time, daily allowance), then the AI call, which is
+/// counted as soon as it answered, then TMDb / Spotify resolution, ranking and the stored list for "Show more".
+/// </summary>
+/// <remarks>
+/// The AI call and the counting do not follow the request's cancellation: a client that gives up after the provider
+/// was paid still uses up the recognition, so cancelling cannot be used to get free ones. Provider failures are
+/// never counted, and a TMDb / Spotify outage that leaves nothing to show gives the recognition back.
+/// </remarks>
 public class RecognitionService : IRecognitionService
 {
     private readonly AppDbContext _context;
@@ -180,6 +185,7 @@ public class RecognitionService : IRecognitionService
 
     private static RecognizedMediaDto ToDto(RankedItem item) => new() { Media = item.Media, Tier = ApiName(item.Tier) };
 
+    /// <summary>The tier's name in the API (<c>direct</c>, <c>universe</c>, <c>people</c>, <c>similar</c>).</summary>
     public static string ApiName(RecognitionTier tier) => tier switch
     {
         RecognitionTier.Direct => "direct",
@@ -188,6 +194,7 @@ public class RecognitionService : IRecognitionService
         _ => "similar"
     };
 
+    /// <summary>The outcome's name in the API (<c>recognised</c>, <c>not_media_related</c>, <c>person_not_identified</c>, <c>nothing_recognised</c>).</summary>
     public static string ApiName(RecognitionOutcome outcome) => outcome switch
     {
         RecognitionOutcome.Recognised => "recognised",

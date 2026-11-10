@@ -8,18 +8,26 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services.Payments;
 
-// Events the Fake provider can simulate (POST api/Subscription/dev/simulate, Development only)
+/// <summary>
+/// Events the Fake provider can simulate (<c>POST api/Subscription/dev/simulate</c>, Development only).
+/// </summary>
 public enum FakeSubscriptionEvent
 {
-    PaymentFailed, // a renewal payment failed
-    Renewed,       // a renewal (or a retried payment) went through
-    Ended,         // the provider ended the subscription
-    Lapsed         // the period ran out and the provider never said so (tests the expiry safety net)
+    /// <summary>A renewal payment failed.</summary>
+    PaymentFailed,
+    /// <summary>A renewal (or a retried payment) went through.</summary>
+    Renewed,
+    /// <summary>The provider ended the subscription.</summary>
+    Ended,
+    /// <summary>The period ran out and the provider never said so (exercises the expiry safety net).</summary>
+    Lapsed
 }
 
-// Development-only provider: "checkout" activates a 30 day subscription at once, with no payment and no external calls.
-// Program.cs refuses to start with it outside Development. State lives in memory; after a restart it is rebuilt
-// from the stored rows, so a running fake subscription keeps working.
+/// <summary>
+/// Development-only provider: "checkout" activates a 30 day subscription at once, with no payment and no external
+/// calls. <c>Program.cs</c> refuses to start with it outside Development. State lives in memory; after a restart it
+/// is rebuilt from the stored rows, so a running fake subscription keeps working.
+/// </summary>
 public class FakePaymentProvider : IPaymentProvider
 {
     public static readonly TimeSpan PeriodLength = TimeSpan.FromDays(30);
@@ -74,9 +82,13 @@ public class FakePaymentProvider : IPaymentProvider
             _subscriptions[subscriptionId] = current with { Status = SubscriptionStatus.Ended, CancelAtPeriodEnd = false };
     }
 
-    // The Fake provider has no webhooks: changes are applied right away by the service
+    /// <summary>The Fake provider has no webhooks: changes are applied right away by the service.</summary>
     public PaymentWebhookEvent? ParseWebhook(string payload, string? signature) => null;
 
+    /// <summary>Plays one event against a fake subscription and returns its new state.</summary>
+    /// <param name="subscriptionId">The fake subscription's ID.</param>
+    /// <param name="simulated">The event to play.</param>
+    /// <exception cref="PaymentProviderException">The subscription is unknown.</exception>
     public async Task<ProviderSubscriptionSnapshot> SimulateAsync(string subscriptionId, FakeSubscriptionEvent simulated)
     {
         var current = await GetSubscriptionAsync(subscriptionId)

@@ -19,7 +19,7 @@ public record SubscriptionStatusDto
     public bool HasPaymentProblem { get; init; }
     /// <summary>End of the paid billing period, UTC.</summary>
     public DateTime? CurrentPeriodEnd { get; init; }
-    /// <summary>When Premium access stops, UTC: the period end plus renewal slack, or the end of the payment grace period.</summary>
+    /// <summary>When Premium access stops, UTC: the period end, or the end of the payment grace period after a failed payment. Null when not entitled.</summary>
     public DateTime? AccessEndsAt { get; init; }
 }
 

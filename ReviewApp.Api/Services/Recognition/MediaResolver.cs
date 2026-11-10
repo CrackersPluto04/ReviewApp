@@ -6,12 +6,17 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services.Recognition;
 
-// Finds the real TMDb / Spotify items behind the AI's answer, in three steps:
-//   1. the works the AI named (exact title, fitting year; anything else is dropped)
-//   2. the film series (TMDb collection) of the closest movies, as Direct items
-//   3. the best-known work of the connected actors / directors, as People items
-// The calls of one recognition are bounded (a budget, a few in parallel, a deadline, stop after repeated failures)
-// and successful answers are cached for an hour, so a recognition can't exhaust the TMDb / Spotify quotas.
+/// <summary>
+/// Finds the real TMDb / Spotify items behind the AI's answer, in three steps:
+/// <list type="number">
+/// <item>the works the AI named (exact title and a fitting year; anything else is dropped),</item>
+/// <item>the film series (TMDb collection) of the closest movies, as Direct items,</item>
+/// <item>the best-known work of the connected actors and directors, as People items.</item>
+/// </list>
+/// The calls of one recognition are bounded (a budget, a few in parallel, a deadline, stop after repeated
+/// failures) and successful answers are cached for an hour, so a recognition cannot exhaust the TMDb / Spotify
+/// quotas. Precision is preferred over recall: a near miss is dropped rather than shown as a guess.
+/// </summary>
 public class MediaResolver : IMediaResolver
 {
     private const int CollectionSeeds = 2;

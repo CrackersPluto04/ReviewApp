@@ -1,17 +1,30 @@
 namespace ReviewApp.Api.Services.Sync;
 
-// The result of a three-way merge: the merged values, the fields both sides changed differently (then Value is
-// not to be written, the user decides), and whether a change made elsewhere was kept.
+/// <summary>
+/// The result of a three-way merge.
+/// </summary>
+/// <typeparam name="T">The merged fields type.</typeparam>
+/// <param name="Value">The merged values. When there are conflicts it must not be written: the user decides.</param>
+/// <param name="Conflicts">The names of the fields both sides changed differently.</param>
+/// <param name="KeptServerChanges">Whether a change made elsewhere was kept in the result, which makes the outcome "merged" rather than "applied".</param>
 public record MergeOutcome<T>(T Value, IReadOnlyList<string> Conflicts, bool KeptServerChanges)
 {
     public bool HasConflicts => Conflicts.Count > 0;
 }
 
-// Three-way merge of an offline edit: base = what the device's edit started from, mine = the device's values,
-// server = the current values. A field only one side changed takes that side's value; a field both changed to the
-// same value is fine; a field both changed differently is a conflict. Texts treat null and "" as the same.
+/// <summary>
+/// Three-way merge of an offline edit: <c>base</c> is what the device's edit started from, <c>mine</c> the
+/// device's values, <c>server</c> the current values. A field only one side changed takes that side's value; a
+/// field both changed to the same value is fine; a field both changed differently is a conflict, and the server's
+/// value is kept in the result. Texts treat null and an empty string as the same, so clearing a field on one side
+/// is not mistaken for a change.
+/// </summary>
 public static class FieldMerge
 {
+    /// <summary>Merges the fields of a review: score, text, pros, cons and visibility.</summary>
+    /// <param name="base">The values the device's edit started from.</param>
+    /// <param name="mine">The device's values.</param>
+    /// <param name="server">The current server values.</param>
     public static MergeOutcome<ReviewFields> Review(ReviewFields @base, ReviewFields mine, ReviewFields server)
     {
         var merge = new Merger();
@@ -24,6 +37,10 @@ public static class FieldMerge
         return merge.Outcome(result);
     }
 
+    /// <summary>Merges the fields of a collection: name and visibility.</summary>
+    /// <param name="base">The values the device's edit started from.</param>
+    /// <param name="mine">The device's values.</param>
+    /// <param name="server">The current server values.</param>
     public static MergeOutcome<CollectionFields> Collection(CollectionFields @base, CollectionFields mine, CollectionFields server)
     {
         var merge = new Merger();
@@ -67,13 +84,20 @@ public static class FieldMerge
     }
 }
 
-// When an offline-made review was written. The device's time is used only if it is within the last
-// MaxAge and not in the future (MaxSkew allows for a slightly fast device clock); otherwise the server's time.
+/// <summary>
+/// Decides when an offline-made review was written. The device's clock is not trusted: its time is used only if it
+/// is within the last <see cref="MaxAge"/> and not in the future (<see cref="MaxSkew"/> allows for a slightly fast
+/// device clock); otherwise the server's time is used.
+/// </summary>
 public static class ClientTimestamp
 {
     public static readonly TimeSpan MaxAge = TimeSpan.FromDays(30);
     public static readonly TimeSpan MaxSkew = TimeSpan.FromMinutes(2);
 
+    /// <summary>Picks the creation time to record.</summary>
+    /// <param name="client">The device's time, if it sent one.</param>
+    /// <param name="utcNow">The server's current time, UTC.</param>
+    /// <returns>The device's time when plausible (a time slightly in the future is clamped to now), else <paramref name="utcNow"/>.</returns>
     public static DateTime Accept(DateTimeOffset? client, DateTime utcNow)
     {
         if (client == null)

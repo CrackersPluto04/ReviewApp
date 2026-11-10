@@ -2,6 +2,10 @@
 
 namespace ReviewApp.Api.Services;
 
+/// <summary>
+/// Reads the user ID from the <c>id</c> claim of the current request's principal. The claim is trusted because the
+/// JWT bearer handler has already validated the token and its <c>TokenVersion</c>.
+/// </summary>
 public class UserAuthHelper : IUserAuthHelper
 {
     private readonly IHttpContextAccessor _httpContextAccessor;

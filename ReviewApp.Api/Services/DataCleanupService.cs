@@ -6,8 +6,12 @@ using ReviewApp.Api.Services.Sync;
 
 namespace ReviewApp.Api.Services;
 
-// Daily housekeeping: old seen notifications, spent security tokens, old recognition usage rows,
-// and media rows left incomplete by failed lookups
+/// <summary>
+/// Daily housekeeping: deletes old seen notifications, spent security tokens, old recognition usage rows and the
+/// sync bookkeeping (operations and tombstones) past its retention, and repairs media rows left incomplete by
+/// failed lookups. Runs once right after startup and then every day. Each delete is a set-based statement, so it
+/// does not load rows into memory.
+/// </summary>
 public class DataCleanupService : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromDays(1);
@@ -87,7 +91,7 @@ public class DataCleanupService : BackgroundService
         await RepairIncompleteMediaAsync(context, scope.ServiceProvider.GetRequiredService<IMediaService>(), cancellationToken);
     }
 
-    // Media rows stored from a failed TMDb / Spotify lookup before F1 was fixed have no real title.
+    // Media rows stored from a failed TMDb / Spotify lookup by older versions have no real title.
     // Unused ones are deleted; the others are fetched again (a few per run, to spare the API quotas).
     private const int MediaRepairsPerRun = 50;
 

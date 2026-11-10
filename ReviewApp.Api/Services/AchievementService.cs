@@ -7,8 +7,19 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services;
 
+/// <summary>
+/// Recounts the real totals behind each achievement metric and raises the stored progress to them. Progress is the
+/// highest count ever reached, so deleting content never lowers it, and deleting and recreating content does not
+/// raise it until the count beats the old peak. Unlocks are permanent and go to every
+/// <see cref="IAchievementUnlockHandler"/>; a failing handler or evaluation is logged and swallowed.
+/// </summary>
+/// <remarks>
+/// The counting rules in <c>CountAsync</c> are mirrored by the backfill SQL of the <c>AddAchievements</c>
+/// migration. A new metric needs a case there and a call where its data changes.
+/// </remarks>
 public class AchievementService : IAchievementService
 {
+    /// <summary>A review scoring at or below this counts as a "low score" review.</summary>
     private const decimal LowScoreLimit = 5.0m;
 
     private readonly AppDbContext _context;

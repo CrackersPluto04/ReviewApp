@@ -8,9 +8,15 @@ using ReviewApp.Api.Services.Recognition;
 
 namespace ReviewApp.Api.Services;
 
+/// <summary>
+/// Looks titles up at TMDb / Spotify and caches them as <c>Media</c> rows, keyed by external ID and media type
+/// (a unique index). A row is only stored when the source knows the ID, so an unknown ID or an outage never
+/// leaves a half-filled row behind. Parallel first requests for the same title are resolved through the unique
+/// index: the loser uses the winner's row.
+/// </summary>
 public class MediaService : IMediaService
 {
-    // Longer IDs don't exist at TMDb or Spotify (and the column is limited to this)
+    /// <summary>The longest external ID accepted. Longer IDs do not exist at TMDb or Spotify, and the column is limited to this.</summary>
     public const int MaxExternalIdLength = 64;
 
     private readonly AppDbContext _context;
@@ -101,7 +107,12 @@ public class MediaService : IMediaService
         }
     }
 
-    // Copies the fetched details onto a stored row (new rows and the repair of incomplete ones)
+    /// <summary>
+    /// Copies the fetched details onto a stored row, for new rows and for the repair of incomplete ones. Text is
+    /// cut to the column lengths and an unparseable release date is stored as null.
+    /// </summary>
+    /// <param name="target">The stored row to fill.</param>
+    /// <param name="details">The details fetched from the source.</param>
     public static void ApplyDetails(Media target, MediaDto details)
     {
         target.Title = Truncate(details.Title, 100);

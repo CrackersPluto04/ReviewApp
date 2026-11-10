@@ -5,6 +5,10 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services;
 
+/// <summary>
+/// Sends email over SMTP with MailKit, using the <c>Email</c> settings. Authentication is only attempted when a
+/// username is configured, so a local catcher without credentials works.
+/// </summary>
 public class SmtpEmailSender : IEmailSender
 {
     private readonly EmailOptions _options;

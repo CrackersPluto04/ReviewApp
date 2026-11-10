@@ -3,21 +3,38 @@ using ReviewApp.Api.Enums;
 
 namespace ReviewApp.Api.Services.Recognition;
 
-// A real media item found for the recognition, before ranking
+/// <summary>A real media item found for the recognition, before ranking.</summary>
+/// <param name="Media">The item.</param>
+/// <param name="Tier">How it was reached: directly named, same universe, connected people, or merely similar.</param>
+/// <param name="Confidence">The AI's confidence in the work it came from, 0 to 1.</param>
+/// <param name="Popularity">How well known it is at its source, used to break ties.</param>
 public record RankCandidate(MediaDto Media, RecognitionTier Tier, double Confidence, double Popularity);
 
-// A ranked suggestion; the list position is its rank
+/// <summary>A ranked suggestion; the list position is its rank.</summary>
 public record RankedItem(MediaDto Media, RecognitionTier Tier);
 
+/// <summary>One page of a ranked list.</summary>
+/// <param name="Items">The items of this page.</param>
+/// <param name="NextOffset">The offset of the next page.</param>
+/// <param name="HasMore">Whether more items follow.</param>
+/// <param name="Total">The size of the whole list.</param>
 public record RankedPage(IReadOnlyList<RankedItem> Items, int NextOffset, bool HasMore, int Total);
 
-// Orders the suggestions of one recognition: closest tier first, then the AI's confidence, then popularity.
-// Deterministic, so paging over the stored list never repeats or skips an item.
+/// <summary>
+/// Orders the suggestions of one recognition: closest tier first, then the AI's confidence, then popularity. The
+/// order is deterministic, so paging over the stored list never repeats or skips an item.
+/// </summary>
 public static class RecognitionRanking
 {
     // Confidences this close count as equal, so popularity decides between them (0.82 vs 0.84 means nothing)
     private const double ConfidenceBucket = 0.05;
 
+    /// <summary>
+    /// Filters, de-duplicates and orders the candidates. Drops low-confidence ones, keeps the closest tier of an item
+    /// reached through several relations, merges re-releases, uses the loosest tier only to fill a thin list, and caps the total.
+    /// </summary>
+    /// <param name="candidates">Everything the resolver found.</param>
+    /// <param name="options">The thresholds and caps.</param>
     public static IReadOnlyList<RankedItem> Rank(IEnumerable<RankCandidate> candidates, RecognitionOptions options)
     {
         var kept = candidates
@@ -41,6 +58,10 @@ public static class RecognitionRanking
             .ToList();
     }
 
+    /// <summary>Takes one page of a ranked list. An out-of-range offset or count is clamped.</summary>
+    /// <param name="items">The whole ranked list.</param>
+    /// <param name="offset">Index of the first item.</param>
+    /// <param name="count">How many items to take.</param>
     public static RankedPage Page(IReadOnlyList<RankedItem> items, int offset, int count)
     {
         offset = Math.Clamp(offset, 0, items.Count);

@@ -5,8 +5,11 @@ using Microsoft.Extensions.Options;
 
 namespace ReviewApp.Api.Services.Recognition;
 
-// The ranked lists behind "Show more": in memory, short-lived, bound to the user who made the recognition.
-// Holds media references and tiers only, never the photo or the AI's answer. Lost on restart (the client then offers a retake).
+/// <summary>
+/// The ranked lists behind "Show more": in memory, short-lived, bound to the user who made the recognition. Holds
+/// media references and tiers only, never the photo or the AI's answer. Lost on restart, in which case the client
+/// offers a retake. Being in memory it assumes a single API instance.
+/// </summary>
 public class RecognitionResultStore
 {
     private const string KeyPrefix = "recognition-result:";
@@ -23,7 +26,7 @@ public class RecognitionResultStore
 
     private sealed record Entry(int UserId, IReadOnlyList<RankedItem> Items);
 
-    // A random, unguessable ID
+    /// <summary>Stores a list for the user and returns its ID: 128 random bits, so it cannot be guessed.</summary>
     public string Put(int userId, IReadOnlyList<RankedItem> items)
     {
         var id = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(16));
@@ -31,7 +34,10 @@ public class RecognitionResultStore
         return id;
     }
 
-    // Null for an unknown, expired or someone else's recognition: the caller can't tell which
+    /// <summary>Returns a stored list.</summary>
+    /// <param name="id">The ID from <see cref="Put"/>.</param>
+    /// <param name="userId">The user asking; it must be the one who made the recognition.</param>
+    /// <returns>The list, or null for an unknown, expired or someone else's recognition. The caller cannot tell which.</returns>
     public IReadOnlyList<RankedItem>? Get(string? id, int userId)
     {
         if (string.IsNullOrEmpty(id) || id.Length > MaxIdLength)
@@ -41,11 +47,16 @@ public class RecognitionResultStore
     }
 }
 
-// One recognition at a time per user: a double tap or a retry while one is running is refused, never counted twice
+/// <summary>
+/// One recognition at a time per user: a double tap or a retry while one is running is refused and never counted
+/// twice. In memory, so it assumes a single API instance.
+/// </summary>
 public class RecognitionGate
 {
     private readonly System.Collections.Concurrent.ConcurrentDictionary<int, byte> _running = new();
 
+    /// <summary>Tries to start a recognition for the user.</summary>
+    /// <returns>A handle to dispose when the recognition ends, or null when one is already running.</returns>
     public IDisposable? TryEnter(int userId) => _running.TryAdd(userId, 0) ? new Release(_running, userId) : null;
 
     private sealed class Release : IDisposable

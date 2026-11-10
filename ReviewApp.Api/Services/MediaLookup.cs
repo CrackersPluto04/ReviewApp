@@ -3,24 +3,34 @@ using ReviewApp.Api.Enums;
 
 namespace ReviewApp.Api.Services;
 
+/// <summary>
+/// The outcome of looking a title up. Unknown and unavailable are kept apart so an outage is never reported to the
+/// user as "this title does not exist".
+/// </summary>
 public enum MediaLookupStatus
 {
     Found,
-    // The source doesn't know the external ID
+    /// <summary>The source does not know the external ID.</summary>
     Unknown,
-    // The source failed (outage, timeout): try again later
+    /// <summary>The source failed (outage, timeout); try again later.</summary>
     Unavailable,
     InvalidType
 }
 
-// The details of a media item straight from its source (nothing stored)
+/// <summary>
+/// The details of a media item straight from its source. Nothing is stored.
+/// </summary>
 public record MediaLookup(MediaLookupStatus Status, MediaDto? Media = null);
 
-// A media row of our database, found or created from its source
+/// <summary>
+/// A media row of our database, found or created from its source.
+/// </summary>
 public record MediaResolution(MediaLookupStatus Status, int MediaID = 0);
 
-// Thrown by the services that need a stored media row (reviews, collections) when it can't be resolved.
-// MediaErrorFilter turns it into 404 media_not_found / 503 source_unavailable / 400.
+/// <summary>
+/// Thrown by the services that need a stored media row (reviews, collections) when it cannot be resolved.
+/// <c>MediaErrorFilter</c> turns it into 404 <c>media_not_found</c>, 503 <c>source_unavailable</c> or 400.
+/// </summary>
 public class MediaResolutionException : Exception
 {
     public MediaLookupStatus Status { get; }

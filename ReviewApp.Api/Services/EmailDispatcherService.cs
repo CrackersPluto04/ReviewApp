@@ -2,7 +2,11 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services;
 
-// Sends the queued emails one by one, retrying a few times before giving up on a message
+/// <summary>
+/// Hosted service that drains <see cref="EmailQueue"/> in the background and hands each message to the
+/// <see cref="IEmailSender"/>. A failed message is retried twice (after 2 s and 10 s) and then dropped with a log
+/// entry; it never blocks the messages behind it for long and never affects the request that queued it.
+/// </summary>
 public class EmailDispatcherService : BackgroundService
 {
     private static readonly TimeSpan[] DefaultRetryDelays = [TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10)];

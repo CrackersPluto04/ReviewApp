@@ -3,12 +3,17 @@ using System.Text;
 
 namespace ReviewApp.Api.Services.Recognition;
 
-// Decides whether a search hit is the work the AI named. Precision over recall: an exact title (after
-// normalisation) with a fitting year counts; a longer / shorter form of the title (TitleContains) only with more
-// evidence; any other near miss is dropped rather than shown as a guess.
+/// <summary>
+/// Decides whether a search hit is the work the AI named. Precision over recall: an exact title (after
+/// normalisation) with a fitting year counts; a longer or shorter form of the title (<see cref="TitleContains"/>)
+/// only with more evidence; any other near miss is dropped rather than shown as a guess.
+/// </summary>
 public static class TitleMatcher
 {
-    // Lower case, no diacritics, "&" = "and", punctuation as spaces, collapsed whitespace, no leading "the"
+    /// <summary>
+    /// Reduces a title to a comparison key: lower case, no diacritics, <c>&amp;</c> read as "and", punctuation as
+    /// spaces (apostrophes join words instead), collapsed whitespace, and no leading "the".
+    /// </summary>
     public static string Normalize(string? title)
     {
         if (string.IsNullOrWhiteSpace(title))
@@ -44,15 +49,19 @@ public static class TitleMatcher
         return normalized.StartsWith("the ", StringComparison.Ordinal) ? normalized[4..] : normalized;
     }
 
+    /// <summary>Whether two titles are the same after normalisation. An empty wanted title never matches.</summary>
     public static bool TitleMatches(string? wanted, string? candidate)
     {
         var normalizedWanted = Normalize(wanted);
         return normalizedWanted.Length > 0 && normalizedWanted == Normalize(candidate);
     }
 
-    // The same work under a longer or shorter name: the words of one title appear, in order, in the other
-    // ("Star Wars: Episode IV - A New Hope" = TMDb's "Star Wars", "Minecraft" = "A Minecraft Movie"). Much weaker
-    // than TitleMatches, so the resolver only accepts it with more evidence (a matching year, a top search result).
+    /// <summary>
+    /// Whether the same work may be meant under a longer or shorter name: the words of one title appear, in order,
+    /// in the other ("Star Wars: Episode IV - A New Hope" is TMDb's "Star Wars", "Minecraft" is "A Minecraft
+    /// Movie"). Much weaker than <see cref="TitleMatches"/>, so the resolver only accepts it with more evidence (a
+    /// matching year, a top search result).
+    /// </summary>
     public static bool TitleContains(string? wanted, string? candidate)
     {
         var a = Words(wanted);
@@ -76,13 +85,17 @@ public static class TitleMatcher
         return next == shorter.Length;
     }
 
-    // Release dates are "yyyy-MM-dd" (TMDb) or "yyyy" / "yyyy-MM" (Spotify)
+    /// <summary>Reads the year from a release date. Dates are <c>yyyy-MM-dd</c> (TMDb) or <c>yyyy</c> / <c>yyyy-MM</c> (Spotify).</summary>
+    /// <returns>The year, or null when the text does not start with one.</returns>
     public static int? YearOf(string? releaseDate) =>
         releaseDate is { Length: >= 4 } && int.TryParse(releaseDate.AsSpan(0, 4), NumberStyles.None, CultureInfo.InvariantCulture, out var year)
             ? year
             : null;
 
-    // One year of tolerance (festival vs. theatrical release, AI rounding); an unknown year on either side is no evidence against
+    /// <summary>
+    /// Whether a release date fits the year the AI gave. One year of tolerance covers festival versus theatrical
+    /// release and the AI's rounding; an unknown year on either side is no evidence against.
+    /// </summary>
     public static bool YearMatches(int? wanted, string? releaseDate)
     {
         var year = YearOf(releaseDate);

@@ -6,12 +6,23 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services;
 
+/// <summary>
+/// Text helpers for subscription messages.
+/// </summary>
 public static class SubscriptionText
 {
-    // Dates in emails and notifications (stored as text) are UTC, e.g. "November 25, 2026"
+    /// <summary>
+    /// Formats a date for emails and notifications, which are stored as text and so cannot follow each reader's
+    /// locale. The date is UTC and uses the invariant culture, e.g. <c>November 25, 2026</c>.
+    /// </summary>
     public static string Date(DateTime utc) => utc.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture);
 }
 
+/// <summary>
+/// Sends the in-app notification and the email for each subscription transition. The messages come only from
+/// local transitions found by <see cref="SubscriptionRules.DetectTransitions"/>, never from raw provider events,
+/// so a redelivered webhook cannot notify twice.
+/// </summary>
 public class SubscriptionNotifier : ISubscriptionNotifier
 {
     private readonly AppDbContext _context;

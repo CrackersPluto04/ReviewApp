@@ -3,15 +3,24 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ReviewApp.Api.Services;
 
-// Recognizes the database errors that mean "a parallel request got there first"
+/// <summary>
+/// Recognizes SQL Server errors that mean "a parallel request got there first" or "try again in a moment", so
+/// callers can handle races without a separate existence check.
+/// </summary>
 public static class DbErrors
 {
-    // 2601: duplicate key in a unique index, 2627: duplicate primary key / unique constraint
+    /// <summary>
+    /// Whether a save failed on a unique index or key (SQL Server error 2601 for a unique index, 2627 for a
+    /// primary key or unique constraint). Used where two parallel requests can create the same row, such as a
+    /// registration, a review, a follow or a collection.
+    /// </summary>
     public static bool IsUniqueViolation(DbUpdateException exception) =>
         exception.InnerException is SqlException { Number: 2601 or 2627 };
 
-    // Errors that go away when the same work is tried again a bit later:
-    // 1205 deadlock victim, 1222 lock request timeout, -2 command timeout
+    /// <summary>
+    /// Whether the exception, or one it wraps, is an error that goes away when the same work is tried again a bit
+    /// later: 1205 (deadlock victim), 1222 (lock request timeout) or -2 (command timeout).
+    /// </summary>
     public static bool IsTransient(Exception exception)
     {
         for (var current = exception; current != null; current = current.InnerException)

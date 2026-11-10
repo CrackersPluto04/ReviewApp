@@ -2,15 +2,18 @@ using System.Text.RegularExpressions;
 
 namespace ReviewApp.Api.Services;
 
-// What a username may look like. Usernames are part of URLs (api/User/{username}, /profile/{username}), so they are
-// limited to characters that never need escaping, and route words (search, me, ...) are reserved.
-// Mirrored by review-app/src/utils/validation.ts and the Android util/Validation.kt; the rename migration
-// (RenameInvalidUsernames) applies the same rule to existing accounts.
+/// <summary>
+/// What a username may look like. Usernames are part of URLs (<c>api/User/{username}</c>, <c>/profile/{username}</c>),
+/// so they are limited to characters that never need escaping, and route words such as <c>search</c> and <c>me</c>
+/// are reserved. Mirrored by <c>review-app/src/utils/validation.ts</c> and the Android <c>util/Validation.kt</c>;
+/// the <c>RenameInvalidUsernames</c> migration applied the same rule to existing accounts.
+/// </summary>
 public static partial class UsernameRules
 {
     public const int MinLength = 3;
     public const int MaxLength = 20;
 
+    /// <summary>Names that collide with routes or could be mistaken for staff. Compared case-insensitively.</summary>
     public static readonly IReadOnlySet<string> Reserved = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         "search", "me", "admin", "administrator", "api", "login", "logout", "register", "settings",
@@ -20,7 +23,9 @@ public static partial class UsernameRules
     [GeneratedRegex("^[A-Za-z0-9_-]+$")]
     private static partial Regex AllowedCharacters();
 
-    // The error to show, or null when the (already trimmed) username is valid
+    /// <summary>Checks a username against the rules.</summary>
+    /// <param name="username">The username, already trimmed.</param>
+    /// <returns>The error message to show, or null when the username is valid.</returns>
     public static string? Validate(string username)
     {
         if (username.Length < MinLength || username.Length > MaxLength)

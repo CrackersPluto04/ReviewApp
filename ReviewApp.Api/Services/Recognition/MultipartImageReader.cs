@@ -3,26 +3,41 @@ using Microsoft.Net.Http.Headers;
 
 namespace ReviewApp.Api.Services.Recognition;
 
+/// <summary>How reading the uploaded photo ended.</summary>
 public enum ImageReadStatus
 {
     Ok,
-    NotMultipart, // not a multipart/form-data request, or a malformed one
-    Missing,      // no "image" file part
+    /// <summary>Not a <c>multipart/form-data</c> request, or a malformed one.</summary>
+    NotMultipart,
+    /// <summary>No <c>image</c> file part.</summary>
+    Missing,
     TooLarge
 }
 
+/// <summary>The result of reading the upload; <see cref="Data"/> is set only for <see cref="ImageReadStatus.Ok"/>.</summary>
 public readonly record struct ImageReadResult(ImageReadStatus Status, byte[]? Data = null);
 
-// Reads the uploaded photo (the "image" part of a multipart/form-data request) straight into memory, with a hard size cap.
-// IFormFile / Request.Form are not used on purpose: they buffer larger files to a temp file on disk, and the photo must never touch the disk.
+/// <summary>
+/// Reads the uploaded photo (the <c>image</c> part of a <c>multipart/form-data</c> request) straight into memory,
+/// with a hard size cap. <c>IFormFile</c> and <c>Request.Form</c> are not used on purpose: they buffer larger files
+/// to a temp file on disk, and the photo must never touch the disk.
+/// </summary>
 public static class MultipartImageReader
 {
+    /// <summary>The name of the form field that carries the photo.</summary>
     public const string PartName = "image";
 
     // Room for the boundaries and part headers around the photo
     private const int MultipartOverhead = 16 * 1024;
     private const int MaxBoundaryLength = 70; // RFC 2046
 
+    /// <summary>
+    /// Reads the photo from the request body. The cap is enforced twice: a declared <c>Content-Length</c> over the
+    /// cap is refused up front, and the part itself is counted while it is read, because the length can be absent or false.
+    /// </summary>
+    /// <param name="request">The upload request.</param>
+    /// <param name="maxBytes">The most bytes the photo may have.</param>
+    /// <param name="cancellationToken">Cancelled when the client disconnects.</param>
     public static async Task<ImageReadResult> ReadAsync(HttpRequest request, int maxBytes, CancellationToken cancellationToken)
     {
         if (request.ContentLength > maxBytes + MultipartOverhead)

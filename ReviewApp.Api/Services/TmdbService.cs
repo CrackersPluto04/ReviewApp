@@ -6,6 +6,12 @@ using System.Text.Json;
 
 namespace ReviewApp.Api.Services;
 
+/// <summary>
+/// TMDb client. There are two failure styles on purpose. The search, discover and details methods are lenient: any
+/// failure becomes an empty result, which is fine for browsing. The strict methods (<c>Find*</c>, used before
+/// storing media and by camera recognition) treat only "not found" as empty and throw
+/// <see cref="MediaSourceUnavailableException"/> for everything else, so an outage is never mistaken for "does not exist".
+/// </summary>
 public class TmdbService : ITmdbService
 {
     private readonly HttpClient _httpClient;
@@ -105,7 +111,7 @@ public class TmdbService : ITmdbService
 
     /* Helper methods */
 
-    // Generic method to fetch data from TMDb and deserialize it into the specified type
+    // Lenient fetch: any failure is an empty result
     private async Task<T> FetchFromTmdbAsync<T>(string endpoint) where T : class, new()
     {
         var response = await _httpClient.GetAsync(WithApiKey(endpoint));
@@ -156,7 +162,7 @@ public class TmdbService : ITmdbService
         return $"{endpoint}{separator}api_key={_config["Tmdb:ApiKey"]}";
     }
 
-    // Helper method to build query string for discover endpoints
+    // The year filter has a different name for movies and series
     private string BuildDiscoverQueryString(TmdbParams p, MediaType type)
     {
         var queryParams = new List<string>

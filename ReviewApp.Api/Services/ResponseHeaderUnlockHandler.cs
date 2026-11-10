@@ -4,10 +4,14 @@ using System.Text.Json;
 
 namespace ReviewApp.Api.Services;
 
-// Puts the tiers unlocked during a request into the X-Unlocked-Achievements response header,
-// the frontend's apiFetch reads it and shows a toast. This way no endpoint's response body has to change.
+/// <summary>
+/// Puts the tiers unlocked during a request into the <c>X-Unlocked-Achievements</c> response header. The clients
+/// read it and show a toast, so no endpoint's response body has to change. Only the user who made the request is
+/// told, and several evaluations within one request are collected into a single header.
+/// </summary>
 public class ResponseHeaderUnlockHandler : IAchievementUnlockHandler
 {
+    /// <summary>The header's name; it is also exposed in the CORS policy so the browser lets the frontend read it.</summary>
     public const string HeaderName = "X-Unlocked-Achievements";
     private const string ItemsKey = "UnlockedAchievements";
 

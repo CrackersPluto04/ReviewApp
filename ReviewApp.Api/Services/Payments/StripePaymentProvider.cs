@@ -5,6 +5,11 @@ using Stripe;
 
 namespace ReviewApp.Api.Services.Payments;
 
+/// <summary>
+/// Stripe (test mode) behind <see cref="IPaymentProvider"/>. Card data never reaches the app: checkout and the
+/// customer portal are Stripe's hosted pages. Stripe errors are wrapped in <see cref="PaymentProviderException"/>
+/// with a message that is safe to log but never shown to the client.
+/// </summary>
 public class StripePaymentProvider : IPaymentProvider
 {
     private readonly StripeClient _client;

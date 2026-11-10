@@ -5,8 +5,11 @@ using ReviewApp.Api.Enums;
 
 namespace ReviewApp.Api.Services.Recognition;
 
-// Turns the provider's raw JSON into a RecognitionAnswer the rest of the pipeline can trust. Never throws:
-// anything unusable becomes "nothing recognised", unknown fields and values are ignored or dropped.
+/// <summary>
+/// Turns the provider's raw JSON into a <see cref="RecognitionAnswer"/> the rest of the pipeline can trust. The
+/// model's output is untrusted input: anything unusable becomes "nothing recognised", unknown fields and values are
+/// ignored or dropped, text is cleaned of control characters, and every list and length is capped. Never throws.
+/// </summary>
 public static class RecognitionAnswerValidator
 {
     public const int MaxWorks = 20;
@@ -16,6 +19,7 @@ public static class RecognitionAnswerValidator
     public const int MaxSummaryLength = 200;
     private const double DefaultConfidence = 0.5;
 
+    /// <summary>The summary used when the model gave none, or when the outcome overrides it.</summary>
     public static string DefaultSummary(RecognitionOutcome outcome) => outcome switch
     {
         RecognitionOutcome.NotMediaRelated => "We saw an object that isn't related to movies, series or music.",
@@ -24,6 +28,9 @@ public static class RecognitionAnswerValidator
         _ => "We couldn't recognise anything in this photo."
     };
 
+    /// <summary>Parses and validates the provider's raw JSON.</summary>
+    /// <param name="json">The raw answer, or null/empty when the model gave none.</param>
+    /// <returns>A trustworthy answer; "nothing recognised" for anything unusable.</returns>
     public static RecognitionAnswer Parse(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -155,7 +162,11 @@ public static class RecognitionAnswerValidator
         return Math.Clamp(confidence, 0, 1);
     }
 
-    // Plain single-line text: control and format characters removed, whitespace collapsed, length capped. Null when empty.
+    /// <summary>
+    /// Reduces model output to plain single-line text: control and format characters removed, whitespace collapsed
+    /// and length capped.
+    /// </summary>
+    /// <returns>The cleaned text, or null when nothing is left.</returns>
     internal static string? Clean(string? text, int maxLength)
     {
         if (text == null)
