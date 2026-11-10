@@ -6,6 +6,7 @@ import { iconUrl, isCompleted, nextTier, unlockedTierCount } from "../utils/achi
 import { TierMedals } from "./TierMedals";
 
 type AchievementCardProps = {
+    /** The achievement with its tiers and the user's progress. */
     achievement: AchievementDto;
 };
 
@@ -33,8 +34,12 @@ const clampSx = (lines: number) => ({
     overflowWrap: 'anywhere'
 }) as const;
 
-// Steam-like achievement card: the front shows the icon, tier medals and title,
-// clicking (or Enter / Space) flips it to the description and progress
+/**
+ * An achievement as a flip card. The front shows the icon, the tier medals and the title, greyed out until a
+ * tier is earned; clicking (or Enter / Space) flips it to the description of the goal being worked on and the
+ * progress towards the next tier. It is a keyboard operable toggle button, and the faces swap without the
+ * animation under `prefers-reduced-motion`. A missing icon file falls back to a trophy.
+ */
 export function AchievementCard({ achievement }: AchievementCardProps) {
     const [flipped, setFlipped] = useState(false);
     const [iconFailed, setIconFailed] = useState(false);
@@ -81,7 +86,6 @@ export function AchievementCard({ achievement }: AchievementCardProps) {
             // Faces swap instantly instead of rotating
             '@media (prefers-reduced-motion: reduce)': { transition: 'none' }
         }}>
-            {/* FRONT */}
             <Paper variant="outlined" aria-hidden={flipped} sx={faceSx}>
                 {/* Greyscale is applied inside the face, a filter on the face itself could break the 3D flip */}
                 <Box sx={{
@@ -112,7 +116,6 @@ export function AchievementCard({ achievement }: AchievementCardProps) {
                 </Box>
             </Paper>
 
-            {/* BACK */}
             <Paper variant="outlined" aria-hidden={!flipped} sx={{ ...faceSx, transform: 'rotateY(180deg)', justifyContent: 'space-between', textAlign: 'center' }}>
                 <Box sx={{ width: '100%' }}>
                     <Typography variant="subtitle1" fontWeight="bold" sx={clampSx(1)}>

@@ -7,16 +7,21 @@ import { AchievementSort, AchievementStatus, CATEGORY_OPTIONS, SORT_OPTIONS, STA
 import { AchievementCard } from "./AchievementCard";
 import { AchievementFilterBar } from "./AchievementFilterBar";
 
+/**
+ * The achievements tab of a profile (`/profile/:username/achievements`, public). It loads every achievement
+ * once and filters and sorts client-side, because the list is small. The filter state (`status` and `category`,
+ * both repeatable, and `sort`) lives in the URL so it can be linked; chip clicks replace the history entry
+ * instead of adding one each.
+ */
 export function AchievementsTab() {
     const { username } = useParams();
     const [searchParams, setSearchParams] = useSearchParams();
 
-    // --- States ---
     const [achievements, setAchievements] = useState<AchievementDto[]>([]);
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
 
-    // --- Active States (From URL, unknown values are ignored) ---
+    // Values in the URL that are not known options are ignored
     const statuses = searchParams.getAll('status')
         .filter((s): s is AchievementStatus => STATUS_OPTIONS.some(o => o.value === s));
     const categories = searchParams.getAll('category')
@@ -54,7 +59,6 @@ export function AchievementsTab() {
     const earnedTiers = achievements.reduce((sum, a) => sum + unlockedTierCount(a), 0);
     const totalTiers = achievements.reduce((sum, a) => sum + a.tiers.length, 0);
 
-    /* Handlers */
     // Toggles one value of a repeatable URL param, replace so every chip click isn't a history entry
     const toggleParam = (key: string, value: string) => {
         setSearchParams(prev => {

@@ -27,6 +27,14 @@ function toStatus(toggles: string[]): NotificationStatusFilter {
     return 'all';
 }
 
+/**
+ * The notification list (full screen on small screens): seen / unseen toggles, a sort, "mark all seen", "delete
+ * all seen" (after a confirmation) and "load more", which pages with a keyset cursor. It reloads whenever it
+ * opens or the filter changes, and drops answers of an outdated filter.
+ *
+ * Actions update the list and the header badge at once and roll back if the request fails. "Take me there"
+ * marks the notification seen without waiting and navigates to the route from `getNotificationRoute`.
+ */
 export function NotificationsDialog({ open, onClose }: NotificationsDialogProps) {
     const navigate = useNavigate();
     const theme = useTheme();

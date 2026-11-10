@@ -5,6 +5,10 @@ import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import { useNotifications } from "../context/NotificationContext";
 import { NotificationsDialog } from "./NotificationsDialog";
 
+/**
+ * The header's notification button: a bell with the unseen count as a badge (from `NotificationProvider`, which
+ * keeps it fresh) that opens `NotificationsDialog`.
+ */
 export function NotificationBell() {
     const { unseenCount } = useNotifications();
     const [open, setOpen] = useState(false);

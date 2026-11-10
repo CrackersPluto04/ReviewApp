@@ -7,6 +7,12 @@ import { CollectionDto } from "../types/types";
 import { CreateEditCollectionDialog } from "./CreateEditCollectionDialog";
 import { CollectionDetails } from "./CollectionDetails";
 
+/**
+ * The collections tab of a profile (`/profile/:username/collections`): a sortable list of the user's collections
+ * that the viewer may see, with the selected collection's contents beside it. The first collection is selected
+ * on load. The owner gets a button to create a collection; the list is reloaded after an edit, a delete or a
+ * removed title, so the names and item counts stay right.
+ */
 export function CollectionsTab() {
     const { username } = useParams();
 
@@ -57,9 +63,7 @@ export function CollectionsTab() {
     }
 
     return <Box sx={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 3, alignItems: 'start' }}>
-        {/* LEFT SIDEBAR */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {/* Collections list header */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1 }}>
                 <FormControl variant="standard" sx={{ minWidth: 120 }}>
                     <Select
@@ -86,7 +90,6 @@ export function CollectionsTab() {
                 )}
             </Box>
 
-            {/* Collections list */}
             <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
                 <List disablePadding>
                     {collections.length === 0 ? (
@@ -113,7 +116,6 @@ export function CollectionsTab() {
             </Paper>
         </Box>
 
-        {/* RIGHT MAIN CONTENT AREA */}
         <Paper variant="outlined" sx={{ p: 3, minHeight: '500px', borderRadius: 2 }}>
             {selectedCollectionId ? (
                 <CollectionDetails
@@ -129,7 +131,6 @@ export function CollectionsTab() {
             )}
         </Paper>
 
-        {/* CREATE COLLECTION DIALOG */}
         <CreateEditCollectionDialog
             open={isCreateDialogOpen}
             onClose={() => setIsCreateDialogOpen(false)}

@@ -2,12 +2,15 @@ import { Box, Button, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Ty
 import { AchievementSort, AchievementStatus, CATEGORY_OPTIONS, SORT_OPTIONS, STATUS_OPTIONS } from "../utils/achievements";
 
 type AchievementFilterBarProps = {
+    /** The selected status filters; the filter state is owned by the parent (the URL). */
     statuses: AchievementStatus[];
+    /** The selected category filters. */
     categories: string[];
     sort: AchievementSort;
     onToggleStatus: (status: AchievementStatus) => void;
     onToggleCategory: (category: string) => void;
     onSortChange: (sort: AchievementSort) => void;
+    /** Clears every filter and the sort. */
     onReset: () => void;
 };
 
@@ -29,7 +32,11 @@ function ToggleChip({ label, selected, onClick }: ToggleChipProps) {
     />
 }
 
-// Filters apply instantly (no Apply button), every option is multi-select
+/**
+ * The status and category chips and the sort select of the achievements tab. Filters apply instantly (no Apply
+ * button) and every chip is a repeatable toggle: statuses are OR-ed, categories are OR-ed and the two groups
+ * AND-ed (see `filterAndSortAchievements`). Sticky from the `md` breakpoint up.
+ */
 export function AchievementFilterBar({ statuses, categories, sort, onToggleStatus, onToggleCategory, onSortChange, onReset }: AchievementFilterBarProps) {
     const hasActiveFilter = statuses.length > 0 || categories.length > 0 || sort !== 'default';
 
@@ -39,7 +46,6 @@ export function AchievementFilterBar({ statuses, categories, sort, onToggleStatu
         sx={{ p: 2, mb: 3, borderRadius: 2, position: { xs: 'static', md: 'sticky' }, top: 80, zIndex: 2, bgcolor: 'background.paper' }}
     >
         <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2 }}>
-            {/* Status chips */}
             <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
                 <Typography variant="body2" fontWeight="bold" color="text.secondary">Status:</Typography>
                 {STATUS_OPTIONS.map(o => (
@@ -47,7 +53,6 @@ export function AchievementFilterBar({ statuses, categories, sort, onToggleStatu
                 ))}
             </Box>
 
-            {/* Category chips */}
             <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
                 <Typography variant="body2" fontWeight="bold" color="text.secondary">Category:</Typography>
                 {CATEGORY_OPTIONS.map(c => (
@@ -55,7 +60,6 @@ export function AchievementFilterBar({ statuses, categories, sort, onToggleStatu
                 ))}
             </Box>
 
-            {/* Sort + reset */}
             <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, ml: { md: 'auto' } }}>
                 <FormControl size="small" sx={{ minWidth: 150 }}>
                     <InputLabel>Sort By</InputLabel>

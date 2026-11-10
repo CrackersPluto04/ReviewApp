@@ -7,7 +7,7 @@ type TierMedalsProps = {
     tiers: AchievementTierDto[];
 };
 
-// One medal per tier of the achievement (only the tiers it has), coloured once earned
+/** One medal per tier the achievement has, in the tier's colour once earned and greyed out before. */
 export function TierMedals({ tiers }: TierMedalsProps) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
         {tiers.map(t => (

@@ -14,9 +14,11 @@ import { formatNotificationDate, NOTIFICATION_TYPE_LABELS } from "../utils/notif
 
 type NotificationCardProps = {
     notification: NotificationDto;
+    /** Whether the notification has somewhere to go (`getNotificationRoute` is not `null`); decides if "Take me there" is shown. */
     hasSource: boolean;
     onToggleSeen: (notification: NotificationDto) => void;
     onDelete: (notification: NotificationDto) => void;
+    /** "Take me there". */
     onOpen: (notification: NotificationDto) => void;
 };
 
@@ -40,6 +42,11 @@ function TypeIcon({ notification }: { notification: NotificationDto }) {
     return <Avatar sx={{ width: 40, height: 40, bgcolor: 'action.selected', color: 'text.primary' }}>{icon}</Avatar>;
 }
 
+/**
+ * One notification in the list: the actor's avatar or a type icon, the title, type and date, the plain-text
+ * message and the actions (take me there, mark seen / unseen, delete). Unseen ones stand out. It only reports the
+ * actions; the dialog applies them.
+ */
 export function NotificationCard({ notification, hasSource, onToggleSeen, onDelete, onOpen }: NotificationCardProps) {
     const unseen = !notification.isSeen;
 
