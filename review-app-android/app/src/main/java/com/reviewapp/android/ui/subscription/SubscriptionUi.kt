@@ -7,13 +7,16 @@ import java.text.NumberFormat
 import java.util.Currency
 import java.util.Locale
 
-// Pure presentation rules of the subscription screens (unit-tested), mirroring the web's SubscriptionPanel.
+/*
+ * Pure presentation rules of the subscription screens (unit-tested), mirroring the web's SubscriptionPanel.
+ */
 
 /** What `reviewapp://subscription/{result}` reports; anything unknown counts as cancelled. */
 enum class CheckoutReturn {
     Success, Cancelled, Portal;
 
     companion object {
+        /** Maps the deep link's `{result}` segment; unknown or missing values are treated as cancelled, the safe reading. */
         fun fromResult(result: String?): CheckoutReturn = when (result) {
             "success" -> Success
             "portal" -> Portal
@@ -27,17 +30,26 @@ data class SubscriptionView(
     val chips: List<Chip>,
     /** e.g. "Next renewal" / "Premium until"; null when there is no date to show. */
     val dateLabel: String?,
+    /** The sentence under the card's date line. */
     val note: String,
     /** A renewal failed: shown as a warning. */
     val warning: String?,
     val canSubscribe: Boolean,
+    /** A cancellation is pending and can be taken back. */
     val canResume: Boolean,
     val canCancel: Boolean,
+    /** The provider's portal is offered (payment details, invoices). */
     val canManagePayment: Boolean,
 ) {
+    /** The status labels of the card. */
     enum class Chip(val label: String) { Renews("Renews automatically"), Cancelled("Cancelled"), PaymentProblem("Payment problem") }
 }
 
+/**
+ * Decides what the subscription card says and offers for [summary]: Free and ended subscriptions can only subscribe
+ * (an ended one still reaches the portal for old invoices); a running one can be cancelled, or resumed while its
+ * cancellation is pending; a failed renewal shows a warning with the date by which the payment must be fixed.
+ */
 fun subscriptionView(summary: SubscriptionSummary): SubscriptionView {
     if (!summary.isPremium) {
         return SubscriptionView(

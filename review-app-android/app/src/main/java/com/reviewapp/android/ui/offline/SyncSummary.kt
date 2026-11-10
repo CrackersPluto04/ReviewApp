@@ -54,7 +54,9 @@ private fun overwrittenText(fields: List<String>): String? {
     }
 }
 
+/** Activity scoped: hands the sync engine's run summaries to the root snackbar. */
 class SyncSummaryViewModel(syncEngine: SyncEngine) : ViewModel() {
+    /** One entry per push run that sent changes. */
     val summaries: Flow<PushOutcome.Done> = syncEngine.summaries
 
     companion object {

@@ -4,8 +4,11 @@ import com.reviewapp.android.domain.model.Reply
 import com.reviewapp.android.domain.model.ReplyContext
 import com.reviewapp.android.domain.model.ReplyPage
 
-// The reply thread of one review as immutable state, the same rules as the web's ReplyThread /
-// ReplyItem / useReplyList. Layer 2 = replies to the review, layer 3 = replies to a layer-2 reply.
+/*
+ * The reply thread of one review as immutable state, with the same rules as the web's ReplyThread / ReplyItem /
+ * useReplyList. Layer 2 = replies to the review, layer 3 = replies to a layer-2 reply (the API allows no deeper
+ * nesting). Pure, so the rules are unit-tested without a screen.
+ */
 
 /** One keyset-paged list: the replies to the review, or the children of a layer-2 reply. */
 data class ReplyList(
@@ -15,10 +18,13 @@ data class ReplyList(
     val hasMore: Boolean = false,
     val isLoading: Boolean = false,
     val error: String? = null,
+    /** At least one page arrived (so an empty list can say "no replies" instead of looking unloaded). */
     val loaded: Boolean = false,
 ) {
+    /** A page is being fetched; clears the last error. */
     fun loading() = copy(isLoading = true, error = null)
 
+    /** The page failed; the items stay and the error shows with a retry. */
     fun failed(message: String) = copy(isLoading = false, error = message)
 
     /** Union by id (the server's copy wins), oldest first. */
@@ -31,15 +37,20 @@ data class ReplyList(
         loaded = true,
     )
 
+    /** Adds or replaces one reply locally (a reply the user just posted), keeping the order. */
     fun withReply(reply: Reply) = copy(items = (items.filterNot { it.id == reply.id } + reply).sortedBy { it.id })
 
+    /** Drops the reply with this id. */
     fun without(id: Int) = copy(items = items.filterNot { it.id == id })
 
+    /** Changes the reply with this id. */
     fun mapItem(id: Int, transform: (Reply) -> Reply) = copy(items = items.map { if (it.id == id) transform(it) else it })
 }
 
+/** The whole thread: the layer-2 list, each expanded layer-2 reply's children, and what is shown. */
 data class ReplyThreadState(
     val top: ReplyList = ReplyList(),
+    /** The layer-3 lists by the id of their layer-2 parent. */
     val children: Map<Int, ReplyList> = emptyMap(),
     /** Layer-2 replies whose children are shown. */
     val expanded: Set<Int> = emptySet(),
@@ -48,13 +59,17 @@ data class ReplyThreadState(
     /** The reply opened from a link (`?replyId=`), drawn highlighted. */
     val highlightId: Int? = null,
 ) {
+    /** The children of a layer-2 reply; an empty, not yet loaded list when none were requested. */
     fun childrenOf(parentId: Int): ReplyList = children[parentId] ?: ReplyList()
 
+    /** Changes the layer-2 list. */
     fun withTop(transform: (ReplyList) -> ReplyList) = copy(top = transform(top))
 
+    /** Changes the children list of [parentId]. */
     fun withChildren(parentId: Int, transform: (ReplyList) -> ReplyList) =
         copy(children = children + (parentId to transform(childrenOf(parentId))))
 
+    /** Shows or hides the children of [parentId]. */
     fun toggled(parentId: Int) = copy(expanded = if (parentId in expanded) expanded - parentId else expanded + parentId)
 
     /** A reply the user just posted: a new layer-2 reply goes to the end, a layer-3 one under its (expanded) parent. */
@@ -116,29 +131,41 @@ data class ReplyThreadState(
     }
 }
 
+/** The placeholder shown for a deleted reply that still has children: no author and no content, like the API sends it. */
 private fun Reply.asDeleted() = copy(isDeleted = true, isOwner = false, content = "", username = null, profilePictureUrl = null)
 
 /** The thread flattened into list rows, in display order. [parentId] null means the top-level list. */
 sealed interface ThreadRow {
+    /** A stable key for the lazy list. */
     val key: String
 
+    /** A reply; [highlighted] marks the one a link opened. */
     data class Item(val reply: Reply, val highlighted: Boolean) : ThreadRow {
         override val key get() = "reply-${reply.id}"
     }
+
+    /** A spinner for a page being fetched. */
     data class Loading(val parentId: Int?) : ThreadRow {
         override val key get() = "loading-$parentId"
     }
+
+    /** A failed page with its message and a retry. */
     data class Error(val parentId: Int?, val message: String) : ThreadRow {
         override val key get() = "error-$parentId"
     }
+
+    /** The "load more" button of a list with further pages. */
     data class LoadMore(val parentId: Int?) : ThreadRow {
         override val key get() = "more-$parentId"
     }
+
+    /** "No replies yet". */
     data object Empty : ThreadRow {
         override val key get() = "empty"
     }
 }
 
+/** The thread as rows: each layer-2 reply followed by its expanded children, with the status row of every list. */
 fun ReplyThreadState.rows(): List<ThreadRow> = buildList {
     fun addStatus(list: ReplyList, parentId: Int?) {
         when {

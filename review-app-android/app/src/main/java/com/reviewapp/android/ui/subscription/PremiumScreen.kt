@@ -59,6 +59,7 @@ import com.reviewapp.android.ui.components.PremiumGold
 import com.reviewapp.android.ui.theme.AppTheme
 import com.reviewapp.android.util.formatDate
 
+/** The Free plan's feature list; it is fixed text, the API describes only the Premium plan. */
 private val FreeFeatures = listOf(
     "Reviews, replies and scores",
     "Collections and favourites",
@@ -129,6 +130,7 @@ fun PremiumScreen(
     }
 }
 
+/** The plans page content: header, the subscription card for subscribers, both plan cards and the feature links. */
 @Composable
 private fun PremiumContent(
     state: PremiumUiState,
@@ -208,6 +210,7 @@ private fun PremiumContent(
     }
 }
 
+/** The user's subscription: status chips, the date that matters, a note and the actions its state allows ([subscriptionView]). */
 @Composable
 private fun SubscriptionCard(subscription: SubscriptionSummary, isBusy: Boolean, viewModel: PremiumViewModel) {
     val view = subscriptionView(subscription)
@@ -250,6 +253,7 @@ private fun SubscriptionCard(subscription: SubscriptionSummary, isBusy: Boolean,
     }
 }
 
+/** A coloured subscription status label. */
 @Composable
 private fun StatusChip(chip: SubscriptionView.Chip) {
     val color = when (chip) {
@@ -262,6 +266,7 @@ private fun StatusChip(chip: SubscriptionView.Chip) {
     }
 }
 
+/** The Premium plan: price, features, and Subscribe (or "Your current plan"). */
 @Composable
 private fun PremiumPlanCard(plan: Plan, state: PremiumUiState, isPremium: Boolean, onSubscribe: () -> Unit) {
     val price = formatPrice(plan)
@@ -303,6 +308,7 @@ private fun PremiumPlanCard(plan: Plan, state: PremiumUiState, isPremium: Boolea
     }
 }
 
+/** The Free plan, marked as current for a logged-in Free user. */
 @Composable
 private fun FreePlanCard(isCurrent: Boolean) {
     Card(Modifier.fillMaxWidth()) {
@@ -315,6 +321,7 @@ private fun FreePlanCard(isCurrent: Boolean) {
     }
 }
 
+/** One feature line; a feature that is not available yet is dimmed and marked "coming soon". */
 @Composable
 private fun FeatureRow(title: String, description: String?, comingSoon: Boolean, available: Boolean, free: Boolean = false) {
     Row(verticalAlignment = Alignment.Top) {
@@ -337,6 +344,7 @@ private fun FeatureRow(title: String, description: String?, comingSoon: Boolean,
     }
 }
 
+/** Explains that cancelling only stops renewal: Premium stays until the paid period ends. */
 @Composable
 private fun CancelSubscriptionDialog(accessEndsOn: String?, isBusy: Boolean, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(

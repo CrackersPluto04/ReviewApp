@@ -52,6 +52,7 @@ import com.reviewapp.android.util.formatScore
 import com.reviewapp.android.util.scoreTier
 import com.reviewapp.android.util.snapScore
 
+/** The review form (score, text, pros, cons, visibility); [onClose] is called after saving and by the close button. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WriteReviewScreen(
@@ -158,6 +159,7 @@ private fun ReviewForm(state: WriteReviewUiState, viewModel: WriteReviewViewMode
     }
 }
 
+/** The media being reviewed, as a card above the form. */
 @Composable
 private fun MediaSummary(media: Media) {
     Card(Modifier.fillMaxWidth()) {
@@ -177,6 +179,7 @@ private fun MediaSummary(media: Media) {
     }
 }
 
+/** The 1-10 score in half steps, coloured by its tier like the score badges. */
 @Composable
 private fun ScoreSlider(score: Double, onScoreChange: (Double) -> Unit) {
     val tier = scoreTier(score)

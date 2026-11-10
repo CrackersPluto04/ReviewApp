@@ -28,12 +28,14 @@ import kotlinx.coroutines.launch
 class PremiumRequiredViewModel(repository: SubscriptionRepository) : ViewModel() {
 
     private val _visible = MutableStateFlow(false)
+    /** The upsell dialog is open. */
     val visible: StateFlow<Boolean> = _visible.asStateFlow()
 
     init {
         viewModelScope.launch { repository.premiumRequired.collect { _visible.value = true } }
     }
 
+    /** Closes the dialog. */
     fun dismiss() {
         _visible.value = false
     }
@@ -45,6 +47,7 @@ class PremiumRequiredViewModel(repository: SubscriptionRepository) : ViewModel()
     }
 }
 
+/** Shows the "This is a Premium feature" dialog whenever any request was answered with 402; [onSeePremium] opens the plans page. */
 @Composable
 fun PremiumRequiredHost(
     onSeePremium: () -> Unit,

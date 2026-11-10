@@ -52,6 +52,7 @@ import com.reviewapp.android.util.scoreTier
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 
+/** The app's name with its icon; [large] is the login screen's size. */
 @Composable
 fun AppLogo(modifier: Modifier = Modifier, large: Boolean = false) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
@@ -70,6 +71,7 @@ fun AppLogo(modifier: Modifier = Modifier, large: Boolean = false) {
     }
 }
 
+/** The top bar's back arrow. */
 @Composable
 fun BackButton(onClick: () -> Unit) {
     IconButton(onClick = onClick) {
@@ -111,6 +113,7 @@ fun Poster(
     }
 }
 
+/** Round profile picture; the user's initial shows while it loads and when they have none. */
 @Composable
 fun UserAvatar(username: String, pictureUrl: String?, size: Dp = 40.dp, modifier: Modifier = Modifier) {
     Box(
@@ -162,7 +165,7 @@ fun InfiniteListEffect(listState: LazyListState, buffer: Int = 4, onLoadMore: ()
     val currentOnLoadMore = rememberUpdatedState(onLoadMore)
     LaunchedEffect(listState) {
         // The pair changes when items are added or the footer appears/disappears, so a page that
-        // brought nothing new still triggers the next one while the user stays at the bottom
+        // brought nothing new (all duplicates) still triggers the next one while the user stays at the bottom
         snapshotFlow {
             val info = listState.layoutInfo
             (info.visibleItemsInfo.lastOrNull()?.index ?: -1) to info.totalItemsCount
@@ -220,6 +223,7 @@ fun OfflineNotice(text: String, modifier: Modifier = Modifier) {
 fun ListFooter(list: PagedList<*>, onRetry: () -> Unit) =
     ListFooter(list.isLoading, list.error, onRetry, list.offlineEnd, list.updatedAt)
 
+/** The offline end and "Updated ..." lines of [ListFooter]; "Try again" only continues an offline end. */
 @Composable
 private fun OfflineListNote(offlineEnd: Boolean, updatedAt: Long?, onRetry: () -> Unit) {
     Column(
@@ -246,6 +250,7 @@ private fun OfflineListNote(offlineEnd: Boolean, updatedAt: Long?, onRetry: () -
     }
 }
 
+/** A centred spinner for a screen or section that has nothing to show yet. */
 @Composable
 fun LoadingState(modifier: Modifier = Modifier) {
     Box(modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
@@ -253,6 +258,7 @@ fun LoadingState(modifier: Modifier = Modifier) {
     }
 }
 
+/** An error message with a "Try again" button; without [onRetry] there is no button. */
 @Composable
 fun ErrorState(message: String, onRetry: (() -> Unit)?, modifier: Modifier = Modifier) {
     Column(
@@ -270,6 +276,7 @@ fun ErrorState(message: String, onRetry: (() -> Unit)?, modifier: Modifier = Mod
     }
 }
 
+/** A centred note for a list that loaded and has nothing in it. */
 @Composable
 fun EmptyState(message: String, modifier: Modifier = Modifier) {
     Text(
@@ -281,6 +288,7 @@ fun EmptyState(message: String, modifier: Modifier = Modifier) {
     )
 }
 
+/** A section heading inside a screen. */
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(
@@ -291,5 +299,6 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     )
 }
 
+/** An empty gap of [height] in a column. */
 @Composable
 fun VerticalSpace(height: Dp) = Spacer(Modifier.height(height))

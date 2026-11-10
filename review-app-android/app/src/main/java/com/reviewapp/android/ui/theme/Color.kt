@@ -2,7 +2,11 @@ package com.reviewapp.android.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// The web app uses MUI's default palette, these are its light/dark values.
+/*
+ * The palette of the web app (MUI's defaults), so both clients look the same. The number is the shade: the
+ * 700/800 and 400/200 pairs are the light and dark theme's variant of one hue, 50 the pale container tint and 900
+ * the dark container / on-colour.
+ */
 
 val Blue700 = Color(0xFF1976D2)
 val Blue200 = Color(0xFF90CAF9)

@@ -30,20 +30,25 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
 
+/** The recognition screen: the allowance, the current step and the results. */
 data class RecognitionUiState(
     val isLoggedIn: Boolean = false,
     /** Null while loading. */
     val allowance: RecognitionAllowance? = null,
     val allowanceError: String? = null,
+    /** Where the flow is. */
     val step: RecognitionStep = RecognitionStep.Start,
+    /** The last failure (unreadable photo, recognition error) shown on the step that failed. */
     val error: String? = null,
     /** Why the camera can't be used (no camera, permission denied): only picking a photo is offered. */
     val cameraMessage: String? = null,
     val results: RecognitionResults? = null,
     /** A picked or taken photo is being made smaller. */
     val isPreparing: Boolean = false,
+    /** The one-time notice about the AI service was acknowledged (stored on the device); `true` until it is read. */
     val noticeDismissed: Boolean = true,
 ) {
+    /** The daily allowance is used up. */
     val outOfRecognitions: Boolean get() = allowance?.remaining == 0
 }
 
@@ -64,6 +69,7 @@ class RecognitionViewModel(
     private val _state = MutableStateFlow(RecognitionUiState())
     val state: StateFlow<RecognitionUiState> = _state.asStateFlow()
 
+    /** The average scores of the shown suggestions, loaded lazily like in every media list. */
     val scoreStats: StateFlow<Map<String, ScoreStats>> = reviewRepository.scoreStats
 
     private var recognizeJob: Job? = null
@@ -88,6 +94,7 @@ class RecognitionViewModel(
         }
     }
 
+    /** Loads how many recognitions are left today (also tells Free users and a switched-off feature apart). */
     fun loadAllowance() {
         _state.update { it.copy(allowanceError = null) }
         viewModelScope.launch {
@@ -98,14 +105,18 @@ class RecognitionViewModel(
         }
     }
 
+    /** Asks for [media]'s average score. */
     fun requestStats(media: Media) = reviewRepository.requestStats(media.mediaType, media.externalApiId)
 
+    /** Remembers that the AI-service notice was read. */
     fun dismissNotice() {
         viewModelScope.launch { settingsStore.dismissRecognitionNotice() }
     }
 
+    /** Opens the live camera step. */
     fun openCamera() = _state.update { it.copy(step = RecognitionStep.Camera, error = null) }
 
+    /** The camera cannot be used (no camera, permission denied): back to the start with [message] and the picker only. */
     fun onCameraUnavailable(message: String) =
         _state.update { it.copy(step = RecognitionStep.Start, cameraMessage = message) }
 
@@ -115,10 +126,13 @@ class RecognitionViewModel(
     /** The cache file the camera writes the next photo to. */
     fun newCaptureFile(): File = photos.newCaptureFile()
 
+    /** A photo was taken: it is made smaller and shown for confirmation, the original is deleted. */
     fun onPhotoCaptured(file: File) = prepare(Uri.fromFile(file), fromCamera = true) { file.delete() }
 
+    /** A photo was picked with the system picker. */
     fun onPhotoPicked(uri: Uri) = prepare(uri, fromCamera = false) {}
 
+    /** Makes the photo smaller in the cache and shows the preview, or reports an unreadable file. */
     private fun prepare(source: Uri, fromCamera: Boolean, cleanup: () -> Unit) {
         _state.update { it.copy(isPreparing = true, error = null) }
         viewModelScope.launch {
@@ -134,12 +148,14 @@ class RecognitionViewModel(
         }
     }
 
+    /** Shows the preview and keeps the photo's path so process death can bring it back. */
     private fun showPreview(path: String, fromCamera: Boolean) {
         savedState[KEY_PHOTO] = path
         savedState[KEY_FROM_CAMERA] = fromCamera
         _state.update { it.copy(isPreparing = false, step = RecognitionStep.Preview(path, fromCamera), error = null) }
     }
 
+    /** Throws the photo away and goes back to the camera (or the start, for a picked photo). */
     fun retake() {
         val step = _state.value.step as? RecognitionStep.Preview ?: return
         discardPhoto()
@@ -148,6 +164,7 @@ class RecognitionViewModel(
         }
     }
 
+    /** Sends the previewed photo. A 402 turns the screen into the Free state (the upsell opens by itself). */
     fun usePhoto() {
         val step = _state.value.step as? RecognitionStep.Preview ?: return
         if (_state.value.outOfRecognitions || recognizeJob?.isActive == true) return
@@ -187,6 +204,7 @@ class RecognitionViewModel(
         _state.update { it.copy(step = RecognitionStep.Preview(step.photoPath, step.fromCamera)) }
     }
 
+    /** Loads the next five suggestions; an expired list ends paging. */
     fun showMore() {
         val results = _state.value.results ?: return
         val id = results.recognitionId ?: return
@@ -211,6 +229,7 @@ class RecognitionViewModel(
         }
     }
 
+    /** Retries a failed "Show more". */
     fun retryMore() {
         _state.update { s -> s.copy(results = s.results?.retried()) }
         showMore()
@@ -237,6 +256,7 @@ class RecognitionViewModel(
         }
     }
 
+    /** Forgets everything of the previous user. */
     private fun reset() {
         recognizeJob?.cancel()
         discardPhoto()
@@ -244,13 +264,14 @@ class RecognitionViewModel(
         _state.update { it.copy(step = RecognitionStep.Start, results = null, error = null, cameraMessage = null) }
     }
 
+    /** Deletes the photo file; a photo is never kept once it was sent or abandoned. */
     private fun discardPhoto() {
         photos.delete(savedState[KEY_PHOTO])
         savedState.remove<String>(KEY_PHOTO)
         savedState.remove<Boolean>(KEY_FROM_CAMERA)
     }
 
-    // Only what reloading needs: the id, how many items were shown, and what was said about the photo
+    /** Saves only what reloading needs: the id, how many items were shown, and what was said about the photo. */
     private fun saveResults(results: RecognitionResults) {
         val id = results.recognitionId ?: return clearSavedResults()
         savedState[KEY_RECOGNITION_ID] = id
@@ -264,7 +285,7 @@ class RecognitionViewModel(
         listOf(KEY_RECOGNITION_ID, KEY_SHOWN, KEY_SUMMARY, KEY_OUTCOME, KEY_INCOMPLETE).forEach { savedState.remove<Any>(it) }
     }
 
-    // After process death: the photo on screen (its file is still in the cache) or the shown suggestions
+    /** After process death: brings back the photo on screen (its file is still in the cache) or the shown suggestions. */
     private fun restore() {
         if (_state.value.step != RecognitionStep.Start) return
 
@@ -299,6 +320,7 @@ class RecognitionViewModel(
     }
 
     companion object {
+        // SavedStateHandle keys of what survives process death
         private const val KEY_PHOTO = "recognition_photo"
         private const val KEY_FROM_CAMERA = "recognition_from_camera"
         private const val KEY_RECOGNITION_ID = "recognition_id"

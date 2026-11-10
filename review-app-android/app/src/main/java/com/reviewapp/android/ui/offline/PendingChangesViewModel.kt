@@ -39,14 +39,19 @@ import kotlinx.coroutines.launch
 
 /** One queued change as the list shows it. */
 data class PendingChangeRow(
+    /** The change's position (primary key) in the outbox. */
     val seq: Long,
+    /** The change in plain language (see [OutboxDescriber]). */
     val description: String,
+    /** Its state: waiting, sending, retrying later, or why it needs the user. */
     val status: String,
+    /** The change is in Sync issues (a conflict or a rejection). */
     val needsAttention: Boolean,
     /** Not while it is being sent (its answer may be on the way). */
     val canDiscard: Boolean,
 )
 
+/** The waiting changes screen: the outbox as rows and the connectivity that decides whether syncing is offered. */
 data class PendingChangesUiState(
     val rows: List<PendingChangeRow> = emptyList(),
     val isLoaded: Boolean = false,
@@ -56,6 +61,7 @@ data class PendingChangesUiState(
     val confirming: PendingChangeRow? = null,
 )
 
+/** Observes the open offline copy's outbox, so the list follows every change and sync run, and discards changes. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class PendingChangesViewModel(
     private val gateway: OfflineGateway,
@@ -67,6 +73,8 @@ class PendingChangesViewModel(
     private val confirming = MutableStateFlow<PendingChangeRow?>(null)
 
     private val _messages = Channel<String>(Channel.BUFFERED)
+
+    /** The outcome of a discard, shown once on the snackbar. */
     val messages = _messages.receiveAsFlow()
 
     private val rows = gateway.status
@@ -91,6 +99,7 @@ class PendingChangesViewModel(
                 .catch { emit(emptyList()) }
         }
 
+    /** The screen's state. */
     val state: StateFlow<PendingChangesUiState> = combine(
         rows,
         connectivity.connectivity,
@@ -100,8 +109,10 @@ class PendingChangesViewModel(
         PendingChangesUiState(rows, isLoaded = true, isOnline = connectivity == Connectivity.Online, isSyncing = running, confirming = confirming)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PendingChangesUiState())
 
+    /** Asks for confirmation to discard [row]; `null` cancels. */
     fun askDiscard(row: PendingChangeRow?) = confirming.update { row }
 
+    /** Discards the confirmed change with the later ones of the same thing and reports what happened. */
     fun discard() {
         val row = confirming.value ?: return
         confirming.value = null
@@ -116,6 +127,7 @@ class PendingChangesViewModel(
         }
     }
 
+    /** Asks the sync engine to run now. */
     fun syncNow() = syncEngine.requestSync()
 
     companion object {
@@ -128,7 +140,10 @@ class PendingChangesViewModel(
     }
 }
 
-/** Names for the describer: titles, collection names and usernames from the copy and the shadows. */
+/**
+ * Names for the describer: titles, collection names and usernames from the offline copy and, for things deleted
+ * here, from the backend's version kept in the shadows (the local row is already gone then).
+ */
 suspend fun describeContextOf(db: OfflineDatabase): DescribeContext {
     val media = db.media().all().associate { "${it.mediaType}:${it.externalApiId}" to it.title.orEmpty() }
     val reviewTitles = HashMap<Int, String>()

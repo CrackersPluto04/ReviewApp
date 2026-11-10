@@ -7,6 +7,7 @@ import com.reviewapp.android.util.formatAgo
 import com.reviewapp.android.util.formatTimeLeft
 import com.reviewapp.android.util.pluralize
 
+/** How the status card is coloured: plain, positive (ready, nothing waiting) or a warning. */
 enum class StatusTone { Neutral, Good, Warning }
 
 /** The status card of the offline settings. */

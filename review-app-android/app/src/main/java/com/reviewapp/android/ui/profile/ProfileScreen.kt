@@ -269,6 +269,7 @@ fun ProfileScreen(
     ProfileDialogs(state, viewModel)
 }
 
+/** The Reviews tab's rows: loading, error, empty and the review cards with the list footer. */
 private fun LazyListScope.reviewItems(
     reviews: PagedList<ProfileReview>,
     filterIsDefault: Boolean,
@@ -299,6 +300,7 @@ private fun LazyListScope.reviewItems(
     }
 }
 
+/** The Collections tab's rows. */
 private fun LazyListScope.collectionItems(
     collections: CollectionsState,
     onRetry: () -> Unit,
@@ -314,6 +316,7 @@ private fun LazyListScope.collectionItems(
     }
 }
 
+/** The Achievements tab's rows; loading shows until the first load finished, "no match" offers a filter reset. */
 private fun LazyListScope.achievementItems(
     achievements: AchievementsState,
     onRetry: () -> Unit,
@@ -337,6 +340,7 @@ private fun LazyListScope.achievementItems(
     }
 }
 
+/** What the Profile tab shows to a logged-out user. */
 @Composable
 private fun LoginPrompt(onLogin: () -> Unit, modifier: Modifier) {
     Box(modifier.padding(16.dp)) {
@@ -358,6 +362,7 @@ private fun LoginPrompt(onLogin: () -> Unit, modifier: Modifier) {
     }
 }
 
+/** Avatar (editable by the owner), the follower / following counts and, on someone else's profile, the follow button. */
 @Composable
 private fun ProfileHeader(
     profile: UserProfile,
@@ -399,6 +404,7 @@ private fun ProfileHeader(
     }
 }
 
+/** A tappable count with its label that opens the follower or following list. */
 @Composable
 private fun CountButton(count: Int, label: String, onClick: () -> Unit) {
     Column(
@@ -413,6 +419,7 @@ private fun CountButton(count: Int, label: String, onClick: () -> Unit) {
     }
 }
 
+/** The bio, with an inline editor for the owner while [draft] is not `null`. */
 @Composable
 private fun BioCard(
     profile: UserProfile,
@@ -461,6 +468,7 @@ private fun BioCard(
     }
 }
 
+/** The tab row and the active tab's filters, as one item so it can be a single sticky header. */
 @Composable
 private fun TabsHeader(
     state: ProfileUiState,
@@ -524,6 +532,7 @@ private fun TabsHeader(
     }
 }
 
+/** A collection in the Collections tab: name, size, visibility (owner only) and its sync marker. */
 @Composable
 private fun CollectionCard(collection: MediaCollection, onClick: () -> Unit) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
@@ -556,6 +565,7 @@ private fun CollectionCard(collection: MediaCollection, onClick: () -> Unit) {
     }
 }
 
+/** The top bar's theme (system / light / dark) menu. */
 @Composable
 private fun ThemeMenu(mode: ThemeMode, onSelect: (ThemeMode) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
@@ -584,7 +594,7 @@ private val ThemeMode.icon: ImageVector
         ThemeMode.Dark -> Icons.Filled.DarkMode
     }
 
-/** Account settings (username, email, password, 2FA) come in a later milestone; logout for now. */
+/** The owner's dialogs: profile picture URL, delete review confirmation and the new collection form. */
 @Composable
 private fun ProfileDialogs(state: ProfileUiState, viewModel: ProfileViewModel) {
     val edits = state.edits

@@ -25,8 +25,10 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** The notifications screen: the filter chips, the sort and the loaded list. */
 data class NotificationsUiState(
     val isLoggedIn: Boolean = true,
+    /** The Seen / Unseen chips; exactly one on filters, both or neither means all. */
     val seenOn: Boolean = false,
     val unseenOn: Boolean = false,
     val sort: NotificationSort = NotificationSort.Newest,
@@ -35,11 +37,16 @@ data class NotificationsUiState(
     /** Mark all seen / delete all seen in progress. */
     val isBusy: Boolean = false,
 ) {
+    /** The API filter the chips stand for. */
     val status: NotificationStatus get() = NotificationStatus.from(seenOn, unseenOn)
 }
 
+/** One-off results of the notifications screen. */
 sealed interface NotificationsEvent {
+    /** A failure to show on the snackbar. */
     data class Message(val text: String) : NotificationsEvent
+
+    /** "Take me there": navigate to [target]. */
     data class Open(val target: NotificationTarget) : NotificationsEvent
 }
 
@@ -55,6 +62,7 @@ class NotificationsViewModel(
     private val _state = MutableStateFlow(NotificationsUiState())
     val state: StateFlow<NotificationsUiState> = _state.asStateFlow()
 
+    /** The badge count, shown in the screen's title. */
     val unseenCount: StateFlow<Int> = repository.unseenCount
 
     private val _events = Channel<NotificationsEvent>(Channel.BUFFERED)
@@ -80,8 +88,6 @@ class NotificationsViewModel(
         }
     }
 
-    // Loading
-
     /** Starts over with the current filter; a page still loading for the old one is cancelled. */
     fun reload() {
         loadJob?.cancel()
@@ -89,12 +95,14 @@ class NotificationsViewModel(
         loadPage()
     }
 
+    /** Loads the next page when there is one. */
     fun loadMore() {
         if (!_state.value.list.canLoadMore) return
         updateList { it.loading() }
         loadPage()
     }
 
+    /** Retries a failed page, or the first load when nothing has loaded. */
     fun retry() {
         if (!_state.value.list.loaded) return reload()
         updateList { it.loading() }
@@ -114,8 +122,6 @@ class NotificationsViewModel(
         }
     }
 
-    // Filters
-
     fun toggleSeenFilter() = updateFilter { it.copy(seenOn = !it.seenOn) }
     fun toggleUnseenFilter() = updateFilter { it.copy(unseenOn = !it.unseenOn) }
     fun selectSort(sort: NotificationSort) = updateFilter { it.copy(sort = sort) }
@@ -127,8 +133,7 @@ class NotificationsViewModel(
         if (new.status != old.status || new.sort != old.sort) reload()
     }
 
-    // Actions
-
+    /** Marks a notification seen or unseen. Optimistic: the list and the badge change at once and revert on failure. */
     fun toggleSeen(notification: AppNotification) {
         val seen = !notification.isSeen
         updateList { it.withSeen(notification.id, seen) }
@@ -143,6 +148,7 @@ class NotificationsViewModel(
         }
     }
 
+    /** Deletes a notification, optimistically; it is put back at its place when the request fails. */
     fun delete(notification: AppNotification) {
         val removal = _state.value.list.without(notification.id) ?: return
         updateList { removal.state }
@@ -157,6 +163,7 @@ class NotificationsViewModel(
         }
     }
 
+    /** Marks every notification seen, optimistically, and reloads when a Seen / Unseen filter is active. */
     fun markAllSeen() {
         val current = _state.value
         if (current.isBusy) return
@@ -179,8 +186,10 @@ class NotificationsViewModel(
         }
     }
 
+    /** Opens or closes the confirmation for [deleteSeen]. */
     fun askDeleteSeen(ask: Boolean) = _state.update { it.copy(askDeleteSeen = ask) }
 
+    /** Deletes all seen notifications and reloads the list. */
     fun deleteSeen() {
         _state.update { it.copy(askDeleteSeen = false, isBusy = true) }
         viewModelScope.launch {
@@ -204,6 +213,7 @@ class NotificationsViewModel(
         _events.trySend(NotificationsEvent.Open(target))
     }
 
+    /** Whether "Take me there" applies, so the card shows the button only when it leads somewhere. */
     fun hasTarget(notification: AppNotification): Boolean =
         notificationTarget(notification, sessionManager.currentUser?.username) != null
 

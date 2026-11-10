@@ -38,9 +38,12 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** The banner: whether it shows and the outcome of the last resend. */
 data class VerificationBannerState(
+    /** The user is logged in with an unverified email and has not dismissed the banner. */
     val visible: Boolean = false,
     val isSending: Boolean = false,
+    /** The last resend's message, shown inside the banner. */
     val result: String? = null,
     val resultIsError: Boolean = false,
 )
@@ -65,6 +68,7 @@ class VerificationBannerViewModel(
         local.copy(visible = unverified && !dismissed)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, VerificationBannerState())
 
+    /** Sends the verification email again. */
     fun resend() {
         if (resend.value.isSending) return
         resend.update { it.copy(isSending = true) }
@@ -79,6 +83,7 @@ class VerificationBannerViewModel(
         }
     }
 
+    /** Hides the banner until the app restarts. */
     fun dismiss() = repository.dismissVerificationBanner()
 
     /** The link is opened in the browser, so coming back to the app checks whether it was verified. */

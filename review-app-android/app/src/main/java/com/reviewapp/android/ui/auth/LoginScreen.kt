@@ -43,6 +43,10 @@ import com.reviewapp.android.ui.components.PasswordField
 import com.reviewapp.android.ui.theme.AppTheme
 import com.reviewapp.android.util.Validation
 
+/**
+ * Login, registration and the 2FA code step in one screen, pushed on top of the screen that needed a login.
+ * [onLoggedIn] is called once the login succeeded; [onBack] leaves without logging in.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(

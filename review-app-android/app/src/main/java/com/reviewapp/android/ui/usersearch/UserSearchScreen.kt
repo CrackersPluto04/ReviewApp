@@ -62,6 +62,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** The user search: the typed text and the results of the last finished search. */
 data class UserSearchUiState(
     val query: String = "",
     val results: List<UserSummary> = emptyList(),
@@ -87,6 +88,7 @@ class UserSearchViewModel(private val userRepository: UserRepository) : ViewMode
         }
     }
 
+    /** Searches for [query]; a blank query clears the results. Cancelled by [collectLatest] when the text changes again. */
     private suspend fun search(query: String) {
         if (query.isEmpty()) {
             _state.update { it.copy(results = emptyList(), isLoading = false, error = null, searched = false) }
@@ -99,8 +101,10 @@ class UserSearchViewModel(private val userRepository: UserRepository) : ViewMode
         }
     }
 
+    /** Stores the typed text; the search starts once typing pauses. */
     fun updateQuery(query: String) = _state.update { it.copy(query = query, searched = false) }
 
+    /** Repeats the search for the current text after a failure. */
     fun retry() {
         viewModelScope.launch { search(_state.value.query.trim()) }
     }
@@ -112,6 +116,7 @@ class UserSearchViewModel(private val userRepository: UserRepository) : ViewMode
     }
 }
 
+/** Search for users by username, with the field in the top bar; a result opens that user's profile. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserSearchScreen(

@@ -60,6 +60,8 @@ class UnlockBannerViewModel(
 
     private val queue = ArrayDeque<List<UnlockedAchievement>>()
     private val _current = MutableStateFlow<List<UnlockedAchievement>?>(null)
+
+    /** The group on screen, or `null` between banners. */
     val current: StateFlow<List<UnlockedAchievement>?> = _current.asStateFlow()
 
     private var nextJob: Job? = null
@@ -77,6 +79,7 @@ class UnlockBannerViewModel(
         }
     }
 
+    /** Whose Achievements tab a tap on the banner opens; `null` once logged out. */
     val currentUsername: String? get() = sessionManager.currentUser?.username
 
     /** Hides the banner; the next one comes after the exit animation, like the web's toast queue. */
@@ -100,6 +103,7 @@ class UnlockBannerViewModel(
     }
 
     companion object {
+        /** How long a banner stays before it hides itself. */
         const val SHOW_MS = 5_000L
         private const val EXIT_DELAY_MS = 400L
 
@@ -113,8 +117,8 @@ class UnlockBannerViewModel(
 }
 
 /**
- * Slides an "Achievement unlocked!" banner in at the top for each unlocked tier. Tapping it opens the
- * current user's Achievements tab through [onOpenAchievements].
+ * Slides an "Achievement unlocked!" banner in at the top for each group of unlocked tiers (one banner when they
+ * came together). Tapping it opens the current user's Achievements tab through [onOpenAchievements].
  */
 @Composable
 fun UnlockBannerHost(
@@ -152,6 +156,7 @@ fun UnlockBannerHost(
     }
 }
 
+/** The banner itself; its trophy takes the colour of the highest tier in the [group]. */
 @Composable
 private fun UnlockBanner(group: List<UnlockedAchievement>, onClick: () -> Unit, onClose: () -> Unit) {
     val unlocked = group.maxBy { it.tier.ordinal }

@@ -67,7 +67,10 @@ import com.reviewapp.android.util.formatAgo
 import com.reviewapp.android.util.formatBytes
 import com.reviewapp.android.util.pluralize
 
-/** Offline mode (Premium), opened from the account settings. */
+/**
+ * Offline mode (Premium), opened from the account settings: the switch, the status card, the waiting changes, "Sync
+ * now", the library download and the storage settings. Free users see the upsell instead of the switch.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OfflineSettingsScreen(
@@ -184,6 +187,7 @@ fun OfflineSettingsScreen(
     }
 }
 
+/** What offline mode does, in two lines. */
 @Composable
 private fun Intro() {
     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
@@ -200,6 +204,7 @@ private fun Intro() {
     }
 }
 
+/** The mode's switch; the whole row toggles it. */
 @Composable
 private fun OfflineSwitch(enabled: Boolean, onToggle: (Boolean) -> Unit) {
     ListItem(
@@ -210,6 +215,7 @@ private fun OfflineSwitch(enabled: Boolean, onToggle: (Boolean) -> Unit) {
     )
 }
 
+/** The [OfflineStatusView] as a card, with an icon that follows its tone. */
 @Composable
 private fun StatusCard(view: OfflineStatusView) {
     val (icon, tint) = when (view.tone) {
@@ -231,6 +237,7 @@ private fun StatusCard(view: OfflineStatusView) {
     }
 }
 
+/** "Sync now" with what the sync is doing. */
 @Composable
 private fun SyncRow(state: OfflineSettingsUiState, onSyncNow: () -> Unit) {
     ListItem(
@@ -256,6 +263,7 @@ private fun SyncRow(state: OfflineSettingsUiState, onSyncNow: () -> Unit) {
     )
 }
 
+/** The library download: its progress, start / stop and the Wi-Fi-only switch. */
 @Composable
 private fun DownloadSection(state: OfflineSettingsUiState, viewModel: OfflineSettingsViewModel) {
     Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -304,6 +312,7 @@ private fun DownloadSection(state: OfflineSettingsUiState, viewModel: OfflineSet
     )
 }
 
+/** An icon, a title and a description; clickable when [onClick] is given. */
 @Composable
 private fun SettingRow(icon: ImageVector, title: String, subtitle: String, onClick: (() -> Unit)? = null) {
     ListItem(
@@ -314,6 +323,7 @@ private fun SettingRow(icon: ImageVector, title: String, subtitle: String, onCli
     )
 }
 
+/** A section's title. */
 @Composable
 private fun SectionHeader(text: String) {
     Text(
@@ -327,6 +337,7 @@ private fun SectionHeader(text: String) {
 @Composable
 private fun Divider() = HorizontalDivider(Modifier.padding(top = 8.dp))
 
+/** What offline mode does not cover. */
 @Composable
 private fun Footnote() {
     Text(
@@ -338,6 +349,7 @@ private fun Footnote() {
     )
 }
 
+/** Confirms switching off; warns that changes made offline are still sent before the copy is removed. */
 @Composable
 private fun DisableDialog(pendingChanges: Int, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     ConfirmDialog(
@@ -355,6 +367,7 @@ private fun DisableDialog(pendingChanges: Int, onConfirm: () -> Unit, onDismiss:
     )
 }
 
+/** A plain confirm / cancel dialog. */
 @Composable
 private fun ConfirmDialog(title: String, text: String, confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
@@ -366,6 +379,7 @@ private fun ConfirmDialog(title: String, text: String, confirm: String, onConfir
     )
 }
 
+/** The choice of the cache size. */
 @Composable
 private fun BudgetDialog(current: CacheBudget, onSelect: (CacheBudget) -> Unit, onDismiss: () -> Unit) {
     AlertDialog(

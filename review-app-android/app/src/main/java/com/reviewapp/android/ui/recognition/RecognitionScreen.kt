@@ -145,6 +145,7 @@ fun RecognitionScreen(
     }
 }
 
+/** The feature's one-line explanation with the camera icon. */
 @Composable
 private fun Intro() {
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -158,6 +159,11 @@ private fun Intro() {
     }
 }
 
+/**
+ * The start step: the allowance, the one-time AI-service notice and the two ways to get a photo. The camera
+ * permission is asked only when "Take a photo" is tapped, with a rationale first when Android wants one; a denial
+ * leaves the photo picker, and "don't ask again" adds an "Open settings" link.
+ */
 @Composable
 private fun StartStep(state: RecognitionUiState, allowance: RecognitionAllowance, viewModel: RecognitionViewModel, modifier: Modifier) {
     val context = LocalContext.current
@@ -283,6 +289,7 @@ private fun StartStep(state: RecognitionUiState, allowance: RecognitionAllowance
     }
 }
 
+/** The live camera with a Back button. */
 @Composable
 private fun CameraStep(viewModel: RecognitionViewModel, modifier: Modifier) {
     Column(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -296,6 +303,7 @@ private fun CameraStep(viewModel: RecognitionViewModel, modifier: Modifier) {
     }
 }
 
+/** The photo preview with Use photo / Retake, or, while [recognizing], a progress state with Cancel. */
 @Composable
 private fun PhotoStep(path: String, recognizing: Boolean, state: RecognitionUiState, viewModel: RecognitionViewModel, modifier: Modifier) {
     Column(modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -324,6 +332,10 @@ private fun PhotoStep(path: String, recognizing: Boolean, state: RecognitionUiSt
     }
 }
 
+/**
+ * The suggestions, closest first, with a heading where the relation gets looser, "Show more" and the way to try
+ * another photo.
+ */
 @Composable
 private fun ResultsStep(
     state: RecognitionUiState,
@@ -398,6 +410,7 @@ private fun ResultsStep(
     }
 }
 
+/** "N of M left today", highlighted when none is left. */
 @Composable
 private fun AllowanceChip(allowance: RecognitionAllowance) {
     val text = allowanceText(allowance.remaining, allowance.limit) ?: return
@@ -411,6 +424,7 @@ private fun AllowanceChip(allowance: RecognitionAllowance) {
     }
 }
 
+/** The photo tips. */
 @Composable
 private fun Tips() {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -440,6 +454,7 @@ private fun WarningText(text: String) {
 private fun Context.hasCameraPermission() =
     ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
+/** The activity behind this context, which may be wrapped (Compose gives wrapped contexts); `null` if there is none. */
 private fun Context.findActivity(): Activity? {
     var context = this
     while (context is ContextWrapper) {
@@ -449,6 +464,7 @@ private fun Context.findActivity(): Activity? {
     return null
 }
 
+/** Opens this app's page in the system settings, where a permanently denied permission can be allowed. */
 private fun Context.openAppSettings() {
     startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
 }

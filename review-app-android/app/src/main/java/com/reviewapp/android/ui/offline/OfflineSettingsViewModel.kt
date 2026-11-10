@@ -42,16 +42,22 @@ import kotlinx.coroutines.withContext
 /** The open confirmation or choice of the offline settings. */
 enum class OfflineDialog { Disable, ClearCache, Budget, DiscardOtherAccounts }
 
+/** Everything the offline settings screen shows: the switch, the status, the library download and the storage. */
 data class OfflineSettingsUiState(
     val isLoggedIn: Boolean = false,
     /** The user has the `offline-mode` entitlement (else the upsell). */
     val entitled: Boolean = false,
+    /** The per-account switch (on by default). */
     val enabled: Boolean = false,
     val status: OfflineStatus = OfflineStatus(),
     val isOnline: Boolean = true,
+    /** A sync run is in progress. */
     val isSyncing: Boolean = false,
+    /** The state of the background library download. */
     val download: LibraryDownloadState = LibraryDownloadState.Idle,
+    /** The library download waits for an unmetered network. */
     val wifiOnly: Boolean = true,
+    /** How much storage the cached data may use. */
     val budget: CacheBudget = CacheBudget.Default,
     /** Bytes of the offline copy on this phone (database and posters). */
     val storageBytes: Long = 0,
@@ -63,6 +69,10 @@ data class OfflineSettingsUiState(
 /** The pieces of the screen that change together, combined in two steps (combine takes five flows). */
 private data class Device(val isOnline: Boolean, val isSyncing: Boolean, val download: LibraryDownloadState, val wifiOnly: Boolean, val budget: CacheBudget)
 
+/**
+ * The offline mode settings of the logged-in user: the switch, the status, "Sync now", the library download, the
+ * cache budget and the confirmations. The state is rebuilt from the session, the gateway and the device settings.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class OfflineSettingsViewModel(
     private val application: Application,
@@ -78,6 +88,8 @@ class OfflineSettingsViewModel(
     private val dialog = MutableStateFlow<OfflineDialog?>(null)
 
     private val _messages = Channel<String>(Channel.BUFFERED)
+
+    /** Results of the actions below, shown once on the snackbar. */
     val messages = _messages.receiveAsFlow()
 
     private val device = combine(
@@ -88,6 +100,7 @@ class OfflineSettingsViewModel(
         settings.cacheBudget,
     ) { online, syncing, download, wifiOnly, budget -> Device(online, syncing, download, wifiOnly, budget) }
 
+    /** The screen's state; empty while logged out. */
     val state: StateFlow<OfflineSettingsUiState> = sessionManager.state
         .map { (it as? AuthState.LoggedIn)?.user }
         .flatMapLatest { user ->
@@ -117,12 +130,14 @@ class OfflineSettingsViewModel(
         if (enabled) setEnabled(true) else dialog.value = OfflineDialog.Disable
     }
 
+    /** Switches the mode off after the confirmation: the library download stops and the copy is removed unless changes still wait. */
     fun confirmDisable() {
         dialog.value = null
         LibraryDownloadWorker.cancel(application)
         setEnabled(false)
     }
 
+    /** Opens one of the confirmations / choices. */
     fun openDialog(which: OfflineDialog) = dialog.update { which }
 
     fun dismissDialog() = dialog.update { null }
@@ -132,6 +147,7 @@ class OfflineSettingsViewModel(
         viewModelScope.launch { settings.setOfflineEnabled(userId, enabled) }
     }
 
+    /** "Sync now": runs the sync and reports the outcome. */
     fun syncNow() {
         viewModelScope.launch {
             when (val outcome = syncEngine.syncNow()) {
@@ -142,10 +158,12 @@ class OfflineSettingsViewModel(
         }
     }
 
+    /** Starts the background download of the details and posters of the user's own content. */
     fun startDownload() = LibraryDownloadWorker.start(application, state.value.wifiOnly)
 
     fun cancelDownload() = LibraryDownloadWorker.cancel(application)
 
+    /** Changes the download's network rule; a waiting download takes it at once. */
     fun setWifiOnly(wifiOnly: Boolean) {
         viewModelScope.launch {
             settings.setOfflineDownloadWifiOnly(wifiOnly)
@@ -154,11 +172,13 @@ class OfflineSettingsViewModel(
         }
     }
 
+    /** Changes the storage budget; the image cache takes it from the next app start. */
     fun setBudget(budget: CacheBudget) {
         dialog.value = null
         viewModelScope.launch { settings.setCacheBudget(budget) }
     }
 
+    /** Clears the snapshots, the opened media and the image caches; the user's own content and waiting changes stay. */
     fun clearCache() {
         dialog.value = null
         viewModelScope.launch {
@@ -169,6 +189,7 @@ class OfflineSettingsViewModel(
         }
     }
 
+    /** Deletes the unsent changes another account left on this phone. */
     fun discardOtherAccounts() {
         dialog.value = null
         viewModelScope.launch {

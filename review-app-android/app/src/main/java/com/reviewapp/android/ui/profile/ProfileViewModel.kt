@@ -43,10 +43,12 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** The tabs of a profile; the name is what a route or notification passes to open on one. */
 enum class ProfileTab(val label: String) {
     Reviews("Reviews"), Collections("Collections"), Achievements("Achievements");
 
     companion object {
+        /** The tab with this enum name, or `null` for an unknown or missing name. */
         fun fromName(name: String?): ProfileTab? = entries.firstOrNull { it.name == name }
     }
 }
@@ -57,11 +59,14 @@ data class AchievementsState(
     val filter: AchievementFilter = AchievementFilter(),
     val isLoading: Boolean = false,
     val error: String? = null,
+    /** The first load finished, so the tab is not loaded again on every visit. */
     val loaded: Boolean = false,
 ) {
+    /** The achievements after the filter and sort. */
     val shown: List<Achievement> get() = filter.apply(items)
 }
 
+/** The Collections tab's list and its sort. */
 data class CollectionsState(
     val items: List<MediaCollection> = emptyList(),
     val sortBy: String = DiscoverOptions.DEFAULT_COLLECTION_SORT,
@@ -71,8 +76,10 @@ data class CollectionsState(
 
 /** One of the owner's dialogs/edits that is open on the profile. */
 data class ProfileEdits(
+    /** The bio being edited inline; `null` when not editing. */
     val bioDraft: String? = null,
     val isSavingBio: Boolean = false,
+    /** The picture URL in the dialog; `null` when the dialog is closed. */
     val avatarDraft: String? = null,
     val isSavingAvatar: Boolean = false,
     val avatarError: String? = null,
@@ -83,6 +90,7 @@ data class ProfileEdits(
     val createCollectionError: String? = null,
 )
 
+/** Everything the profile screen shows: the profile, the tab and its filters, and the owner's edits. */
 data class ProfileUiState(
     /** The Profile tab of a logged-out user: shows the login prompt instead of a profile. */
     val showLoginPrompt: Boolean = false,
@@ -96,14 +104,20 @@ data class ProfileUiState(
     val reviewFilter: ReviewFilter = ReviewFilter(),
     val collections: CollectionsState = CollectionsState(),
     val achievements: AchievementsState = AchievementsState(),
+    /** A follow / unfollow request is running; further taps are ignored. */
     val isFollowBusy: Boolean = false,
     val edits: ProfileEdits = ProfileEdits(),
 ) {
+    /** The logged-in user is looking at their own profile (owner-only actions show). */
     val isOwner: Boolean get() = profile != null && profile.id == currentUserId
 }
 
+/** One-off results of the profile screen. */
 sealed interface ProfileEvent {
+    /** A message for the snackbar. */
     data class Message(val text: String) : ProfileEvent
+
+    /** A logged-out user tried something that needs a login; the screen opens the login. */
     data object LoginRequired : ProfileEvent
 }
 
@@ -127,12 +141,14 @@ class ProfileViewModel(
     private val _state = MutableStateFlow(ProfileUiState(tab = initialTab ?: ProfileTab.Reviews))
     val state: StateFlow<ProfileUiState> = _state.asStateFlow()
 
+    /** The theme setting, shown in the top bar's menu. */
     val themeMode: StateFlow<ThemeMode> = settingsStore.themeMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ThemeMode.System)
 
     private val _events = Channel<ProfileEvent>(Channel.BUFFERED)
     val events = _events.receiveAsFlow()
 
+    /** The profile being shown; for the Profile tab it is the logged-in user's current name. */
     private var username: String? = fixedUsername
 
     private val reviewsLoader = PagedLoader<ProfileReview>(viewModelScope, itemKey = { it.id }) { page ->
@@ -231,6 +247,7 @@ class ProfileViewModel(
         }
     }
 
+    /** Reloads the profile, the reviews and the collections; the achievements reload when their tab is open. */
     fun reloadAll() {
         loadProfile(quiet = false)
         reviewsLoader.reload()
@@ -274,12 +291,14 @@ class ProfileViewModel(
         }
     }
 
+    /** Opens a tab; the achievements load the first time. */
     fun selectTab(tab: ProfileTab) {
         _state.update { it.copy(tab = tab) }
         val achievements = _state.value.achievements
         if (tab == ProfileTab.Achievements && !achievements.loaded && !achievements.isLoading) loadAchievements()
     }
 
+    /** Applies a new filter to the reviews tab and restarts its list. */
     fun updateReviewFilter(filter: ReviewFilter) {
         if (filter == _state.value.reviewFilter) return
         _state.update { it.copy(reviewFilter = filter) }
@@ -289,6 +308,7 @@ class ProfileViewModel(
     fun loadMoreReviews() = reviewsLoader.loadMore()
     fun retryReviews() = reviewsLoader.retry()
 
+    /** Changes the collections' sort and reloads them. */
     fun updateCollectionSort(sortBy: String) {
         if (sortBy == _state.value.collections.sortBy) return
         _state.update { it.copy(collections = it.collections.copy(sortBy = sortBy)) }
@@ -296,8 +316,6 @@ class ProfileViewModel(
     }
 
     fun retryCollections() = loadCollections()
-
-    // Achievements
 
     private fun loadAchievements() {
         val user = username ?: return
@@ -313,14 +331,16 @@ class ProfileViewModel(
 
     fun retryAchievements() = loadAchievements()
 
+    /** The achievements filter is applied locally, no request is made. */
     fun updateAchievementFilter(filter: AchievementFilter) = updateAchievements { it.copy(filter = filter) }
 
     private fun updateAchievements(transform: (AchievementsState) -> AchievementsState) =
         _state.update { it.copy(achievements = transform(it.achievements)) }
 
-    // Follow
-
-    /** Optimistic like the web: the button and the count change at once and are put back on failure. */
+    /**
+     * Follows or unfollows the shown user. Optimistic like the web: the button and the count change at once and are
+     * put back on failure. A logged-out user gets [ProfileEvent.LoginRequired] instead.
+     */
     fun toggleFollow() {
         val current = _state.value
         val profile = current.profile ?: return
@@ -360,12 +380,12 @@ class ProfileViewModel(
         )
     }
 
-    // Bio
-
+    /** The bio edit: [startEditBio] opens it with the current text, [saveBio] sends the trimmed draft. */
     fun startEditBio() = updateEdits { it.copy(bioDraft = _state.value.profile?.bio.orEmpty()) }
     fun updateBioDraft(text: String) = updateEdits { it.copy(bioDraft = text) }
     fun cancelEditBio() = updateEdits { it.copy(bioDraft = null) }
 
+    /** Saves the bio draft unless it is over the length limit. */
     fun saveBio() {
         val draft = _state.value.edits.bioDraft ?: return
         if (draft.length > Validation.MAX_BIO_LENGTH) return
@@ -387,12 +407,12 @@ class ProfileViewModel(
         }
     }
 
-    // Avatar
-
+    /** The picture dialog: [openAvatarDialog] prefills the current URL, [saveAvatar] validates and sends it. */
     fun openAvatarDialog() = updateEdits { it.copy(avatarDraft = _state.value.profile?.profilePictureUrl.orEmpty(), avatarError = null) }
     fun updateAvatarDraft(url: String) = updateEdits { it.copy(avatarDraft = url, avatarError = null) }
     fun closeAvatarDialog() = updateEdits { it.copy(avatarDraft = null, avatarError = null) }
 
+    /** Saves the picture URL; a link that is not a direct http(s) image URL is refused before any request. */
     fun saveAvatar() {
         val url = _state.value.edits.avatarDraft?.trim() ?: return
         if (!Validation.isValidImageUrl(url)) {
@@ -413,10 +433,10 @@ class ProfileViewModel(
         }
     }
 
-    // Reviews
-
+    /** Asks for confirmation to delete [review]; `null` cancels. */
     fun askDeleteReview(review: ProfileReview?) = updateEdits { it.copy(reviewToDelete = review) }
 
+    /** Deletes the confirmed review and removes it from the list locally. */
     fun deleteReview() {
         val review = _state.value.edits.reviewToDelete ?: return
         updateEdits { it.copy(isDeletingReview = true) }
@@ -433,15 +453,13 @@ class ProfileViewModel(
         }
     }
 
-    // Collections
-
     fun showCreateCollection(show: Boolean) =
         updateEdits { it.copy(showCreateCollection = show, createCollectionError = null) }
 
+    /** Creates a collection from the dialog; the list reloads through [CollectionRepository.changes]. */
     fun createCollection(name: String, visibility: Visibility) {
         updateEdits { it.copy(isCreatingCollection = true, createCollectionError = null) }
         viewModelScope.launch {
-            // The list reloads through CollectionRepository.changes
             when (val result = collectionRepository.create(name, visibility)) {
                 is ApiResult.Success -> updateEdits { it.copy(isCreatingCollection = false, showCreateCollection = false) }
                 is ApiResult.Error -> updateEdits {
@@ -451,8 +469,7 @@ class ProfileViewModel(
         }
     }
 
-    // Top bar
-
+    /** Stores the theme setting. */
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { settingsStore.setThemeMode(mode) }
     }

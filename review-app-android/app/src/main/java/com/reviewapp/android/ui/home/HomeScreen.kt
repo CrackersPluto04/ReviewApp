@@ -47,6 +47,10 @@ import com.reviewapp.android.ui.notifications.NotificationBell
 import com.reviewapp.android.ui.settings.EmailVerificationBanner
 import com.reviewapp.android.ui.settings.VerificationBannerViewModel
 
+/**
+ * The Home tab: search box, two poster carousels and the recent reviews, with the email verification banner on
+ * top while it applies. The top bar has the camera recognition, user search and notification entries.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -142,6 +146,7 @@ fun HomeScreen(
     }
 }
 
+/** A titled row of poster tiles that shows its own loading and error state. */
 private fun LazyListScope.carousel(title: String, section: Section<Media>, onOpenMedia: (Media) -> Unit) {
     item { SectionTitle(title, Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) }
     item {

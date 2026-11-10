@@ -65,17 +65,23 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** Both lists of one user, which one is shown and the actions in progress. */
 data class FollowListUiState(
+    /** The Following tab is selected instead of Followers. */
     val showFollowing: Boolean = false,
     val followers: List<UserSummary> = emptyList(),
     val following: List<UserSummary> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null,
     val currentUserId: Int? = null,
+    /** The lists belong to the logged-in user, who may remove their followers. */
     val isOwner: Boolean = false,
+    /** Users with a follow, unfollow or remove request running; their buttons are disabled. */
     val busyUserIds: Set<Int> = emptySet(),
+    /** The follower whose removal awaits confirmation. */
     val followerToRemove: UserSummary? = null,
 ) {
+    /** The list of the selected tab. */
     val users: List<UserSummary> get() = if (showFollowing) following else followers
 }
 
@@ -92,9 +98,13 @@ class FollowListViewModel(
     val state: StateFlow<FollowListUiState> = _state.asStateFlow()
 
     private val _messages = Channel<String>(Channel.BUFFERED)
+
+    /** Failures of follow actions, shown once on the snackbar. */
     val messages = _messages.receiveAsFlow()
 
     private val _loginRequired = Channel<Unit>(Channel.CONFLATED)
+
+    /** A logged-out user tapped Follow; the screen opens the login. */
     val loginRequired = _loginRequired.receiveAsFlow()
 
     init {
@@ -110,6 +120,7 @@ class FollowListViewModel(
         }
     }
 
+    /** Loads both lists together, so the tab titles show both counts at once. */
     fun load() {
         _state.update { it.copy(isLoading = true, error = null) }
         viewModelScope.launch {
@@ -127,6 +138,7 @@ class FollowListViewModel(
         }
     }
 
+    /** Switches between the Followers and Following tabs. */
     fun selectTab(showFollowing: Boolean) = _state.update { it.copy(showFollowing = showFollowing) }
 
     /** Optimistic, put back on failure; the user stays in the list either way (like the web). */
@@ -155,8 +167,10 @@ class FollowListViewModel(
         )
     }
 
+    /** Asks for confirmation to remove [user] as a follower; `null` cancels. */
     fun askRemoveFollower(user: UserSummary?) = _state.update { it.copy(followerToRemove = user) }
 
+    /** Removes the confirmed follower from the list once the request succeeded. */
     fun removeFollower() {
         val user = _state.value.followerToRemove ?: return
         _state.update { it.copy(followerToRemove = null, busyUserIds = it.busyUserIds + user.id) }
@@ -182,6 +196,7 @@ class FollowListViewModel(
     }
 }
 
+/** Followers / Following of a user with follow buttons and, on one's own followers, Remove. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FollowListScreen(
@@ -252,6 +267,7 @@ fun FollowListScreen(
     }
 }
 
+/** A user with their follow state; the logged-in user's own row has no buttons. */
 @Composable
 private fun UserRow(
     user: UserSummary,

@@ -2,17 +2,24 @@ package com.reviewapp.android.ui.navigation
 
 import kotlinx.serialization.Serializable
 
-// Type-safe Navigation Compose destinations. Media types are passed as the API's int ids.
+/*
+ * Type-safe Navigation Compose destinations; each screen's ViewModel reads its arguments back from the
+ * `SavedStateHandle`. Media types travel as the API's int ids.
+ */
 
+/** The Home tab. */
 @Serializable
 data object HomeRoute
 
+/** The Movies tab (discover). */
 @Serializable
 data object DiscoverMoviesRoute
 
+/** The Series tab (discover). */
 @Serializable
 data object DiscoverSeriesRoute
 
+/** The Music tab (discover). */
 @Serializable
 data object DiscoverMusicRoute
 
@@ -27,6 +34,7 @@ data object MyProfileRoute
 @Serializable
 data class ProfileRoute(val username: String, val tab: String? = null)
 
+/** The logged-in user's notifications. */
 @Serializable
 data object NotificationsRoute
 
@@ -61,12 +69,15 @@ data object RecognitionRoute
 @Serializable
 data class SubscriptionReturnRoute(val result: String)
 
+/** [username]'s followers, or the users they follow when [showFollowing] is set. */
 @Serializable
 data class FollowListRoute(val username: String, val showFollowing: Boolean)
 
+/** One collection with its items. */
 @Serializable
 data class CollectionRoute(val collectionId: Int)
 
+/** Search for users by name. */
 @Serializable
 data object UserSearchRoute
 
@@ -74,14 +85,18 @@ data object UserSearchRoute
 @Serializable
 data class ReviewRoute(val reviewId: Int, val replyId: Int? = null)
 
+/** Login and registration, pushed on top of the screen that needed a logged-in user. */
 @Serializable
 data object LoginRoute
 
+/** Media search results for [query]. */
 @Serializable
 data class SearchRoute(val query: String)
 
+/** A movie, series or album, identified by its media type id and the source's id. */
 @Serializable
 data class MediaDetailsRoute(val mediaType: Int, val externalApiId: String)
 
+/** The review form (create or edit) for the given media. */
 @Serializable
 data class WriteReviewRoute(val mediaType: Int, val externalApiId: String)

@@ -109,12 +109,17 @@ enum class TopLevelTab(
 private fun NavDestination.topLevelTab(): TopLevelTab? =
     TopLevelTab.entries.firstOrNull { hasRoute(it.routeClass) }
 
+/**
+ * The app's root composable: the bottom bar, the connectivity strip and the hosts that must work over every
+ * screen (unlock banners, sync summary, the Premium dialog, collection errors), around [AppNavHost].
+ */
 @Composable
 fun ReviewAppRoot() {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
-    // The tab stays highlighted on the screens opened from it (details, search, ...)
+    // The tab stays highlighted on the screens opened from it (details, search, ...); the listener below updates it
+    // only on a tab's own screens
     var selectedTab by rememberSaveable { mutableStateOf(TopLevelTab.Home) }
 
     DisposableEffect(navController) {
@@ -224,8 +229,11 @@ private fun NewIntentDeepLinks(navController: NavHostController) {
     }
 }
 
+/**
+ * Switches to [tab], saving the back stack of the one left and restoring the target's. [reselect] (the tab was
+ * already selected) pops back to the tab's first screen instead.
+ */
 private fun NavHostController.navigateToTab(tab: TopLevelTab, reselect: Boolean) {
-    // Tapping the current tab again goes back to its first screen
     if (reselect && popBackStack(tab.route, inclusive = false)) return
     navigate(tab.route) {
         popUpTo(graph.findStartDestination().id) { saveState = true }
@@ -234,6 +242,7 @@ private fun NavHostController.navigateToTab(tab: TopLevelTab, reselect: Boolean)
     }
 }
 
+/** The navigation graph: every route and the callbacks that connect the screens to one another. */
 @Composable
 private fun AppNavHost(navController: NavHostController, unseenNotifications: Int?, modifier: Modifier) {
     val openMedia: (Media) -> Unit = { media ->
