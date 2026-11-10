@@ -3,12 +3,16 @@ import { Box, TextField, Button, FormControl, MenuItem, Select } from '@mui/mate
 import { useNavigate } from 'react-router-dom';
 
 type SearchBarProps = {
+    /** The media type selected at the start; follows later changes of the prop (e.g. the search page's tabs). */
     defaultType?: 'all' | 'movie' | 'series' | 'music';
     placeholder?: string;
+    /** The text the field starts with; read once. */
     defaultQuery?: string;
+    /** Shows the type dropdown. The search page leaves it out and picks the type with its tabs. */
     showTypeSelect?: boolean;
 }
 
+/** The media search form. Submitting goes to `/search` (page 1) with the query and type; blank input does nothing. */
 export function SearchBar({ defaultType = 'all', placeholder = "Search...", defaultQuery = "", showTypeSelect = false }: SearchBarProps) {
     const navigate = useNavigate();
     const [query, setQuery] = useState(defaultQuery);
@@ -26,7 +30,6 @@ export function SearchBar({ defaultType = 'all', placeholder = "Search...", defa
     };
 
     return <Box component="form" onSubmit={handleSearch} sx={{ display: 'flex', gap: 2, w: '100%' }}>
-        {/* Conditional Dropdown Menu to search exact media type*/}
         {showTypeSelect && (
             <FormControl sx={{ minWidth: 120 }}>
                 <Select

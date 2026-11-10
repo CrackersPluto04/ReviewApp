@@ -9,13 +9,21 @@ import { useState } from "preact/hooks";
 import { ReplyFocus, ReplyThread } from "./ReplyThread";
 
 type ReviewCardProps = {
+    /** The review as the API returns it in lists (author or media fields included, depending on the list). */
     rev: any;
+    /** `media`: shown on a title's page, so the author is the left column; `profile`: shown on a profile or the review page, so the title and poster lead. */
     mode?: 'media' | 'profile';
+    /** Deletes the review; only offered to the owner in `profile` mode. The parent confirms and removes it. */
     onDelete?: (reviewId: number) => void;
-    // Opens the reply thread at this reply (review page opened from a notification)
+    /** Opens the reply thread at this reply (the review page opened from a notification). */
     replyFocus?: ReplyFocus;
 }
 
+/**
+ * A review with its score, text, pros and cons and its collapsible reply thread. The owner sees edit and delete
+ * buttons and the visibility on their own profile reviews. The reply count is kept locally and adjusted by the
+ * thread, so it stays right without a refetch. A private review cannot be replied to.
+ */
 export function ReviewCard({ rev, mode = 'media', onDelete, replyFocus }: ReviewCardProps) {
     const navigate = useNavigate();
     const [replyCount, setReplyCount] = useState<number>(rev.replyCount ?? 0);
@@ -40,9 +48,7 @@ export function ReviewCard({ rev, mode = 'media', onDelete, replyFocus }: Review
 
     return <Card variant="outlined" sx={{ mb: 3, display: 'flex', flexDirection: 'column', borderRadius: 2 }}>
         <Box sx={{ display: 'flex' }}>
-            {/* DYNAMIC LEFT COLUMN */}
             {mode === 'media' ? (
-                // User infos
                 <Box sx={{ width: 200, p: 2, borderRight: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <IconButton onClick={handleUserClick} >
                         <Stack direction="row" spacing={2} alignItems="center" justifyContent="center">
@@ -71,7 +77,6 @@ export function ReviewCard({ rev, mode = 'media', onDelete, replyFocus }: Review
                     </Typography>
                 </Box>
             ) : (
-                // Media Poster
                 <Box sx={{ width: 140, minWidth: 140, borderRight: '1px solid', borderColor: 'divider' }}>
                     <CardMedia
                         component="img"
@@ -83,9 +88,7 @@ export function ReviewCard({ rev, mode = 'media', onDelete, replyFocus }: Review
                 </Box>
             )}
 
-            {/* RIGHT COLUMN */}
             <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-                {/* Dynamic Header */}
                 {mode === 'profile' &&
                     <Box sx={{ p: 2, pb: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid', borderColor: 'divider' }}>
                         <Box>
@@ -111,7 +114,6 @@ export function ReviewCard({ rev, mode = 'media', onDelete, replyFocus }: Review
                             </Stack>
                         </Box>
 
-                        {/* Owner action buttons */}
                         {rev.isOwner && (
                             <Box>
                                 <Tooltip title="Edit Review">
@@ -129,11 +131,9 @@ export function ReviewCard({ rev, mode = 'media', onDelete, replyFocus }: Review
                     </Box>
                 }
 
-                {/* Dynamic Score + Review text, pros, cons */}
                 <CardContent sx={{ flexGrow: 1 }}>
                     <Grid container spacing={2} mt={1}>
 
-                        {/* LEFT: Score Column (Only in Profile Mode) */}
                         {mode === 'profile' && (
                             <Grid size={{ xs: 3, sm: 2 }}>
                                 <Box sx={{
@@ -150,7 +150,6 @@ export function ReviewCard({ rev, mode = 'media', onDelete, replyFocus }: Review
                             </Grid>
                         )}
 
-                        {/* RIGHT: Main Text & Pros/Cons */}
                         <Grid size={{ xs: mode === 'profile' ? 9 : 12, sm: mode === 'profile' ? 10 : 12 }}>
                             <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
                                 {rev.reviewText || <span style={{ fontStyle: 'italic', color: 'gray' }}>No written review.</span>}

@@ -6,13 +6,21 @@ import { MAX_REPLY_LENGTH, isValidReply } from "../utils/validation";
 
 type ReplyFormProps = {
     reviewId: number;
+    /** Omit to reply to the review itself; the layer-2 reply's ID to reply to it. */
     parentReplyId?: number;
-    replyingTo?: string | null; // Username shown in the placeholder
+    /** The username shown in the placeholder ("Reply to ..."). */
+    replyingTo?: string | null;
+    /** Receives the created reply, which the parent adds to its list. */
     onCreated: (reply: ReplyDto) => void;
+    /** Shows a Cancel button when given. */
     onCancel?: () => void;
     autoFocus?: boolean;
 };
 
+/**
+ * The form to post a reply. The text is validated with `isValidReply` (trimmed, at most `MAX_REPLY_LENGTH`), a
+ * double submit is blocked, and after a failure the draft is kept so the user can retry.
+ */
 export function ReplyForm({ reviewId, parentReplyId, replyingTo, onCreated, onCancel, autoFocus = false }: ReplyFormProps) {
     const [content, setContent] = useState('');
     const [submitting, setSubmitting] = useState(false);

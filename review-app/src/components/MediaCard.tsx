@@ -12,19 +12,25 @@ import { collectionService } from '../services/CollectionService';
 
 type MediaCardProps = {
     media: MediaDto;
+    /** Set when the card is shown inside a collection; together with `isOwner` and `onRemove` it swaps the add buttons for a remove button. */
     collectionId?: number;
+    /** Removes the title from the collection. */
     onRemove?: (mediaType: number, externalApiId: string) => void;
     isOwner?: boolean;
-    // A short label next to the year (e.g. how a recognition suggestion relates to the photo)
+    /** A short label next to the year, e.g. how a recognition suggestion relates to the photo. */
     badge?: string;
 }
 
+/**
+ * A title as a card: poster, title, release date, a short overview (the artists for music) and the community
+ * average score and review count, which each card loads for itself. Clicking it opens the media page and passes
+ * the title along, so that page needs no extra request. Logged-in users get "Add to collection" (a menu of their
+ * own collections, loaded on first open) and "Add to Favourites" (the default collection) buttons.
+ */
 export function MediaCard({ media, collectionId, onRemove, isOwner, badge }: MediaCardProps) {
-    // Get 'global' variables
     const navigate = useNavigate();
     const { user, isLoggedIn } = useAuth();
 
-    // Set local states
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [collections, setCollections] = useState<CollectionDto[]>([]);
     const [isMenuLoading, setIsMenuLoading] = useState(false);
@@ -40,7 +46,6 @@ export function MediaCard({ media, collectionId, onRemove, isOwner, badge }: Med
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
 
-    // Fetches the statistics for media
     useEffect(() => {
         const fetchAverageScore = async () => {
             setLoading(true);
@@ -57,7 +62,6 @@ export function MediaCard({ media, collectionId, onRemove, isOwner, badge }: Med
         fetchAverageScore();
     }, [media]);
 
-    /* Handlers */
 
     const handleCardClick = () => {
         navigate(`/media/${media.mediaType}/${media.externalApiID}`, { state: { media } })
@@ -67,7 +71,6 @@ export function MediaCard({ media, collectionId, onRemove, isOwner, badge }: Med
         setToast({ open: true, message, severity });
     };
 
-    // --- ADD TO COLLECTION LOGIC ---
     const handleOpenMenu = async (event: any) => {
         setAnchorEl(event.currentTarget);
 
@@ -95,7 +98,6 @@ export function MediaCard({ media, collectionId, onRemove, isOwner, badge }: Med
         }
     };
 
-    // --- ADD TO FAVOURITES LOGIC ---
     const handleAddToFavorites = async () => {
         if (!user?.username) return;
 
@@ -109,7 +111,6 @@ export function MediaCard({ media, collectionId, onRemove, isOwner, badge }: Med
             }
         }
 
-        // Find the default "Favourites" collection
         const favCollection = collectionsToSearch.find(c => c.isDefault);
 
         if (!favCollection) {
@@ -119,7 +120,6 @@ export function MediaCard({ media, collectionId, onRemove, isOwner, badge }: Med
 
         console.log(favCollection.id, media.mediaType, media.externalApiID);
 
-        // Add to it
         const result = await collectionService.addMediaToCollection(favCollection.id, media.mediaType, media.externalApiID);
         if (result.success)
             showToast(`Added to Favourites!`, 'success');
@@ -138,7 +138,6 @@ export function MediaCard({ media, collectionId, onRemove, isOwner, badge }: Med
                     boxShadow: 8,
                 }
             }}>
-            {/* LEFT: Poster */}
             <CardMedia
                 component="img"
                 onClick={handleCardClick}
@@ -147,7 +146,6 @@ export function MediaCard({ media, collectionId, onRemove, isOwner, badge }: Med
                 alt={media.title}
             />
 
-            {/* MIDDLE: Details */}
             <CardContent sx={{ m: 1, flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', overflow: 'hidden' }}>
                 <Box sx={{ my: 0.5 }}>
                     <Typography variant="h5" fontWeight="bold" noWrap onClick={handleCardClick} sx={{ cursor: 'pointer' }}>
@@ -166,10 +164,8 @@ export function MediaCard({ media, collectionId, onRemove, isOwner, badge }: Med
                 </Typography>
             </CardContent>
 
-            {/* Divider */}
             <Divider orientation="vertical" flexItem sx={{ borderStyle: 'dashed', borderWidth: 1 }} />
 
-            {/* RIGHT: Stats & Actions */}
             <Box sx={{ width: 160, minWidth: 160, flexShrink: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-around', alignItems: 'center', p: 2, bgcolor: 'background.default' }}>
                 {loading ? (
                     <Box display="flex" justifyContent="center" p={4}><CircularProgress /></Box>
@@ -218,7 +214,6 @@ export function MediaCard({ media, collectionId, onRemove, isOwner, badge }: Med
             </Box>
         </Card >
 
-        {/* ADD TO COLLECTION DROPDOWN MENU */}
         <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleCloseMenu}>
             {isMenuLoading ? (
                 <MenuItem disabled>
@@ -235,7 +230,6 @@ export function MediaCard({ media, collectionId, onRemove, isOwner, badge }: Med
             )}
         </Menu>
 
-        {/* TOAST NOTIFICATION */}
         <Snackbar
             open={toast.open}
             autoHideDuration={4000}
