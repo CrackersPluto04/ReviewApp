@@ -10,7 +10,14 @@ import { CancelSubscriptionDialog } from "./CancelSubscriptionDialog";
 
 type ActionResult = { success: boolean, message?: string, data?: any };
 
-// The current user's subscription with its actions (account settings dialog and the plans page)
+/**
+ * The logged-in user's subscription with its actions: state chips, the renewal or end date, and cancel (after a
+ * confirmation), resume and "Manage payment details", which opens the provider's customer portal. Shown in the
+ * account settings dialog and on the plans page. Free users get the upsell instead.
+ *
+ * After cancel or resume it reloads the status and the user, so the tier and entitlements follow. The dates
+ * are locale formatted and may end with a dot, so no sentence ends with one.
+ */
 export function SubscriptionPanel() {
     const { refreshUser } = useAuth();
 
@@ -34,7 +41,6 @@ export function SubscriptionPanel() {
         void loadStatus();
     }, []);
 
-    // Cancel / resume: reload the status and the user (tier, entitlements) afterwards
     const run = async (action: () => Promise<ActionResult>) => {
         setBusy(true);
         setFeedback(undefined);
@@ -48,7 +54,7 @@ export function SubscriptionPanel() {
         return result;
     };
 
-    // The payment settings live on the provider's page
+    // Payment details live on the provider's hosted portal, so the browser leaves the app
     const handleManagePayment = async () => {
         setBusy(true);
         setFeedback(undefined);

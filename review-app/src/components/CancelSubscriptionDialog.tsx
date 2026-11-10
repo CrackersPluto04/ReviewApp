@@ -3,11 +3,17 @@ import { useEffect, useState } from "preact/hooks";
 
 type CancelSubscriptionDialogProps = {
     open: boolean;
-    accessEndsOn: string; // formatted date
+    /** The already formatted date Premium runs until; empty when unknown (the text then says "the end of the period you paid for"). */
+    accessEndsOn: string;
     onClose: () => void;
+    /** Cancels the subscription. The caller closes the dialog on success; a failure's message is shown here. */
     onConfirm: () => Promise<{ success: boolean, message?: string }>;
 };
 
+/**
+ * Confirmation before cancelling Premium. Cancelling only stops the renewal: access continues to the end of the
+ * paid period and can be resumed until then, which the text says so users don't fear losing anything early.
+ */
 export function CancelSubscriptionDialog({ open, accessEndsOn, onClose, onConfirm }: CancelSubscriptionDialogProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');

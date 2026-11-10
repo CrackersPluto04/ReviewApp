@@ -2,10 +2,13 @@ import { Box, Typography, Button } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 type PleaseLoginProps = {
+    /** What the login is needed for. */
     message?: string;
-    compact?: boolean; // Small inline variant (e.g. under a review instead of a reply form)
+    /** A small inline variant, e.g. under a review in place of the reply form. */
+    compact?: boolean;
 };
 
+/** A prompt to log in or register. The login page sends the user back to the current location afterwards. */
 export function PleaseLogin({ message = "You must be logged in to view this.", compact = false }: PleaseLoginProps) {
     const navigate = useNavigate();
     const location = useLocation();

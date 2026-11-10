@@ -7,7 +7,11 @@ type SubscriptionDialogProps = {
     onClose: () => void;
 };
 
-// Account settings > Subscription. The panel loads its status every time the dialog opens.
+/**
+ * Account settings > Subscription: the `SubscriptionPanel` in a dialog (full screen on small screens), with a
+ * shortcut to the plans page. The panel is only mounted while the dialog is open, so it loads a fresh status
+ * every time.
+ */
 export function SubscriptionDialog({ open, onClose }: SubscriptionDialogProps) {
     const navigate = useNavigate();
     const theme = useTheme();

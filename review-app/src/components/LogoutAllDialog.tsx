@@ -4,9 +4,11 @@ import { useEffect, useState } from "preact/hooks";
 type LogoutAllDialogProps = {
     open: boolean;
     onClose: () => void;
+    /** Revokes every session. On success the caller leaves the page; a failure's message is shown here. */
     onConfirm: () => Promise<{ success: boolean, message?: string }>;
 };
 
+/** Confirmation before ending the session on every device at once, this one included. */
 export function LogoutAllDialog({ open, onClose, onConfirm }: LogoutAllDialogProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');

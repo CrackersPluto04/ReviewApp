@@ -5,9 +5,15 @@ import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "../utils/validation";
 type ChangePasswordDialogProps = {
     open: boolean;
     onClose: () => void;
+    /** Performs the change. The caller closes the dialog on success; a failure's message is shown here. */
     onSave: (currentPassword: string, newPassword: string) => Promise<{ success: boolean, message?: string }>;
 };
 
+/**
+ * Asks for the current password and the new one (twice). The length limits come from `utils/validation`. The
+ * other devices are logged out by the API, this one stays logged in. All fields are cleared whenever the dialog
+ * opens or closes, and the current password after a failed attempt.
+ */
 export function ChangePasswordDialog({ open, onClose, onSave }: ChangePasswordDialogProps) {
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -15,7 +21,6 @@ export function ChangePasswordDialog({ open, onClose, onSave }: ChangePasswordDi
     const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
 
-    // Clear everything (all passwords) whenever the dialog is opened or closed
     useEffect(() => {
         setCurrentPassword('');
         setNewPassword('');

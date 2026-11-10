@@ -11,12 +11,22 @@ import { SecurityDialog } from "./SecurityDialog";
 import { SubscriptionDialog } from "./SubscriptionDialog";
 
 type AccountSettingsMenuProps = {
+    /** The owner's current username, shown in the rename dialog. */
     username: string;
+    /**
+     * Performs the rename. Owned by the profile page because a rename also moves the page to the new URL and
+     * updates the logged-in user. The dialog closes when it resolves with `success`.
+     */
     onChangeUsername: (newUsername: string) => Promise<{ success: boolean, message?: string }>;
 };
 
 type AccountDialog = 'username' | 'email' | 'password' | 'security' | 'subscription' | 'logoutAll' | null;
 
+/**
+ * The owner-only account settings button on the profile header. Its menu opens one dialog at a time (username,
+ * email, password, security, subscription, log out of all devices). The dialogs that need a password report
+ * failures back through their `onSave` result and are closed here on success, so each dialog stays a plain form.
+ */
 export function AccountSettingsMenu({ username, onChangeUsername }: AccountSettingsMenuProps) {
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [openDialog, setOpenDialog] = useState<AccountDialog>(null);
@@ -58,7 +68,7 @@ export function AccountSettingsMenu({ username, onChangeUsername }: AccountSetti
 
     const handleLogoutAll = async () => {
         const result = await authService.logoutAll();
-        // Hard reset, same as a normal logout
+        // A full page load, not a state change: nothing of the revoked session may stay in memory
         if (result.success)
             globalThis.location.href = '/';
 
