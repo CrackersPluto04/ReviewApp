@@ -7,6 +7,13 @@ type WriteEditReviewProps = {
     media: MediaDto;
 };
 
+/**
+ * The review form of a title. It asks the API whether the user already reviewed the title: the form then starts
+ * in edit mode with that review, otherwise in create mode. A title has at most one review per user, and the API
+ * answers a create or edit with a confirmation message that is shown as a toast. Length limits are checked here
+ * (500 characters for the text, 250 each for pros and cons) so Save is disabled early; the API validates again.
+ * New reviews default to public with a score of 5.
+ */
 export function WriteEditReview({ media }: WriteEditReviewProps) {
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -14,18 +21,15 @@ export function WriteEditReview({ media }: WriteEditReviewProps) {
     const [toastMessage, setToastMessage] = useState('');
     const [error, setError] = useState(false);
 
-    // Form states
     const [score, setScore] = useState<number>(5);
     const [reviewText, setReviewText] = useState('');
     const [pros, setPros] = useState('');
     const [cons, setCons] = useState('');
     const [visibility, setVisibility] = useState(1);
 
-    // Text length max limits
     const MAX_REVIEW = 500;
     const MAX_PROS_CONS = 250;
 
-    // Length validation
     const isReviewOver = reviewText.length > MAX_REVIEW;
     const isProsOver = pros.length > MAX_PROS_CONS;
     const isConsOver = cons.length > MAX_PROS_CONS;
@@ -89,7 +93,6 @@ export function WriteEditReview({ media }: WriteEditReviewProps) {
 
     return <Box sx={{ pb: 8 }}>
         <Grid container spacing={6}>
-            {/* --- LEFT SIDE: The Review Form --- */}
             <Grid size={{ xs: 12, md: 8 }}>
                 <Typography variant="h4" fontWeight="bold" gutterBottom>
                     {isEditing ? 'Edit your Review' : 'Write your Review'}
@@ -97,7 +100,6 @@ export function WriteEditReview({ media }: WriteEditReviewProps) {
 
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4, mt: 4 }}>
 
-                    {/* Score Slider */}
                     <Box>
                         <Typography variant="h6" gutterBottom>
                             Your Score: <Box component="span" sx={{ fontWeight: 'bold', color: 'primary.main' }}>{score} / 10</Box>
@@ -111,7 +113,6 @@ export function WriteEditReview({ media }: WriteEditReviewProps) {
                         />
                     </Box>
 
-                    {/* Text Fields */}
                     <TextField
                         label="What did you think?"
                         multiline rows={6}
@@ -148,7 +149,6 @@ export function WriteEditReview({ media }: WriteEditReviewProps) {
                         </Grid>
                     </Grid>
 
-                    {/* Visibility & Submit */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
                         <FormControl sx={{ minWidth: 200 }}>
                             <InputLabel>Visibility</InputLabel>
@@ -172,7 +172,6 @@ export function WriteEditReview({ media }: WriteEditReviewProps) {
                 </Box>
             </Grid>
 
-            {/* --- RIGHT SIDE: The Media Details --- */}
             <Grid size={{ xs: 12, md: 4 }}>
                 <Box sx={{ position: 'sticky', top: 80 }}>
                     <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, p: 2, textAlign: 'center' }}>
@@ -194,7 +193,6 @@ export function WriteEditReview({ media }: WriteEditReviewProps) {
 
         </Grid>
 
-        {/* Popup after successfull save or occuring error! */}
         <Snackbar open={!!toastMessage} autoHideDuration={3000} onClose={() => setToastMessage('')}>
             <Alert severity={error ? "error" : "success"} sx={{ width: '100%' }}>
                 {toastMessage}

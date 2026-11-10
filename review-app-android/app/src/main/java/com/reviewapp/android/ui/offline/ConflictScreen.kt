@@ -125,6 +125,7 @@ fun ConflictScreen(
     }
 }
 
+/** The decisions the issue offers: the main one filled, the others outlined, and the discard last (with a confirmation). */
 @Composable
 private fun Actions(view: IssueView, state: ConflictUiState, viewModel: ConflictViewModel) {
     Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -177,6 +178,7 @@ private fun FieldChoiceCard(
     }
 }
 
+/** One radio choice with its label and, when given, the value it stands for. */
 @Composable
 private fun ChoiceRow(label: String, value: String?, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
     Row(
@@ -202,6 +204,7 @@ private fun ChoiceRow(label: String, value: String?, selected: Boolean, enabled:
     }
 }
 
+/** A version of a review (this phone's or the backend's) as score, visibility and text. */
 @Composable
 private fun VersionCard(title: String, version: ReviewVersion) {
     Card(Modifier.fillMaxWidth()) {

@@ -5,8 +5,10 @@ package com.reviewapp.android.data.sync
  * offline mode switched off are [Inactive]: the app works exactly as it did before offline mode.
  */
 sealed interface OfflineMode {
+    /** The user the mode is about; `null` when [Inactive] (logged out too). */
     val userId: Int?
 
+    /** The app works as it did before offline mode (Free, switched off, logged out). */
     data object Inactive : OfflineMode {
         override val userId: Int? = null
     }
@@ -32,6 +34,7 @@ sealed interface OfflineMode {
     /** A local copy exists for this mode (the database is open). */
     val usesLocalCopy: Boolean get() = this !is Inactive
 
+    /** Whether writes go to the offline copy and the outbox. */
     val canEditOffline: Boolean get() = this is Active
 }
 
@@ -60,8 +63,10 @@ data class OfflineModeDecision(
     val deleteLocalCopy: Boolean = false,
 )
 
+/** The pure decision of the offline mode, unit-tested. */
 object OfflineModeRules {
 
+    /** The mode for the logged-in user's situation, and whether the local copy should be deleted. */
     fun decide(input: OfflineModeInput): OfflineModeDecision {
         val userId = input.userId ?: return OfflineModeDecision(OfflineMode.Inactive)
 

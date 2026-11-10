@@ -17,15 +17,20 @@ data class NotificationListState(
     val totalCount: Int = 0,
     val isLoading: Boolean = false,
     val error: String? = null,
+    /** At least one page arrived. */
     val loaded: Boolean = false,
     /** The list is the offline copy from this time (epoch millis). */
     val updatedAt: Long? = null,
 ) {
+    /** "Load more" applies: more pages exist and nothing is loading or failed. */
     val canLoadMore: Boolean get() = loaded && hasMore && !isLoading && error == null
+    /** A load finished and found nothing. */
     val isEmpty: Boolean get() = loaded && items.isEmpty() && !isLoading && error == null
 
+    /** A page is being fetched; clears the last error. */
     fun loading() = copy(isLoading = true, error = null)
 
+    /** The page failed; the items stay and the error shows with a retry. */
     fun failed(message: String) = copy(isLoading = false, error = message)
 
     /** Appends a page, skipping ids that are already shown. */
@@ -42,8 +47,10 @@ data class NotificationListState(
         )
     }
 
+    /** Marks one notification seen or unseen locally. */
     fun withSeen(id: Int, seen: Boolean) = copy(items = items.map { if (it.id == id) it.copy(isSeen = seen) else it })
 
+    /** Marks every shown notification seen locally. */
     fun allSeen() = copy(items = items.map { if (it.isSeen) it else it.copy(isSeen = true) })
 
     /** Removes a notification; returns null when it isn't in the list. */
@@ -61,13 +68,18 @@ data class NotificationListState(
         return copy(items = list, totalCount = totalCount + 1)
     }
 
+    /** The list without a notification, plus what is needed to put it back with [restored]. */
     data class Removal(val state: NotificationListState, val item: AppNotification, val index: Int)
 }
 
 /** Where "Take me there" goes. */
 sealed interface NotificationTarget {
+    /** A review, opened at [replyId] when the notification is about a reply. */
     data class Review(val reviewId: Int, val replyId: Int?) : NotificationTarget
+
+    /** A user's profile. */
     data class Profile(val username: String) : NotificationTarget
+
     /** The current user's Achievements tab. */
     data class Achievements(val username: String) : NotificationTarget
     /** The Premium screen with the current user's subscription. */

@@ -31,8 +31,13 @@ enum class IssueKind {
 
 /** How the user decided one conflicting field. */
 sealed interface FieldChoice {
+    /** Keep what was changed on this device. */
     data object Mine : FieldChoice
+
+    /** Use the version from elsewhere. */
     data object Theirs : FieldChoice
+
+
     /** An edited text (only for text fields). */
     data class Edited(val text: String) : FieldChoice
 }
@@ -41,19 +46,24 @@ sealed interface FieldChoice {
 data class FieldDiff(
     /** The API's field name (`score`, `reviewText`, `pros`, `cons`, `visibility`, `name`). */
     val field: String,
+    /** The name shown to the user. */
     val label: String,
+    /** This device's value, as text. */
     val mine: String,
+    /** The other side's value, as text. */
     val theirs: String,
     /** Can be edited into a combination. */
     val isText: Boolean,
     /** Mine and theirs one after the other, the start of an edit. */
     val combined: String = "",
+    /** The field's length limit, for the edit box. */
     val maxLength: Int = 0,
 )
 
 /** The rules behind Sync issues (pure, unit-tested). */
 object IssueRules {
 
+    /** Classifies an op in Sync issues from the backend's answer (or the stored reason). Anything that is not a conflict is [IssueKind.Rejected]. */
     fun kindOf(op: OutboxEntity, answer: SyncOpResultDto?): IssueKind {
         if (op.state != OutboxState.CONFLICT) return IssueKind.Rejected
         return when (answer?.reason ?: op.lastReason) {
@@ -71,8 +81,7 @@ object IssueRules {
 
     private val RETRYABLE = setOf("server_error", "busy", "source_unavailable", "deferred", null)
 
-    // Field conflicts
-
+    /** The conflicting review fields, in display order, with both sides' values. */
     fun reviewDiffs(mine: ReviewFieldsDto, theirs: ReviewFieldsDto, conflictFields: List<String>): List<FieldDiff> =
         REVIEW_FIELDS.filter { it in conflictFields }.map { field ->
             when (field) {
@@ -87,6 +96,7 @@ object IssueRules {
             }
         }
 
+    /** The conflicting collection fields (name, visibility) with both sides' values. */
     fun collectionDiffs(mine: CollectionFieldsDto, theirs: CollectionFieldsDto, conflictFields: List<String>): List<FieldDiff> =
         COLLECTION_FIELDS.filter { it in conflictFields }.map { field ->
             when (field) {
@@ -111,6 +121,7 @@ object IssueRules {
         )
     }
 
+    /** The collection counterpart of [resolveReview]. */
     fun resolveCollection(base: CollectionFieldsDto?, mine: CollectionFieldsDto, theirs: CollectionFieldsDto, choices: Map<String, FieldChoice>): CollectionFieldsDto =
         CollectionFieldsDto(
             name = pick("name", base?.name, mine.name, theirs.name, choices, base != null)?.trim().orEmpty(),
@@ -141,8 +152,6 @@ object IssueRules {
 
     /** Null and "" are the same text, like on the backend. */
     fun sameText(a: String?, b: String?): Boolean = a.orEmpty() == b.orEmpty()
-
-    // Retargeting (a collection created here merged into an existing one)
 
     /** An op's payload pointing at [realId] instead of the create with [clientRef]. */
     fun retarget(payloadJson: String, clientRef: String, realId: Int): String {

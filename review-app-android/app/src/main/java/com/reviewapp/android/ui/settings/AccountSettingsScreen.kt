@@ -64,7 +64,10 @@ import com.reviewapp.android.ui.components.PremiumBadge
 import com.reviewapp.android.ui.components.PremiumUpsell
 import com.reviewapp.android.ui.theme.AppTheme
 
-/** The owner's account settings, opened from the profile's settings icon. */
+/**
+ * The owner's account settings, opened from the profile's settings icon: account, security, subscription, offline
+ * mode and sessions. Offline only the entries that work without the backend (Premium, offline mode, log out) remain.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountSettingsScreen(
@@ -114,6 +117,7 @@ fun AccountSettingsScreen(
     AccountDialogs(state, viewModel)
 }
 
+/** The settings rows; without a [status] (offline) the account and security sections give way to a notice. */
 @Composable
 private fun SettingsList(
     state: AccountSettingsUiState,
@@ -142,6 +146,7 @@ private fun SettingsList(
     }
 }
 
+/** The Account (username, email, password) and Security (verification, pending email, 2FA) sections. */
 private fun LazyListScope.accountSections(
     state: AccountSettingsUiState,
     status: SecurityStatus,
@@ -182,6 +187,7 @@ private fun LazyListScope.accountSections(
     item { TwoFactorItem(status, onOpen = viewModel::openTwoFactor) }
 }
 
+/** The Premium entry (or the upsell for Free users), offline mode and the Sessions section. */
 private fun LazyListScope.subscriptionAndRest(
     state: AccountSettingsUiState,
     viewModel: AccountSettingsViewModel,
@@ -237,6 +243,7 @@ private fun LazyListScope.subscriptionAndRest(
     }
 }
 
+/** A section's title. */
 @Composable
 private fun SectionHeader(text: String) {
     Text(
@@ -250,6 +257,7 @@ private fun SectionHeader(text: String) {
 @Composable
 private fun SectionDivider() = HorizontalDivider(Modifier.padding(top = 8.dp))
 
+/** One row: icon, title, optional subtitle and trailing content; clickable when [onClick] is given. */
 @Composable
 private fun SettingsItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -288,6 +296,7 @@ private fun StatusChip(text: String, positive: Boolean) {
     }
 }
 
+/** The email verification state, with a resend button (and its cooldown) while unverified. */
 @Composable
 private fun VerificationItem(state: AccountSettingsUiState, status: SecurityStatus, onResend: () -> Unit) {
     Column {
@@ -315,6 +324,7 @@ private fun VerificationItem(state: AccountSettingsUiState, status: SecurityStat
     }
 }
 
+/** Explains the email change that waits for its confirmation link and offers to cancel it. */
 @Composable
 private fun PendingEmailCard(pendingEmail: String, enabled: Boolean, onCancel: () -> Unit) {
     Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
@@ -336,6 +346,7 @@ private fun PendingEmailCard(pendingEmail: String, enabled: Boolean, onCancel: (
     }
 }
 
+/** The 2FA state with its enable / disable button; enabling needs a verified email. */
 @Composable
 private fun TwoFactorItem(status: SecurityStatus, onOpen: (enable: Boolean) -> Unit) {
     Column {

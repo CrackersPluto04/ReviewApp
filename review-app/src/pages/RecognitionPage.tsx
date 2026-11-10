@@ -17,6 +17,7 @@ const NOTICE_KEY = 'recognitionNoticeDismissed';
 
 type Source = 'camera' | 'file';
 
+/** Where the page is in the flow. The photo and its object URL travel with the steps that show them. */
 type Step =
     | { kind: 'start' }
     | { kind: 'camera' }
@@ -24,6 +25,7 @@ type Step =
     | { kind: 'progress', photo: Blob, url: string, source: Source }
     | { kind: 'result', response: RecognitionResponseDto };
 
+// localStorage can throw (private windows, blocked site data); the notice then just shows every time
 function readNoticeDismissed(): boolean {
     try {
         return localStorage.getItem(NOTICE_KEY) === 'true';
@@ -32,8 +34,16 @@ function readNoticeDismissed(): boolean {
     }
 }
 
-// Camera recognition (Premium): take or pick a photo of something movie, series or music related,
-// and get a list of related media, closest first, 10 at a time plus 5 per "Show more"
+/**
+ * Camera recognition, a Premium feature (`/recognize`): take or pick a photo of something movie, series or music
+ * related and get a list of related titles, closest first, 10 at first and 5 more per "Show more".
+ *
+ * The page loads the allowance first and picks its state from it: the upsell (Free), "temporarily unavailable"
+ * (switched off) or the flow `start -> camera -> preview -> progress -> result`. Photos are downscaled in the
+ * browser and are never stored. A running recognition can be cancelled, and leaving the page or switching
+ * user aborts it, so a result is never shown to the wrong account. A 402 turns the page into its Free state
+ * while keeping a list that is already shown; the upsell dialog opens by itself (see `PremiumUpsellContext`).
+ */
 export function RecognitionPage() {
     const { user, isLoggedIn, isLoading } = useAuth();
 
@@ -181,8 +191,6 @@ export function RecognitionPage() {
         }
     };
 
-    /* Rendering */
-
     if (isLoading)
         return <Box display="flex" justifyContent="center" py={6}><CircularProgress /></Box>;
 
@@ -309,7 +317,7 @@ export function RecognitionPage() {
                 </Stack>
                 : <Box>
                     {items.map((item, index) => <Box key={itemKey(item)}>
-                        {/* A divider where the relation gets looser */}
+                        {/* A heading where the tier changes */}
                         {(index === 0 || items[index - 1].tier !== item.tier) && (
                             <Typography variant="overline" color="text.secondary" component="h2">{tierLabel(item.tier)}</Typography>
                         )}
@@ -339,6 +347,7 @@ export function RecognitionPage() {
     </Stack>;
 }
 
+/** The photo tips, shown on the start step and next to an empty result. */
 function Tips() {
     return <Box>
         <Typography variant="subtitle2">Tips for a good result</Typography>

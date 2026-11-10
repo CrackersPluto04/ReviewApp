@@ -10,19 +10,26 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** What a list screen shows of a [PagedLoader]: the items loaded so far and the state of the next load. */
 data class PagedList<T>(
     val items: List<T> = emptyList(),
+    /** The last page that loaded (1-based); 0 while nothing has loaded yet. */
     val page: Int = 0,
+    /** The server's total over all pages, lowered locally when an item is removed. */
     val totalCount: Int = 0,
     val endReached: Boolean = false,
     val isLoading: Boolean = false,
+    /** The message of the failed load, shown with a retry; `null` when the last load worked. */
     val error: String? = null,
     /** The next page needs a connection: the list stops at what the device has, without an error. */
     val offlineEnd: Boolean = false,
     /** The items are the device's offline copy from this time (epoch millis), not a fresh answer. */
     val updatedAt: Long? = null,
 ) {
+    /** The first page is loading, so the screen shows a spinner instead of the list. */
     val isInitialLoading: Boolean get() = isLoading && items.isEmpty()
+
+    /** A load finished and found nothing (not "not loaded yet", not failed). */
     val isEmpty: Boolean get() = items.isEmpty() && !isLoading && error == null && page > 0
 }
 
@@ -37,6 +44,8 @@ class PagedLoader<T>(
     private val fetch: suspend (page: Int) -> ApiResult<Page<T>>,
 ) {
     private val _state = MutableStateFlow(PagedList<T>())
+
+    /** The list as it is now; collected by the screen. */
     val state: StateFlow<PagedList<T>> = _state.asStateFlow()
 
     private var job: Job? = null
@@ -59,6 +68,7 @@ class PagedLoader<T>(
         if (_state.value.page == 0 && !_state.value.isLoading) reload()
     }
 
+    /** Loads the next page; does nothing while a load runs, at the end, or after an error (that needs [retry]). */
     fun loadMore() {
         val current = _state.value
         if (current.isLoading || current.endReached || current.error != null) return
@@ -88,7 +98,8 @@ class PagedLoader<T>(
 
     private suspend fun load(page: Int) {
         when (val result = fetch(page)) {
-            // Offline after the first page: stop at what's there instead of failing
+            // Without an answer after the first page the list stops at what is there instead of failing; on the
+            // first page there is nothing to show, so that is an error
             is ApiResult.Error -> _state.update {
                 when {
                     result.isNetwork && page > 1 -> it.copy(isLoading = false, endReached = true, offlineEnd = true)

@@ -11,10 +11,13 @@ const POLL_INTERVAL_MS = 45_000;
 const MUTATION_REFRESH_DELAY_MS = 800;
 
 interface NotificationContextType {
+    /** The number of unseen notifications, 0 while logged out; shown on the header badge. */
     unseenCount: number;
-    // Local adjustment after an action in the dialog, the next refresh corrects any drift
+    /** Local adjustment after an action in the dialog, the next refresh corrects any drift. Never goes below 0. */
     adjustUnseenCount: (delta: number) => void;
+    /** Sets the count directly, e.g. after "mark all seen". Never goes below 0. */
     setUnseenCount: (count: number) => void;
+    /** Fetches the count now. Does nothing while logged out; a failed request keeps the old count. */
     refreshUnseenCount: () => Promise<void>;
 }
 
@@ -24,9 +27,16 @@ type NotificationProviderProps = {
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
+/**
+ * Holds the unseen notification count. It is loaded on login, polled every 45 seconds while the tab is visible,
+ * refreshed when the tab becomes visible again, and refreshed shortly after any successful change the user makes
+ * (via `setMutationHandler`), since their own actions can create notifications for them.
+ * Mount it inside `AuthProvider`.
+ */
 export function NotificationProvider({ children }: NotificationProviderProps) {
     const { isLoggedIn } = useAuth();
     const [unseenCount, setUnseenCountState] = useState(0);
+    // Read by the async refresh: the state captured when the request started may be outdated when it ends
     const isLoggedInRef = useRef(isLoggedIn);
     isLoggedInRef.current = isLoggedIn;
 
@@ -39,7 +49,6 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
             setUnseenCountState(result.data ?? 0);
     }, []);
 
-    // Load on login, poll while the tab is visible, refresh when it becomes visible again
     useEffect(() => {
         if (!isLoggedIn) {
             setUnseenCountState(0);
@@ -65,7 +74,6 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         };
     }, [isLoggedIn]);
 
-    // The user's own actions can create notifications for them, refresh shortly after them
     useEffect(() => {
         let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -90,6 +98,11 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     );
 }
 
+/**
+ * Reads the unseen count and its actions.
+ * @returns The context value (see `NotificationContextType`).
+ * @throws When used outside a `NotificationProvider`.
+ */
 export function useNotifications() {
     const context = useContext(NotificationContext);
 

@@ -54,7 +54,7 @@ import kotlinx.coroutines.flow.stateIn
  */
 val LocalIsOnline = compositionLocalOf { true }
 
-/** Activity scoped: the strip is part of the root, above the bottom bar. */
+/** Activity scoped: the strip is part of the root, above the bottom bar. It combines the connectivity, the offline status and the sync's activity into the strip's text. */
 class ConnectivityViewModel(
     connectivity: StateFlow<Connectivity>,
     status: StateFlow<OfflineStatus>,
@@ -64,6 +64,7 @@ class ConnectivityViewModel(
 
     private val sync = combine(running, pausedUntil) { isRunning, paused -> SyncActivity(isRunning, paused != null) }
 
+    /** The strip's content, or `null` when it is hidden. */
     val banner: StateFlow<ConnectivityBanner?> = combine(connectivity, status, sync, ::connectivityBanner)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), connectivityBanner(connectivity.value, status.value))
 

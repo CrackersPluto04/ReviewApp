@@ -198,10 +198,12 @@ fun ReviewScreen(
     ReviewDialogs(state, viewModel)
 }
 
+/** The indent of a thread row: the children of a layer-2 reply sit under it, the rest at the left. */
 private fun indentOf(parentId: Int?) = if (parentId == null) 0.dp else 40.dp
 
 private val CompactButtonPadding = PaddingValues(horizontal = 8.dp)
 
+/** "<user>'s review" with the author's avatar; opens their profile. */
 @Composable
 private fun AuthorRow(detail: ReviewDetail, onOpenProfile: (String) -> Unit) {
     Row(
@@ -221,6 +223,7 @@ private fun AuthorRow(detail: ReviewDetail, onOpenProfile: (String) -> Unit) {
     }
 }
 
+/** Shown when a notification or link pointed at a reply that is gone; the review itself still opens. */
 @Composable
 private fun FocusMissingNotice() {
     Surface(
@@ -239,6 +242,7 @@ private fun FocusMissingNotice() {
     }
 }
 
+/** "Replies (N)" and, instead of the reply bar, why one cannot reply: a private review or a logged-out user. */
 @Composable
 private fun RepliesHeader(state: ReviewUiState, onLogin: () -> Unit) {
     Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -263,6 +267,10 @@ private fun RepliesHeader(state: ReviewUiState, onLogin: () -> Unit) {
     }
 }
 
+/**
+ * One reply row. A deleted reply with children shows as a placeholder; only layer-2 replies can be answered or have
+ * children to expand ([canReply] already says that for this row).
+ */
 @Composable
 private fun ReplyItem(
     reply: Reply,
@@ -346,6 +354,7 @@ private fun ReplyItem(
     }
 }
 
+/** The reply box at the bottom with the "Replying to ..." chip, the character counter and the send button. */
 @Composable
 private fun ReplyBar(
     state: ReviewUiState,
@@ -403,6 +412,7 @@ private fun ReplyBar(
     }
 }
 
+/** The confirmations for deleting a reply or the review. */
 @Composable
 private fun ReviewDialogs(state: ReviewUiState, viewModel: ReviewViewModel) {
     state.replyToDelete?.let {

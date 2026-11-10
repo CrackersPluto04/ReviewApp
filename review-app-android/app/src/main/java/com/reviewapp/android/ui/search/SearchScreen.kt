@@ -36,6 +36,10 @@ import com.reviewapp.android.ui.components.OfflineNotice
 import com.reviewapp.android.ui.components.SearchField
 import com.reviewapp.android.ui.components.SectionTitle
 
+/**
+ * Search results: a search field in the top bar, the media type tabs, and either the grouped "Any" results or one
+ * type's infinite list. Without a connection the results come from the offline library and a notice says so.
+ */
 @Composable
 fun SearchScreen(
     onBack: () -> Unit,

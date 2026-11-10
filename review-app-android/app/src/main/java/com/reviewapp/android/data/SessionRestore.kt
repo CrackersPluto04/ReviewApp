@@ -25,8 +25,11 @@ sealed interface SessionCheck {
     data object Unreachable : SessionCheck
 }
 
+/** What the app does after the start check: open a user, or stay logged out. */
 sealed interface RestoreOutcome {
+    /** Open [user] with the given [health]. */
     data class LoggedIn(val user: AuthUser, val health: SessionHealth) : RestoreOutcome
+    /** Stay logged out; the flags say whether the stored cookie and the cached session are dropped as well. */
     data class LoggedOut(val clearCookie: Boolean, val clearCache: Boolean) : RestoreOutcome
 }
 

@@ -3,14 +3,24 @@ using System.Text;
 
 namespace ReviewApp.Api.Services;
 
-// One shared layout for every email: HTML with inline styles (mail clients ignore <style> blocks) plus a plain-text alternative.
-// Every dynamic value is HTML-encoded, usernames and addresses are user input.
+/// <summary>
+/// One shared layout for every email: HTML with inline styles (mail clients ignore <c>&lt;style&gt;</c> blocks)
+/// plus a plain-text alternative. Every dynamic value is HTML-encoded, because usernames and addresses are user input.
+/// </summary>
 public static class EmailTemplates
 {
     private const string AppName = "THE Review App";
 
+    /// <summary>A call-to-action link. The URL is also printed as text, for mail clients that block buttons.</summary>
     public record Button(string Text, string Url);
 
+    /// <summary>Builds both bodies of an email.</summary>
+    /// <param name="heading">The email's headline.</param>
+    /// <param name="paragraphs">Body paragraphs, in order.</param>
+    /// <param name="button">An optional link button, e.g. the verification link.</param>
+    /// <param name="code">An optional code shown large, e.g. a two-factor code.</param>
+    /// <param name="footnote">An optional small note under the content.</param>
+    /// <returns>The HTML and plain-text bodies.</returns>
     public static (string Html, string Text) Build(string heading, IEnumerable<string> paragraphs, Button? button = null, string? code = null, string? footnote = null)
     {
         var paragraphList = paragraphs.ToList();

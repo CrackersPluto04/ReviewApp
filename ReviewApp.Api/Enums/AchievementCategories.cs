@@ -1,6 +1,9 @@
 namespace ReviewApp.Api.Enums;
 
-// Flags: an achievement can belong to several categories (e.g. Movie | Review)
+/// <summary>
+/// The categories an achievement is filed under. Flags, so one achievement can belong to several (for example
+/// <c>Movie | Review</c>); the clients filter by them.
+/// </summary>
 [Flags]
 public enum AchievementCategories
 {

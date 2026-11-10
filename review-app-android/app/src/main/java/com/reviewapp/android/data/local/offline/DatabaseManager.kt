@@ -35,8 +35,10 @@ class DatabaseManager(
     private val _current = MutableStateFlow<OpenDatabase?>(null)
     val current: StateFlow<OpenDatabase?> = _current.asStateFlow()
 
+    /** The database file of a user. */
     fun fileFor(userId: Int) = File(dir, "offline_$userId.db")
 
+    /** Whether the user has an offline copy on this phone. */
     fun exists(userId: Int) = fileFor(userId).exists()
 
     /** Bytes the user's offline copy takes on disk (the database with its journal files, and the posters). */
@@ -55,6 +57,7 @@ class DatabaseManager(
         db
     }
 
+    /** Closes the open database, if any. */
     suspend fun close() = mutex.withLock {
         _current.value?.db?.close()
         _current.value = null

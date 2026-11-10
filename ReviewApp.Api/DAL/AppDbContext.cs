@@ -4,6 +4,16 @@ using ReviewApp.Api.Enums;
 
 namespace ReviewApp.Api.DAL;
 
+/// <summary>
+/// The EF Core context. The model is mostly attribute-based; <see cref="OnModelCreating"/> holds what attributes
+/// cannot express: the media inheritance, composite keys, unique indexes, delete behaviours and the sync columns.
+/// </summary>
+/// <remarks>
+/// Some invariants live in SQL Server triggers created by migrations rather than in C#: <c>SetUpdatedAt</c> on
+/// <see cref="Review"/> (maintains the update timestamp) and <c>AddDefaultCollection</c> on <see cref="User"/>
+/// (creates the Favourites collection). Delete behaviours are chosen to avoid multiple cascade paths, which SQL
+/// Server rejects: anything that would reach the same table twice through <see cref="User"/> is <c>Restrict</c>.
+/// </remarks>
 public class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
@@ -32,7 +42,7 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // Configuring Media inheritance
+        // Movie, Series and Music share one table, told apart by the MediaType discriminator
         modelBuilder.Entity<Media>()
             .HasDiscriminator(m => m.MediaType)
             .HasValue<Movie>(MediaType.Movie)
@@ -44,7 +54,7 @@ public class AppDbContext : DbContext
             .HasIndex(m => new { m.MediaType, m.ExternalApiID })
             .IsUnique();
 
-        // Configure Review trigger
+        // Declared so EF knows the table has a trigger and doesn't use OUTPUT clauses that triggers forbid
         modelBuilder.Entity<Review>()
             .ToTable(tb => tb.HasTrigger("SetUpdatedAt"));
 
@@ -53,11 +63,11 @@ public class AppDbContext : DbContext
             .HasIndex(r => new { r.UserID, r.MediaID })
             .IsUnique();
 
-        // Configure User add-default-collection trigger
+        // The trigger creates the Favourites collection of every new user (declared for the same reason as above)
         modelBuilder.Entity<User>()
             .ToTable(tb => tb.HasTrigger("AddDefaultCollection"));
 
-        // Configure unique username and email
+        // Unique usernames and emails; also what catches two parallel registrations
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Username)
             .IsUnique();
@@ -66,7 +76,7 @@ public class AppDbContext : DbContext
             .HasIndex(u => u.Email)
             .IsUnique();
 
-        // Configure Collection unique name per user
+        // Names are unique per user (the column's collation is case-insensitive), Favourites included
         modelBuilder.Entity<Collection>()
             .HasIndex(c => new { c.UserID, c.Name })
             .IsUnique();
@@ -279,8 +289,8 @@ public class AppDbContext : DbContext
         });
     }
 
-    // A rowversion column (set by SQL Server on every write, read back after each save) mapped to a long,
-    // without being a concurrency token
+    // Maps a rowversion column (set by SQL Server on every write, read back after each save) to a long without
+    // making it a concurrency token
     private static void RowVersionColumn(Microsoft.EntityFrameworkCore.Metadata.Builders.PropertyBuilder<long> property) =>
         property.HasColumnType("rowversion")
                 .HasConversion<byte[]>()

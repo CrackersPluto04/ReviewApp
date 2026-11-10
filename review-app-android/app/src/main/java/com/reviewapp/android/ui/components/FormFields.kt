@@ -72,6 +72,7 @@ fun LimitedTextField(
     )
 }
 
+/** Read-only field that opens a menu of the three review [Visibility] levels. */
 @Composable
 fun VisibilityField(selected: Visibility, onSelect: (Visibility) -> Unit, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }

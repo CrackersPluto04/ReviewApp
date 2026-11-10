@@ -5,9 +5,15 @@ import { isValidEmail, MAX_EMAIL_LENGTH } from "../utils/validation";
 type ChangeEmailDialogProps = {
     open: boolean;
     onClose: () => void;
+    /** Requests the change. The caller closes the dialog on success; a failure's message is shown here. */
     onSave: (newEmail: string, currentPassword: string) => Promise<{ success: boolean, message?: string }>;
 };
 
+/**
+ * Asks for the new address (twice) and the current password. Nothing changes yet: the API mails a confirmation
+ * link to the new address and the email changes once it is opened. The form, the password included, is cleared
+ * whenever the dialog opens or closes, and the password is cleared after a failed attempt.
+ */
 export function ChangeEmailDialog({ open, onClose, onSave }: ChangeEmailDialogProps) {
     const [newEmail, setNewEmail] = useState('');
     const [confirmEmail, setConfirmEmail] = useState('');
@@ -15,7 +21,6 @@ export function ChangeEmailDialog({ open, onClose, onSave }: ChangeEmailDialogPr
     const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
 
-    // Clear everything (incl. the password) whenever the dialog is opened or closed
     useEffect(() => {
         setNewEmail('');
         setConfirmEmail('');

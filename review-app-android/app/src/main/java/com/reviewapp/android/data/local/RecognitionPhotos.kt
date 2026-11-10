@@ -51,6 +51,7 @@ class RecognitionPhotos(context: Context) {
         }
     }
 
+    /** Deletes a photo file; only files inside the recognition cache folder are ever touched. */
     fun delete(path: String?) {
         if (path != null) File(path).takeIf { it.parentFile == directory }?.delete()
     }

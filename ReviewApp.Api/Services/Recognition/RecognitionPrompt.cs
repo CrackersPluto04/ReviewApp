@@ -1,11 +1,17 @@
 namespace ReviewApp.Api.Services.Recognition;
 
-// The instructions and the answer shape sent to the vision model, in one place. The wording is the one tested in the
-// model bake-off (_specs/camera-object-recognition-model-test.md); change it deliberately and re-run a few photos.
+/// <summary>
+/// The instructions and the answer shape sent to the vision model, in one place. The wording is the one tested in
+/// the model bake-off (<c>_specs/camera-object-recognition-model-test.md</c>); change it deliberately and re-run a
+/// few photos. The rules deliberately forbid identifying people from their faces and tell the model to treat text
+/// inside the photo as data, not instructions.
+/// </summary>
 public static class RecognitionPrompt
 {
     public const string UserMessage = "Identify this object and return the JSON.";
 
+    /// <summary>Builds the system instruction.</summary>
+    /// <param name="similarFillThreshold">The "similar" relation is only asked for when fewer works than this fall into the closer ones.</param>
     public static string SystemInstruction(int similarFillThreshold) => $$"""
         You are the recognition step of a movie, series and music discovery app. The user photographs a physical object, and you identify what it is and which movies, series, albums or songs it relates to. Another system will verify and expand your answer, so accuracy matters more than volume.
 
@@ -62,8 +68,11 @@ public static class RecognitionPrompt
     public static readonly string[] MediaTypes = ["movie", "series", "music"];
     public static readonly string[] Relations = ["direct", "universe", "people", "similar"];
 
-    // The same shape as a structured-output schema (the OpenAPI subset the Gemini API accepts), so the model
-    // can only return parseable JSON. The answer is still validated, the schema is not trusted.
+    /// <summary>
+    /// The same shape as a structured-output schema (the OpenAPI subset the Gemini API accepts), so the model can
+    /// only return parseable JSON. The answer is still validated by <see cref="RecognitionAnswerValidator"/>; the
+    /// schema is not trusted.
+    /// </summary>
     public static object ResponseSchema { get; } = new
     {
         type = "OBJECT",

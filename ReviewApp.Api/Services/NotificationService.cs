@@ -7,9 +7,14 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services;
 
+/// <summary>
+/// Stores and serves notifications. Creation never throws, so a failed notification cannot break the reply, follow,
+/// achievement unlock or account change that caused it. Every read and write filters by the recipient, so someone
+/// else's notification behaves as if it did not exist.
+/// </summary>
 public class NotificationService : INotificationService
 {
-    // Oldest seen notifications are dropped first when a user goes over the cap
+    /// <summary>The most notifications a user keeps. Over the cap, seen ones are dropped first, oldest first.</summary>
     public const int MaxPerUser = 200;
     private const int MaxPageSize = 50;
     // A follow / unfollow / follow cycle doesn't notify again within this window

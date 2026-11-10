@@ -7,13 +7,20 @@ using System.Text;
 
 namespace ReviewApp.Api.Services;
 
+/// <summary>
+/// Issues the httpOnly session cookie (an 8 hour HS256 JWT carrying only <c>id</c> and <c>ver</c>) and the
+/// two-factor login challenge. The token's <c>ver</c> is compared with <c>User.TokenVersion</c> on every
+/// authenticated request, which is how sessions are revoked.
+/// </summary>
 public class TokenService : ITokenService
 {
-    // The __Host- prefix makes the browser enforce Secure, Path=/ and no Domain,
-    // so the cookie can't be set or overwritten by a subdomain or over plain http
+    /// <summary>
+    /// The session cookie's name. The <c>__Host-</c> prefix makes the browser enforce <c>Secure</c>, <c>Path=/</c>
+    /// and no <c>Domain</c>, so the cookie cannot be set or overwritten by a subdomain or over plain http.
+    /// </summary>
     public const string CookieName = "__Host-jwt_token";
 
-    // HS256 needs a key of at least 256 bits
+    /// <summary>The minimum length of <c>Jwt:Key</c>: HS256 needs at least 256 bits.</summary>
     public const int MinKeyBytes = 32;
 
     private static readonly TimeSpan TokenLifetime = TimeSpan.FromHours(8);

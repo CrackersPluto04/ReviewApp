@@ -5,7 +5,10 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Controllers;
 
-// Every endpoint works on the current user's own notifications only
+/// <summary>
+/// The logged-in user's notifications. Every endpoint works on the caller's own notifications only: someone else's
+/// ID answers 404, the same as one that does not exist.
+/// </summary>
 [Route("api/[controller]")]
 [ApiController]
 [Authorize]
@@ -20,6 +23,12 @@ public class NotificationController : ControllerBase
         _userAuthHelper = userAuthHelper;
     }
 
+    /// <summary>
+    /// Lists the caller's notifications with keyset paging, so "load more" stays stable while new ones arrive.
+    /// </summary>
+    /// <param name="p">Seen / unseen filter, sort order and the <c>afterId</c> cursor, from the query string.</param>
+    /// <returns>One page of notifications.</returns>
+    /// <response code="200">The page.</response>
     [HttpGet]
     public async Task<IActionResult> GetNotifications([FromQuery] NotificationQueryParams p)
     {
@@ -33,7 +42,12 @@ public class NotificationController : ControllerBase
         }
     }
 
-    // Lightweight, polled by the header badge
+    /// <summary>
+    /// Counts the caller's unseen notifications. Kept separate from the list because the clients poll it for the
+    /// bell badge, so it must stay cheap.
+    /// </summary>
+    /// <returns><c>{ count }</c>.</returns>
+    /// <response code="200">The unseen count.</response>
     [HttpGet("unseen-count")]
     public async Task<IActionResult> GetUnseenCount()
     {
@@ -48,6 +62,13 @@ public class NotificationController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Marks one notification seen or unseen.
+    /// </summary>
+    /// <param name="id">The notification's ID.</param>
+    /// <param name="dto">The seen state to set.</param>
+    /// <response code="204">Updated.</response>
+    /// <response code="404">The caller has no such notification.</response>
     [HttpPatch("{id:int}/seen")]
     public async Task<IActionResult> SetSeen([FromRoute] int id, [FromBody] SetNotificationSeenDto dto)
     {
@@ -64,6 +85,11 @@ public class NotificationController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Marks every unseen notification of the caller as seen.
+    /// </summary>
+    /// <returns><c>{ updated }</c>, the number of notifications changed.</returns>
+    /// <response code="200">Done.</response>
     [HttpPost("seen-all")]
     public async Task<IActionResult> MarkAllSeen()
     {
@@ -78,6 +104,12 @@ public class NotificationController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Deletes one notification.
+    /// </summary>
+    /// <param name="id">The notification's ID.</param>
+    /// <response code="204">Deleted.</response>
+    /// <response code="404">The caller has no such notification.</response>
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete([FromRoute] int id)
     {
@@ -94,6 +126,11 @@ public class NotificationController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Deletes all of the caller's seen notifications. Unseen ones are kept so nothing unread disappears.
+    /// </summary>
+    /// <returns><c>{ deleted }</c>, the number of notifications removed.</returns>
+    /// <response code="200">Done.</response>
     [HttpDelete("seen")]
     public async Task<IActionResult> DeleteSeen()
     {

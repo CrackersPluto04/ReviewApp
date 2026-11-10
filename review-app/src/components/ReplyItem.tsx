@@ -12,19 +12,27 @@ import { ReplyForm } from "./ReplyForm";
 type ReplyItemProps = {
     reply: ReplyDto;
     reviewId: number;
-    layer: 2 | 3; // Layer 1 is the review itself, layer 3 replies can't be replied to
+    /** Layer 1 is the review itself; layer 3 replies can't be replied to and have no children. */
+    layer: 2 | 3;
+    /** Whether the viewer may reply here (logged in, and the review is not private). */
     canReply: boolean;
-    // keepAsPlaceholder: the reply still has children, so it stays as a "deleted" placeholder
+    /** Called after the reply was deleted. `keepAsPlaceholder` is true when it still has children, so the parent keeps it as a "deleted" placeholder. */
     onDeleted: (replyId: number, keepAsPlaceholder: boolean) => void;
-    // A deleted placeholder lost its last child and should disappear
+    /** Called when a deleted placeholder lost its last child and should disappear. */
     onEmptied?: (replyId: number) => void;
+    /** Reports a change of the thread's reply count (+1 for a created reply, -1 for a deleted one). */
     onCountChange: (delta: number) => void;
-    // Opened from a notification: this reply is highlighted and scrolled to
+    /** Opened from a notification: this reply is highlighted and scrolled to. */
     highlighted?: boolean;
-    // ... or one of its layer 3 children is, which is shown right away
+    /** Opened from a notification: one of this reply's layer 3 children is the target, which is shown right away. */
     focusChild?: ReplyDto;
 };
 
+/**
+ * One reply of a thread, with its author, text and the owner's delete button. A layer 2 reply also holds its
+ * own layer 3 children (loaded on demand, "load more" style) and a form to answer it. A deleted reply is shown as
+ * a "This reply was deleted" placeholder while it still has answers. Reply text is plain text, never HTML.
+ */
 export function ReplyItem({ reply, reviewId, layer, canReply, onDeleted, onEmptied, onCountChange, highlighted, focusChild }: ReplyItemProps) {
     const navigate = useNavigate();
     const children = useReplyList(reviewId, reply.id, focusChild ? [focusChild] : undefined);
@@ -102,7 +110,6 @@ export function ReplyItem({ reply, reviewId, layer, canReply, onDeleted, onEmpti
         )}
 
         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-            {/* Header: author, date, owner actions */}
             <Stack direction="row" alignItems="center" spacing={1}>
                 {reply.isDeleted ? (
                     <Typography variant="body2" color="text.secondary" fontStyle="italic">
@@ -164,7 +171,6 @@ export function ReplyItem({ reply, reviewId, layer, canReply, onDeleted, onEmpti
                 />
             )}
 
-            {/* Layer 3 replies */}
             {layer === 2 && showChildren && (
                 <Box sx={{ borderLeft: '2px solid', borderColor: 'divider', pl: 2, mt: 0.5 }}>
                     {children.replies.map(child => (

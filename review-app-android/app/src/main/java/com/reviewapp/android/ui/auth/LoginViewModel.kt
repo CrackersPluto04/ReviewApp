@@ -20,10 +20,13 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** The step of the login screen: the login form, the registration form, or the code step of a 2FA login. */
 enum class AuthMode { Login, Register, TwoFactor }
 
+/** The form fields that can carry a validation error. */
 enum class AuthField { Username, Email, Password, ConfirmPassword, Code }
 
+/** What the login screen shows: the form values, their errors and the submit / resend state. */
 data class LoginUiState(
     val mode: AuthMode = AuthMode.Login,
     val username: String = "",
@@ -32,15 +35,25 @@ data class LoginUiState(
     val confirmPassword: String = "",
     val code: String = "",
     val fieldErrors: Map<AuthField, String> = emptyMap(),
+    /** A failure of the whole request (wrong credentials, server error), shown above the form. */
     val error: String? = null,
+    /** A success message to show above the form, e.g. after registering or when a code was sent. */
     val info: String? = null,
     val isSubmitting: Boolean = false,
+    /** Seconds until the 2FA code can be requested again; 0 when it can. */
     val resendSecondsLeft: Int = 0,
 )
 
+/**
+ * The login, registration and two-factor steps of one screen. Input is validated here with the same rules as the
+ * API ([Validation]) before anything is sent; a login that needs a code keeps the API's challenge token in the
+ * ViewModel and moves to [AuthMode.TwoFactor].
+ */
 class LoginViewModel(private val authRepository: AuthRepository) : ViewModel() {
 
     private val _state = MutableStateFlow(LoginUiState())
+
+    /** The screen's state. */
     val state: StateFlow<LoginUiState> = _state.asStateFlow()
 
     /** Fires once after a successful login so the screen can navigate back. */
@@ -51,11 +64,13 @@ class LoginViewModel(private val authRepository: AuthRepository) : ViewModel() {
     private var challengeToken: String? = null
     private var cooldownJob: Job? = null
 
+    /** The field edits below store the value and clear that field's error and the request error. */
     fun onUsernameChange(value: String) = updateField(AuthField.Username) { copy(username = value) }
     fun onEmailChange(value: String) = updateField(AuthField.Email) { copy(email = value) }
     fun onPasswordChange(value: String) = updateField(AuthField.Password) { copy(password = value) }
     fun onConfirmPasswordChange(value: String) = updateField(AuthField.ConfirmPassword) { copy(confirmPassword = value) }
 
+    /** Keeps only the digits of the 2FA code, up to its length. */
     fun onCodeChange(value: String) {
         val digits = value.filter(Char::isDigit).take(Validation.TWO_FACTOR_CODE_LENGTH)
         updateField(AuthField.Code) { copy(code = digits) }
@@ -65,6 +80,7 @@ class LoginViewModel(private val authRepository: AuthRepository) : ViewModel() {
         _state.update { it.change().copy(fieldErrors = it.fieldErrors - field, error = null) }
     }
 
+    /** Switches between the login and registration forms (the code step is only reached by a login), clearing passwords and messages. */
     fun switchMode(mode: AuthMode) {
         if (mode == AuthMode.TwoFactor) return
         _state.update {
@@ -72,6 +88,7 @@ class LoginViewModel(private val authRepository: AuthRepository) : ViewModel() {
         }
     }
 
+    /** Validates and sends the current step's form; ignored while a request is running. */
     fun submit() {
         val current = _state.value
         if (current.isSubmitting) return
@@ -144,6 +161,7 @@ class LoginViewModel(private val authRepository: AuthRepository) : ViewModel() {
         }
     }
 
+    /** Asks for a new 2FA code; not while the cooldown runs. */
     fun resendCode() {
         val token = challengeToken ?: return
         if (_state.value.resendSecondsLeft > 0 || _state.value.isSubmitting) return
@@ -158,6 +176,7 @@ class LoginViewModel(private val authRepository: AuthRepository) : ViewModel() {
         }
     }
 
+    /** Abandons a pending 2FA login: the challenge is dropped and the login form shows again. */
     fun backToLogin() {
         challengeToken = null
         cooldownJob?.cancel()
@@ -176,6 +195,7 @@ class LoginViewModel(private val authRepository: AuthRepository) : ViewModel() {
         }
     }
 
+    /** Runs a request with [LoginUiState.isSubmitting] set around it, also when it fails. */
     private fun submitting(block: suspend () -> Unit) {
         _state.update { it.copy(isSubmitting = true, error = null) }
         viewModelScope.launch {

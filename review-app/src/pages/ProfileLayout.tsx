@@ -11,6 +11,15 @@ import { EditAvatarDialog } from "../components/EditAvatarDialog";
 import { AccountSettingsMenu } from "../components/AccountSettingsMenu";
 import { PremiumBadge } from "../components/PremiumBadge";
 
+/**
+ * The layout route of `/profile/:username`: the profile header (avatar, name, follower counts, follow button,
+ * bio) above the tab bar, with the tab's page (overview, reviews, collections, achievements) rendered by the
+ * nested route's `Outlet`. The active tab is the last URL segment.
+ *
+ * For the owner it adds the editing: avatar, bio and the account settings menu. Follow / unfollow update the
+ * counts at once and roll back if the request fails. A rename moves the page to the new username's URL, because
+ * usernames are part of profile URLs.
+ */
 export function ProfileLayout() {
     const { user, setUser, isLoggedIn } = useAuth();
     const { username } = useParams();
@@ -34,7 +43,7 @@ export function ProfileLayout() {
     const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
     const isBioOver = draftBio.length > 150;
 
-    // Fetch user profile informations on load
+    // Also reloads when the logged-in user changes: follow state and the owner view depend on the viewer
     useEffect(() => {
         const fetchProfile = async () => {
             if (!username) return;
@@ -54,7 +63,6 @@ export function ProfileLayout() {
         fetchProfile();
     }, [username, user]);
 
-    // -- Handlers --
     const handleTabChange = (_event: any, newValue: string) => {
         navigate(`/profile/${encodeURIComponent(username!)}/${newValue}`);
     };
@@ -141,11 +149,8 @@ export function ProfileLayout() {
         return <Typography>{errorMessage}</Typography>;
 
     return <Box>
-        {/* TOP HEADER SECTION */}
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: 'center', gap: 4, mb: 2 }}>
-            {/* Profile Picture and User Information */}
             <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: 'center', textAlign: 'center', minWidth: 250, flexShrink: 0, gap: 4 }}>
-                {/* Profile Picture */}
                 <Badge
                     overlap="circular"
                     anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
@@ -167,7 +172,6 @@ export function ProfileLayout() {
                 </Badge>
 
                 <Box ml={4} mr={4} gap={1} display='flex' flexDirection='column' alignItems='center' justifyContent='space-around'>
-                    {/* User Information */}
                     <Box display="flex" flexDirection="row" alignItems="center" gap={1}>
                         <Typography variant="h5" fontWeight="bold">
                             {username}
@@ -184,7 +188,6 @@ export function ProfileLayout() {
                         </Typography>
                     </Box>
 
-                    {/* Follower Counts */}
                     <Box sx={{ display: 'flex', gap: 3, justifyContent: 'center' }}>
                         <Box onClick={() => handleOpenDialog('followers')} sx={{ cursor: 'pointer', '&:hover': { opacity: 0.7 } }}>
                             <Typography variant="h6" fontWeight="bold">
@@ -217,7 +220,6 @@ export function ProfileLayout() {
                 </Box>
             </Box>
 
-            {/* Bio Section */}
             <Paper variant="outlined" sx={{ flexGrow: 1, flexBasis: 0, minWidth: 0, minHeight: 120, p: 3, borderRadius: 2, position: 'relative' }}>
                 {isEditingBio ? (
                     <Box>
@@ -260,7 +262,6 @@ export function ProfileLayout() {
             </Paper>
         </Box >
 
-        {/* TAB NAVIGATION */}
         < Tabs
             value={currentTab}
             onChange={handleTabChange}
@@ -276,10 +277,8 @@ export function ProfileLayout() {
             <Tab label="Achievements" value="achievements" />
         </Tabs>
 
-        {/* NESTED ROUTE RENDERER */}
         < Outlet />
 
-        {/* FOLLOWER/FOLLOWING LIST DIALOG */}
         < FollowerListDialog
             open={dialogOpen}
             onClose={() => setDialogOpen(false)}
@@ -301,7 +300,6 @@ export function ProfileLayout() {
             }}
         />
 
-        {/* EDIT AVATAR DIALOG */}
         <EditAvatarDialog
             open={editAvatarDialogOpen}
             onClose={() => setEditAvatarDialogOpen(false)}

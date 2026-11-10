@@ -4,10 +4,16 @@ using ReviewApp.Api.Services.Payments;
 
 namespace ReviewApp.Api.Services;
 
+/// <summary>
+/// Dependency registration for the subscription feature.
+/// </summary>
 public static class SubscriptionSetup
 {
-    // Registers the subscription services and the configured payment provider. Fails fast on a
-    // configuration that would either not work (missing Stripe keys) or hand out Premium for free (Fake outside Development).
+    /// <summary>
+    /// Registers the subscription services and the configured payment provider. Fails fast on a configuration that
+    /// would either not work (missing Stripe keys) or hand out Premium for free (the Fake provider outside Development).
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The configuration is unsafe or incomplete.</exception>
     public static void AddSubscriptions(this WebApplicationBuilder builder)
     {
         var subscriptionSection = builder.Configuration.GetSection(SubscriptionOptions.SectionName);
@@ -40,8 +46,10 @@ public static class SubscriptionSetup
         builder.Services.AddHostedService<SubscriptionExpiryService>();
     }
 
-    // UseHttpsRedirection, except for the Android checkout return page in Development: it is opened in the phone's
-    // browser, which doesn't trust the local dev certificate, so locally it is served over plain HTTP (port 5062).
+    /// <summary>
+    /// Applies HTTPS redirection, except for the Android checkout return page in Development: it is opened in the
+    /// phone's browser, which does not trust the local dev certificate, so locally it is served over plain HTTP (port 5062).
+    /// </summary>
     public static void UseHttpsRedirectionForApi(this WebApplication app)
     {
         if (!app.Environment.IsDevelopment())

@@ -2,19 +2,23 @@
 
 namespace ReviewApp.Api.DAL.Entities;
 
+/// <summary>
+/// A reply in a review's thread: to the review itself (<see cref="ParentReplyID"/> null) or to such a reply. The
+/// layer is derived from the parent chain and the service stops at three layers.
+/// </summary>
 public class ReviewReply
 {
     public int ID { get; set; }
 
-    // Parent Review
+    /// <summary>The review the thread belongs to. Replies are deleted with it.</summary>
     public int ReviewID { get; set; }
     public Review Review { get; set; } = null!;
 
-    // Author
+    /// <summary>The author. Deleting a user is restricted while replies exist, to avoid multiple cascade paths.</summary>
     public int UserID { get; set; }
     public User User { get; set; } = null!;
 
-    // Self-referencing relationship for nesting
+    /// <summary>Self-referencing relationship for nesting; restricted on delete to avoid cycles.</summary>
     public int? ParentReplyID { get; set; }
     public ReviewReply? ParentReply { get; set; }
     public ICollection<ReviewReply> ChildReplies { get; set; } = [];
@@ -24,6 +28,6 @@ public class ReviewReply
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    // Soft delete: Keeps the record after delete so child replies aren't orphaned
+    /// <summary>Soft delete: the record (and its content) stays so child replies are not orphaned, but it is never returned.</summary>
     public bool IsDeleted { get; set; } = false;
 }

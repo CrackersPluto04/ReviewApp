@@ -45,15 +45,27 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+/** What the return screen shows while and after it checks the subscription. */
 sealed interface ReturnUiState {
+    /** Asking the provider, via the API. */
     data object Checking : ReturnUiState
+
+    /** Premium is active. */
     data object Success : ReturnUiState
+
     /** Paid, but the provider hasn't confirmed it yet. */
     data object Pending : ReturnUiState
+
+    /** The user left the checkout without paying. */
     data object Cancelled : ReturnUiState
+
     /** Back from the payment settings. */
     data object PortalDone : ReturnUiState
+
+    /** The session is gone, so the subscription cannot be checked until the user logs in. */
     data object LoggedOut : ReturnUiState
+
+    /** The check failed. */
     data class Error(val message: String) : ReturnUiState
 }
 
@@ -70,6 +82,7 @@ class SubscriptionReturnViewModel(
     private val result = CheckoutReturn.fromResult(savedStateHandle.toRoute<SubscriptionReturnRoute>().result)
 
     private val _state = MutableStateFlow<ReturnUiState>(ReturnUiState.Checking)
+    /** The screen's state. */
     val state: StateFlow<ReturnUiState> = _state.asStateFlow()
 
     init {
@@ -102,6 +115,7 @@ class SubscriptionReturnViewModel(
     }
 }
 
+/** The page the payment provider's return link opens: the check's outcome with the way on to the plans page or home. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubscriptionReturnScreen(
@@ -142,6 +156,7 @@ fun SubscriptionReturnScreen(
     }
 }
 
+/** The title and message of each state. */
 private fun texts(state: ReturnUiState): Pair<String, String> = when (state) {
     ReturnUiState.Checking -> "Confirming your payment..." to "This only takes a moment."
     ReturnUiState.Success -> "Welcome to Premium!" to "Your Premium features are unlocked. Thanks for supporting the app!"

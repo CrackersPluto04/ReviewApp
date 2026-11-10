@@ -63,7 +63,9 @@ private val DarkExtendedColors = ExtendedColors(
 
 private val LocalExtendedColors = staticCompositionLocalOf { LightExtendedColors }
 
+/** Access point for the theme values that [MaterialTheme] does not carry. */
 object AppTheme {
+    /** The [ExtendedColors] of the current (light or dark) theme. */
     val extendedColors: ExtendedColors
         @Composable @ReadOnlyComposable get() = LocalExtendedColors.current
 }
@@ -77,6 +79,11 @@ fun ScoreTier.color(): Color = when (this) {
     ScoreTier.Poor -> MaterialTheme.colorScheme.error
 }
 
+/**
+ * The app's theme: the fixed palette (no dynamic colour, so the app matches the web app) in its light or dark
+ * variant, the typography and the [ExtendedColors]. [darkTheme] is resolved by the caller from the user's theme
+ * setting, so "system" has already been mapped to a boolean.
+ */
 @Composable
 fun ReviewAppTheme(
     darkTheme: Boolean,

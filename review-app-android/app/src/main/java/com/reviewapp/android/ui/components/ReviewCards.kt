@@ -203,6 +203,7 @@ private fun ReviewActionsMenu(onEdit: () -> Unit, onDelete: () -> Unit) {
     }
 }
 
+/** "Created ..." and, only when the review was edited on a later day, "Updated ...". */
 @Composable
 private fun ReviewDates(createdAt: String, updatedAt: String) {
     Text(

@@ -9,7 +9,7 @@ import { ReplyForm } from "./ReplyForm";
 import { ReplyItem } from "./ReplyItem";
 import { PleaseLogin } from "./PleaseLogin";
 
-// A reply to open the thread at (from a notification), with its layer 2 parent when it's a layer 3 reply
+/** A reply to open the thread at (from a notification), with its layer 2 parent when it is a layer 3 reply. */
 export type ReplyFocus = {
     reply: ReplyDto;
     parentReply?: ReplyDto | null;
@@ -17,12 +17,21 @@ export type ReplyFocus = {
 
 type ReplyThreadProps = {
     reviewId: number;
+    /** The number of replies (both layers), shown on the toggle before anything is loaded. */
     replyCount: number;
-    replyable: boolean; // false for private reviews
+    /** `false` for private reviews, which can't be replied to. */
+    replyable: boolean;
+    /** Reports a change of the reply count (+1 for a created reply, -1 for a deleted one). */
     onCountChange: (delta: number) => void;
+    /** Opens the thread at this reply: expanded, with the reply seeded, scrolled to and highlighted. */
     focus?: ReplyFocus;
 };
 
+/**
+ * The collapsed reply thread under a review (layer 2). Replies load only when the thread is first opened, in
+ * pages ("load more"). Logged-out viewers get a login prompt instead of the form. Counts and "deleted" placeholders
+ * are updated locally after a create or delete instead of refetching.
+ */
 export function ReplyThread({ reviewId, replyCount, replyable, onCountChange, focus }: ReplyThreadProps) {
     const { isLoggedIn } = useAuth();
     // The focused layer 2 reply is shown right away, the rest loads around it

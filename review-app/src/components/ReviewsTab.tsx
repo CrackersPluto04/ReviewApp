@@ -8,18 +8,21 @@ import { ReviewCard } from "./ReviewCard";
 import { ReviewFilter } from "./ReviewFilter";
 import { MyPagination } from "./MyPagination";
 
+/**
+ * The reviews tab of a profile (`/profile/:username/reviews`): the user's reviews that the viewer may see,
+ * with the same sort and filter panel as a title's reviews. The applied filters and page live in the URL. The
+ * owner can delete a review from here; it is then removed from the list without a refetch.
+ */
 export function ReviewsTab() {
     const { username } = useParams();
     const [searchParams, setSearchParams] = useSearchParams();
 
-    // --- States ---
     const [reviews, setReviews] = useState<any[]>([]);
     const [totalCount, setTotalCount] = useState(0);
     const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
 
-    // --- Active States (From URL) ---
     const page = Number.parseInt(searchParams.get('page') || '1', 10);
     const sortBy = searchParams.get('sortBy') || 'created_desc';
     const minScore = searchParams.get('minScore') ? Number.parseFloat(searchParams.get('minScore')!) : 1;
@@ -54,7 +57,6 @@ export function ReviewsTab() {
         fetchReviews();
     }, [username, page, sortBy, minScore, maxScore, hasWrittenText]);
 
-    /* Handlers */
     const handlePageChange = (_event: any, newPage: number) => {
         setSearchParams(prev => {
             const newParams = new URLSearchParams(prev);
@@ -98,13 +100,10 @@ export function ReviewsTab() {
             Reviews ({totalCount})
         </Typography>
 
-        {/* Pagination Top */}
         {totalPages > 1 && !loading &&
             <MyPagination page={page} totalPages={totalPages} onPageChange={handlePageChange} size="medium" mt={2} mb={2} />}
 
-        {/* REVIEWS LIST AND FILTER */}
         <Grid container spacing={3}>
-            {/* Left: The Reviews List */}
             <Grid size={{ xs: 12, md: 8 }}>
                 {loading ? (
                     <Box display="flex" justifyContent="center" p={4}><CircularProgress /></Box>
@@ -126,7 +125,6 @@ export function ReviewsTab() {
                 )}
             </Grid>
 
-            {/* Right: Sticky Filters */}
             <Grid size={{ xs: 12, md: 4 }}>
                 <ReviewFilter
                     filters={{ sortBy, scoreRange: [minScore, maxScore], hasWrittenText }}
@@ -137,7 +135,6 @@ export function ReviewsTab() {
             </Grid>
         </Grid>
 
-        {/* Pagination Bottom */}
         {totalPages > 1 && !loading &&
             <MyPagination page={page} totalPages={totalPages} onPageChange={handlePageChange} size="large" />}
     </Box>

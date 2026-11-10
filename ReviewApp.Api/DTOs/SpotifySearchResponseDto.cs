@@ -2,16 +2,25 @@
 
 namespace ReviewApp.Api.DTOs;
 
+// Mirrors of the parts of Spotify's Web API JSON that the app reads. Used only to deserialize Spotify's
+// responses and never returned to clients; property names are mapped to Spotify's snake_case.
+
+/// <summary>
+/// Spotify's client-credentials token response.
+/// </summary>
 public class SpotifyTokenDto
 {
     [JsonPropertyName("access_token")]
     public string AccessToken { get; set; } = string.Empty;
 
-    // Seconds
+    /// <summary>Lifetime of the token in seconds.</summary>
     [JsonPropertyName("expires_in")]
     public int ExpiresIn { get; set; }
 }
 
+/// <summary>
+/// Spotify's track search response.
+/// </summary>
 public class SpotifySearchResponseDto
 {
     [JsonPropertyName("tracks")]
@@ -20,6 +29,7 @@ public class SpotifySearchResponseDto
 
 public class SpotifyTracksDto
 {
+    /// <summary>Total matches across all pages.</summary>
     [JsonPropertyName("total")]
     public int TotalCount { get; set; } = 0;
 
@@ -41,7 +51,7 @@ public class SpotifyTrackDto
     [JsonPropertyName("artists")]
     public List<SpotifyArtistDto> Artists { get; set; } = [];
 
-    // 0-100; may be missing for some apps, then 0
+    /// <summary>0 to 100. Missing for some apps, in which case it reads as 0.</summary>
     [JsonPropertyName("popularity")]
     public int Popularity { get; set; }
 }

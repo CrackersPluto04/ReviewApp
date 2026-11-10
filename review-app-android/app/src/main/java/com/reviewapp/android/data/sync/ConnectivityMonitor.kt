@@ -32,13 +32,17 @@ class ConnectivityMonitor(
     private val connectivityManager = context.getSystemService(ConnectivityManager::class.java)
 
     private val _state = MutableStateFlow(ConnectivityState(networkValidated = currentlyValidated()))
+
+    /** The raw inputs (validated network, backend answering). */
     val state: StateFlow<ConnectivityState> = _state.asStateFlow()
 
+    /** The derived state the app reacts to; only emits when it changes. */
     val connectivity: StateFlow<Connectivity> = _state.map { it.connectivity }.distinctUntilChanged()
         .stateIn(scope, SharingStarted.Eagerly, _state.value.connectivity)
 
     private var probeJob: Job? = null
 
+    /** Starts listening to Android's default network. Called once by the application. */
     fun start() {
         connectivityManager.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
             override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
@@ -52,11 +56,12 @@ class ConnectivityMonitor(
     /** A validated network exists right now (read synchronously, for the app start decision). */
     fun isNetworkAvailable(): Boolean = _state.value.networkValidated
 
-    // Called for every API response, so the common case doesn't touch the flow
+    /** Reported by the OkHttp interceptor for every response. The common case (already reachable) doesn't touch the flow. */
     fun onServerResponded() {
         if (!_state.value.serverReachable) reduce { it.onServerResponded() }
     }
 
+    /** Reported by the OkHttp interceptor when a request got no answer; starts the probing. */
     fun onServerUnreachable() = reduce { it.onServerUnreachable() }
 
     private fun onNetwork(validated: Boolean) = reduce { it.onNetwork(validated) }
@@ -83,6 +88,7 @@ class ConnectivityMonitor(
         hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) && hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
 
     companion object {
+        /** How often an unreachable backend is asked again. */
         const val PROBE_INTERVAL_MILLIS = 30_000L
     }
 }

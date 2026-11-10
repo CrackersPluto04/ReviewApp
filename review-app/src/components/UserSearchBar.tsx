@@ -5,6 +5,10 @@ import { userService } from "../services/UserService";
 import { Autocomplete, Box, Avatar, Typography, TextField, InputAdornment, CircularProgress } from "@mui/material";
 import SearchIcon from '@mui/icons-material/Search';
 
+/**
+ * The header's "Find users" box: an autocomplete that lists users by username as the user types, and opens the
+ * chosen one's profile. Requests are debounced, so the API is only asked once typing pauses.
+ */
 export function UserSearchBar() {
     const navigate = useNavigate();
 
@@ -13,7 +17,7 @@ export function UserSearchBar() {
     const [loading, setLoading] = useState(false);
     const [inputValue, setInputValue] = useState('');
 
-    // Debouncer - Only search the DB when user stops typing for 300ms
+    // Waits for 300 ms without typing before asking the API
     useEffect(() => {
         const delayDebounceFn = setTimeout(async () => {
             if (inputValue.trim()) {
@@ -42,9 +46,9 @@ export function UserSearchBar() {
         loading={loading}
 
         getOptionLabel={(option) => option.username}
+        // The API already filtered the list, so Autocomplete's own filtering is switched off
         filterOptions={(x) => x}
 
-        // Click on user in dropdown -> navigate to their profile
         onChange={(_, selectedUser) => {
             if (selectedUser) {
                 navigate(`/profile/${encodeURIComponent(selectedUser.username)}/overview`);
@@ -53,7 +57,6 @@ export function UserSearchBar() {
             }
         }}
 
-        // How each user in the dropdown looks
         renderOption={(props, option) => (
             <Box component="li" {...props as any} sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                 <Avatar src={option.profilePictureUrl} sx={{ width: 28, height: 28 }}>
@@ -65,7 +68,6 @@ export function UserSearchBar() {
             </Box>
         )}
 
-        // How the search bar looks
         renderInput={(params) => (
             <TextField
                 {...params as any}

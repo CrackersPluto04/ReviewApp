@@ -78,11 +78,13 @@ private fun FormDialog(
     )
 }
 
+/** Explanatory text in a dialog. */
 @Composable
 private fun Hint(text: String) {
     Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
+/** Change username. */
 @Composable
 private fun UsernameDialog(form: UsernameForm, isSubmitting: Boolean, viewModel: AccountSettingsViewModel) {
     FormDialog(
@@ -114,6 +116,7 @@ private fun UsernameDialog(form: UsernameForm, isSubmitting: Boolean, viewModel:
     }
 }
 
+/** Change email: the new address twice and the current password. */
 @Composable
 private fun EmailDialog(form: EmailForm, isSubmitting: Boolean, viewModel: AccountSettingsViewModel) {
     FormDialog(
@@ -141,6 +144,7 @@ private fun EmailDialog(form: EmailForm, isSubmitting: Boolean, viewModel: Accou
     }
 }
 
+/** An email input limited to the API's maximum length. */
 @Composable
 private fun EmailField(value: String, onValueChange: (String) -> Unit, label: String, error: String?) {
     OutlinedTextField(
@@ -155,6 +159,7 @@ private fun EmailField(value: String, onValueChange: (String) -> Unit, label: St
     )
 }
 
+/** Change password. */
 @Composable
 private fun PasswordDialog(form: PasswordForm, isSubmitting: Boolean, viewModel: AccountSettingsViewModel) {
     FormDialog(
@@ -191,6 +196,7 @@ private fun PasswordDialog(form: PasswordForm, isSubmitting: Boolean, viewModel:
     }
 }
 
+/** Enable / disable 2FA: the password step, then the emailed code with a resend button that waits out the cooldown. */
 @Composable
 private fun TwoFactorDialog(flow: TwoFactorFlow, resendSecondsLeft: Int, viewModel: AccountSettingsViewModel) {
     val action = if (flow.enable) "Enable" else "Disable"
@@ -246,6 +252,7 @@ private fun TwoFactorDialog(flow: TwoFactorFlow, resendSecondsLeft: Int, viewMod
     }
 }
 
+/** Confirms logging out everywhere; waiting changes stay on the phone and are sent after the next login. */
 @Composable
 private fun LogoutAllDialog(isSubmitting: Boolean, error: String?, pendingChanges: Int, viewModel: AccountSettingsViewModel) {
     FormDialog(

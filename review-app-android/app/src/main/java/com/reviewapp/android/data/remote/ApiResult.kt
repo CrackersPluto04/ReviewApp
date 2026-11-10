@@ -9,6 +9,7 @@ import kotlinx.serialization.json.Json
 import retrofit2.HttpException
 import java.io.IOException
 
+/** The outcome of an API call: the data, or a failure that is already turned into a message. Calls never throw. */
 sealed interface ApiResult<out T> {
     /**
      * [cachedAt]: the data is the device's offline copy from that time (epoch millis), not a fresh answer (see
@@ -29,6 +30,7 @@ sealed interface ApiResult<out T> {
     ) : ApiResult<Nothing>
 }
 
+/** Transforms the data of a success and keeps an error as it is. */
 inline fun <T, R> ApiResult<T>.map(transform: (T) -> R): ApiResult<R> = when (this) {
     is ApiResult.Success -> ApiResult.Success(transform(data), cachedAt)
     is ApiResult.Error -> this
@@ -55,17 +57,16 @@ suspend fun <T> apiCall(useSnapshot: Boolean = true, block: suspend () -> T): Ap
     ApiResult.Error(ApiErrors.UNEXPECTED_RESPONSE)
 }
 
+/** Turns failed responses into the text shown to the user. */
 object ApiErrors {
+    /** Shown when the request got no answer at all. */
     const val NETWORK_ERROR = "Could not reach the server. Check your connection and try again."
+    /** Shown when the answer could not be read as the expected JSON. */
     const val UNEXPECTED_RESPONSE = "Unexpected response from the server."
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    /**
-     * Picks the message to show for a failed request: `{ error }` first, then the first
-     * model-validation message, then a generic one for the status code.
-     */
-    /** The API's machine readable `code` of an error body, if any. */
+    /** The API's machine readable `code` of an error body (e.g. `daily_limit`), if any. */
     fun reason(body: String?): String? = parse(body)?.code?.takeIf { it.isNotBlank() }
 
     private fun parse(body: String?): ErrorResponse? = body?.takeIf { it.isNotBlank() }?.let {
@@ -76,6 +77,10 @@ object ApiErrors {
         }
     }
 
+    /**
+     * Picks the message to show for a failed request: `{ error }` first, then the first
+     * model-validation message, then a generic one for the status code.
+     */
     fun message(code: Int, body: String?): String {
         val parsed = parse(body)
         parsed?.error?.takeIf { it.isNotBlank() }?.let { return it }

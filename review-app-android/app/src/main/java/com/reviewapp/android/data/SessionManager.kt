@@ -26,10 +26,14 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
+/** Whether the app has a logged-in user. */
 sealed interface AuthState {
     /** The stored session is being checked on app start. */
     data object Loading : AuthState
+    /** No session, or it ended. */
     data object LoggedOut : AuthState
+
+    /** A session for [user]; see [SessionManager.health] for how sure that is. */
     data class LoggedIn(val user: AuthUser) : AuthState
 }
 
@@ -55,9 +59,11 @@ class SessionManager(
     private val offlineEnabled: suspend (userId: Int) -> Boolean,
 ) {
     private val _state = MutableStateFlow<AuthState>(AuthState.Loading)
+    /** The logged-in state; screens react to it (a 401 anywhere turns it into [AuthState.LoggedOut]). */
     val state: StateFlow<AuthState> = _state.asStateFlow()
 
     private val _health = MutableStateFlow(SessionHealth.Verified)
+    /** How sure the logged-in state is, see [SessionHealth]. */
     val health: StateFlow<SessionHealth> = _health.asStateFlow()
 
     /** When the backend last confirmed the logged-in user (the start of the offline grace period). */
@@ -70,6 +76,7 @@ class SessionManager(
 
     private val restoreLock = Mutex()
 
+    /** The logged-in user, or `null` when logged out or still loading. */
     val currentUser: AuthUser? get() = (_state.value as? AuthState.LoggedIn)?.user
 
     /** Checks the stored cookie with the API on app start. On a network error the cookie is kept for the next try. */
@@ -143,6 +150,7 @@ class SessionManager(
         }
     }
 
+    /** Records a successful login (the cookie was stored from the response). */
     suspend fun onLoggedIn(user: AuthUser) {
         _health.value = SessionHealth.Verified
         confirm(user)
@@ -204,6 +212,7 @@ class SessionManager(
         }
     }
 
+    /** Logs out of this device. The cookie and the cached session are cleared even when the API cannot be reached. */
     suspend fun logout() {
         val userId = currentUser?.id
         // The API deletes the cookie, but it's cleared locally either way so logout always works offline

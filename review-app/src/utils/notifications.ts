@@ -1,5 +1,6 @@
 import { NotificationDto, NotificationType } from "../types/types";
 
+/** The short label of the type chip on a notification card. Every Premium related type shares one label. */
 export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
     System: 'System',
     ReviewReply: 'Reply',
@@ -12,7 +13,14 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
     SubscriptionEnded: 'Premium'
 };
 
-// Where "take me there" leads, null when the notification has no source to open
+/**
+ * Where "take me there" leads. A notification stores only plain IDs and names (no foreign keys), so it can outlive
+ * the content it points at: the target page then shows its own not-found state. A new `NotificationType` needs a
+ * case here.
+ * @param notification The notification.
+ * @param currentUsername The logged-in user's username; the achievements link needs it.
+ * @returns The app route, or `null` when the notification has no source to open.
+ */
 export function getNotificationRoute(notification: NotificationDto, currentUsername?: string): string | null {
     switch (notification.type) {
         case 'AchievementUnlocked':
@@ -39,7 +47,11 @@ export function getNotificationRoute(notification: NotificationDto, currentUsern
     }
 }
 
-// Stored in UTC, shown in the viewer's local time
+/**
+ * Formats a notification's time. Stored in UTC, shown in the viewer's local time and locale.
+ * @param isoDate The ISO 8601 timestamp from the API.
+ * @returns A medium date with a short time.
+ */
 export function formatNotificationDate(isoDate: string): string {
     return new Date(isoDate).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }

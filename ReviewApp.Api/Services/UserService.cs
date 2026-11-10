@@ -6,6 +6,10 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services;
 
+/// <summary>
+/// Profiles, user search, follower lists and the profile and password changes of the logged-in user. Lists of
+/// unknown users answer null so the controller can return the same 404 everywhere.
+/// </summary>
 public class UserService : IUserService
 {
     private readonly AppDbContext _context;
@@ -40,19 +44,15 @@ public class UserService : IUserService
 
     public async Task<UserProfileDto?> GetUserProfileAsync(string username, int? currentUserId)
     {
-        // Get target user
         var targetUser = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
         if (targetUser == null)
             return null;
 
-        // Check if owner
         var isOwner = currentUserId.HasValue && currentUserId == targetUser.ID;
 
-        // Get followers and following counts
         var followersCount = await _context.UserFollowers.CountAsync(uf => uf.FollowingID == targetUser.ID);
         var followingCount = await _context.UserFollowers.CountAsync(uf => uf.FollowerID == targetUser.ID);
 
-        // Get profile informations
         return new UserProfileDto
         {
             ID = targetUser.ID,
@@ -136,7 +136,6 @@ public class UserService : IUserService
     // null = unknown user (404, like the other profile lists)
     public async Task<List<UserCompactDto>?> GetUserFollowersAsync(string username, int? currentUserId)
     {
-        // Get target user
         var targetUser = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
         if (targetUser == null)
             return null;

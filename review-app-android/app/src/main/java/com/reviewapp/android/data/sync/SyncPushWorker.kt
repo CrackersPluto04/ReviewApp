@@ -38,6 +38,7 @@ class SyncPushWorker(context: Context, params: WorkerParameters) : CoroutineWork
     companion object {
         private const val NAME = "sync-push"
 
+        /** Enqueues a push job (a waiting one is kept). Called whenever a change is queued. */
         fun schedule(context: Context) {
             val request = OneTimeWorkRequestBuilder<SyncPushWorker>()
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())

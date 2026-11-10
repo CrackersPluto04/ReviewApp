@@ -11,10 +11,19 @@ import java.time.format.DateTimeParseException
 
 /** Where the user is in the recognition flow. Photos are paths of cache files (see `RecognitionPhotos`). */
 sealed interface RecognitionStep {
+    /** The start page: allowance, tips and the two ways to get a photo. */
     data object Start : RecognitionStep
+
+    /** The live camera. */
     data object Camera : RecognitionStep
+
+    /** The photo is shown for "Use photo" / "Retake"; [fromCamera] decides where Retake leads. */
     data class Preview(val photoPath: String, val fromCamera: Boolean) : RecognitionStep
+
+    /** The photo is being sent and recognised. */
     data class Recognizing(val photoPath: String, val fromCamera: Boolean) : RecognitionStep
+
+    /** The suggestions. */
     data object Results : RecognitionStep
 }
 
@@ -23,23 +32,31 @@ sealed interface RecognitionStep {
  * Pages are appended by media key, so an item is never shown twice even if pages arrive twice.
  */
 data class RecognitionResults(
+    /** The id of the list stored by the API for paging; `null` when nothing was stored. */
     val recognitionId: String?,
     val outcome: RecognitionOutcome,
+    /** What the AI saw in the photo, shown above the list. */
     val summary: String,
     val items: List<RecognizedMedia>,
     val hasMore: Boolean,
+    /** The `offset` to send for the next "Show more". */
     val nextOffset: Int,
+    /** Some lookups failed (a source was unreachable), so the list may be missing items. */
     val incomplete: Boolean,
     val isLoadingMore: Boolean = false,
     val moreError: String? = null,
     /** The stored list is gone (expired, API restarted): no more pages, the user is offered a new photo. */
     val expired: Boolean = false,
 ) {
+    /** The "Show more" button applies. */
     val canShowMore: Boolean get() = hasMore && recognitionId != null && !expired && !isLoadingMore && moreError == null
+    /** The list is complete, so the end note shows instead of the button. */
     val isEnd: Boolean get() = items.isNotEmpty() && !hasMore && !expired && moreError == null
 
+    /** A "Show more" request is running. */
     fun loadingMore() = copy(isLoadingMore = true, moreError = null)
 
+    /** Appends a page of suggestions. */
     fun merged(page: RecognitionItems): RecognitionResults {
         val known = items.mapTo(HashSet()) { it.media.key }
         return copy(
@@ -51,13 +68,17 @@ data class RecognitionResults(
         )
     }
 
+    /** "Show more" failed; the list stays and a retry is offered. */
     fun failed(message: String) = copy(isLoadingMore = false, moreError = message)
 
+    /** The API no longer has the list (404): paging ends and a new photo is offered. */
     fun expired() = copy(isLoadingMore = false, hasMore = false, expired = true, moreError = null)
 
+    /** The user pressed retry: clears the error so "Show more" can run again. */
     fun retried() = copy(moreError = null)
 
     companion object {
+        /** The results of a fresh recognition: its first page. */
         fun from(recognition: Recognition) = RecognitionResults(
             recognitionId = recognition.recognitionId,
             outcome = recognition.outcome,
@@ -70,6 +91,7 @@ data class RecognitionResults(
     }
 }
 
+/** The photo tips on the start page (the web shows the same four). */
 val RECOGNITION_TIPS = listOf(
     "Use good light and avoid reflections",
     "Get close, so the object fills most of the photo",

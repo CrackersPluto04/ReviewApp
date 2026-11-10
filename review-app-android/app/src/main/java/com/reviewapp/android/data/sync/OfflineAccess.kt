@@ -9,6 +9,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ClockReading(val wallMillis: Long, val elapsedMillis: Long, val bootCount: Int)
 
+/** The source of [ClockReading]s; a lambda in the app, a fake in tests. */
 fun interface DeviceClock {
     fun now(): ClockReading
 }
@@ -20,7 +21,10 @@ fun interface DeviceClock {
  * boot's uptime, and a wall clock behind the confirmation (more than [CLOCK_TOLERANCE_MILLIS]) counts as expired.
  */
 object OfflineAccess {
+    /** How long the app may be used offline since the backend last confirmed the session. */
     const val GRACE_DAYS = 7
+
+    /** [GRACE_DAYS] in milliseconds. */
     const val GRACE_MILLIS = GRACE_DAYS * 24L * 60 * 60 * 1000
     /** Small backwards steps are normal (network time corrections). */
     const val CLOCK_TOLERANCE_MILLIS = 5L * 60 * 1000
@@ -36,6 +40,7 @@ object OfflineAccess {
         return maxOf(wall, now.elapsedMillis)
     }
 
+    /** Whether the grace period still runs; untrustworthy clocks count as over. */
     fun isWithinGrace(confirmed: ClockReading, now: ClockReading): Boolean =
         elapsedSince(confirmed, now)?.let { it < GRACE_MILLIS } ?: false
 

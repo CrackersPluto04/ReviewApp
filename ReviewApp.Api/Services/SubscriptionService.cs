@@ -9,9 +9,15 @@ using ReviewApp.Api.Services.Payments;
 
 namespace ReviewApp.Api.Services;
 
-// The local subscription record only changes from what the provider reports (a fetched snapshot), never from
-// what a client claims. Provider notifications are just triggers to fetch the current state, which makes them
-// idempotent and order-independent; the user is notified about local state changes only.
+/// <summary>
+/// The local subscription record only changes from what the provider reports (a fetched snapshot), never from
+/// what a client claims. Provider notifications are just triggers to fetch the current state, which makes them
+/// idempotent and order-independent; the user is notified about local state changes only.
+/// </summary>
+/// <remarks>
+/// <c>UserSubscription.UpdatedAt</c> is a concurrency token: when two parallel updates collide, the loser reloads
+/// and retries (up to 3 times), so only one of them sees the transition and sends the notification.
+/// </remarks>
 public class SubscriptionService : ISubscriptionService
 {
     private const string ProviderUnavailable = "The payment service is unavailable right now. Please try again later.";
@@ -411,12 +417,20 @@ public class SubscriptionService : ISubscriptionService
     private string ReturnUrl(bool android, string result) =>
         BuildReturnUrl(_frontendBaseUrl, _options.MobileReturnBaseUrl, android, result);
 
-    // Where the provider's hosted pages send the user back to: the web return page, or the API page that opens the Android app
+    /// <summary>Builds where the provider's hosted pages send the user back to: the web return page, or the API page that opens the Android app.</summary>
+    /// <param name="frontendBaseUrl">The web frontend's base URL.</param>
+    /// <param name="mobileReturnBaseUrl">The API's base URL as the phone's browser reaches it.</param>
+    /// <param name="android">True for the Android return page.</param>
+    /// <param name="result"><c>success</c>, <c>cancelled</c> or <c>portal</c>.</param>
     public static string BuildReturnUrl(string frontendBaseUrl, string mobileReturnBaseUrl, bool android, string result) =>
         android
             ? $"{mobileReturnBaseUrl.TrimEnd('/')}/api/Subscription/return/android?result={Uri.EscapeDataString(result)}"
             : $"{frontendBaseUrl.TrimEnd('/')}/subscription/return?status={Uri.EscapeDataString(result)}";
 
+    /// <summary>
+    /// Converts a stored state to what the clients see. A lapsed subscription is shown as ended even before the
+    /// expiry job catches up, and the renewal, cancellation and payment-problem flags only show while the user is entitled.
+    /// </summary>
     public static SubscriptionStatusDto ToDto(SubscriptionState state, DateTime now)
     {
         var entitled = SubscriptionRules.IsEntitled(state, now);

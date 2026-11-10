@@ -33,14 +33,16 @@ class NotificationBadgeViewModel(
     sessionManager: SessionManager,
 ) : ViewModel() {
 
+    /** The number to show, `null` while logged out (a repository count from an earlier session is hidden too). */
     val unseenCount: StateFlow<Int?> = combine(sessionManager.state, repository.unseenCount) { auth, count ->
         if (auth is AuthState.LoggedIn) count else null
     }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    /** Fetches the current count once. */
     suspend fun refresh() = repository.refreshUnseen()
 
     companion object {
-        /** Like the web's `NotificationContext`, which polls only while the tab is visible. */
+        /** How often the count is fetched while the app is visible; like the web's `NotificationContext`, which polls only while the tab is visible. */
         const val POLL_INTERVAL_MS = 45_000L
 
         val Factory: ViewModelProvider.Factory = viewModelFactory {

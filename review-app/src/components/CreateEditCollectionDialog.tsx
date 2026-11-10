@@ -6,10 +6,17 @@ import { CollectionDto } from "../types/types";
 type CreateEditCollectionDialogProps = {
     open: boolean;
     onClose: () => void;
+    /** Called after the API accepted the change: with the new collection's ID when creating, with the updated collection when editing. */
     onSuccess: ((newCollectionId: number) => void) | ((updatedColl: CollectionDto) => void);
+    /** The collection to edit; omit to create a new one. */
     collection?: CollectionDto | null;
 }
 
+/**
+ * Creates a collection or edits one's name and visibility, depending on whether `collection` is given. Names are
+ * limited to 50 characters like in the API, and unique per user (the API rejects a taken name and its message is
+ * shown). New collections default to private. The dialog cannot be dismissed while a request is running.
+ */
 export function CreateEditCollectionDialog({ open, onClose, onSuccess, collection = null }: CreateEditCollectionDialogProps) {
     const [name, setName] = useState('');
     const [visibilityLevel, setVisibilityLevel] = useState(0);

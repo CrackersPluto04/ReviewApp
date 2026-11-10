@@ -126,6 +126,7 @@ fun CollectionScreen(
     CollectionDialogs(state, viewModel)
 }
 
+/** The info card and the tiles; the tiles are drag-reorderable for the owner and reported to the ViewModel as the drag goes. */
 @Composable
 private fun CollectionGrid(
     collection: MediaCollection,

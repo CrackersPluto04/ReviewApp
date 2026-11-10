@@ -5,13 +5,18 @@ import CameraswitchIcon from "@mui/icons-material/Cameraswitch";
 import { captureFrame } from "../utils/image";
 
 type CameraCaptureProps = {
+    /** Receives the captured photo as a downscaled JPEG; the camera is already off by then. */
     onCapture: (photo: Blob) => void;
-    // The camera can't be used here (no camera, denied, insecure page): the page offers the file picker instead
+    /** The camera can't be used here (no camera, denied, insecure page): the page offers the file picker instead. */
     onUnavailable: (reason: string) => void;
 };
 
 type Facing = 'environment' | 'user';
 
+/**
+ * The text to show for a failed `getUserMedia` call, by the error's name. Always ends by pointing at the file picker.
+ * @param error The error the browser threw; anything that is not a `DOMException` gets the generic text.
+ */
 export function cameraErrorMessage(error: unknown): string {
     const name = error instanceof DOMException ? error.name : '';
     switch (name) {
@@ -29,8 +34,12 @@ export function cameraErrorMessage(error: unknown): string {
     }
 }
 
-// The live webcam picture with a "Take photo" button. The camera is only on while this is shown:
-// it is turned off when the photo is taken, when the tab is hidden and when the component goes away.
+/**
+ * The live camera picture with a "Take photo" button, preferring the back camera, with a switch when the device
+ * has several. The camera is only on while this is shown: it is turned off when the photo is taken, when the tab
+ * is hidden (a notice then offers to turn it back on) and when the component goes away. The browser asks for
+ * permission itself, and any reason the camera cannot be used is reported through `onUnavailable`.
+ */
 export function CameraCapture({ onCapture, onUnavailable }: CameraCaptureProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const streamRef = useRef<MediaStream | null>(null);

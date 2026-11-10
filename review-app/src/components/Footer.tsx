@@ -1,5 +1,6 @@
 import { Box, Typography, Container, Stack } from '@mui/material';
 
+/** The page footer. The social media links are a placeholder. */
 export function Footer() {
     return <Box sx={{ bgcolor: 'background.paper', py: 3, mt: 'auto', borderTop: 1, borderColor: 'divider' }}>
         <Container disableGutters maxWidth="xl" sx={{ pr: 12, pl: 12 }}>

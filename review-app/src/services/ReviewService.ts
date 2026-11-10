@@ -1,9 +1,21 @@
 import { apiFetch } from "./apiClient";
 import { ReviewFilterParams, ReviewMediaDto } from "../types/types";
 
+/**
+ * Wraps `api/Review`. Reading is open to anonymous visitors, with each review's visibility decided per viewer;
+ * writing needs a login and touches the caller's own reviews only. There is at most one review per user and title.
+ * Creating or editing may unlock achievements, which `apiFetch` picks up from the response header.
+ * Methods never throw; they resolve to `{ success, data }` or `{ success: false, message }`.
+ */
 class ReviewService {
     private readonly baseUrl = 'https://localhost:7140/api/Review';
 
+    /**
+     * Lists the public reviews of one title, filtered, sorted and paged.
+     * @param params The title (`mediaType`, `externalApiId`), the page and the sort and filter values; an empty
+     * `sortBy` and `hasWrittenText: false` are not sent.
+     * @returns `{ success: true, data }` with a paged response, or `{ success: false, message }`.
+     */
     async getMediaReviews(params: ReviewFilterParams) {
         try {
             const query = new URLSearchParams();
@@ -29,7 +41,12 @@ class ReviewService {
         }
     }
 
-    // Single review with its author, 404 when it doesn't exist or is hidden from the current user
+    /**
+     * Loads a single review with its author: the shareable review link and the target of reply notifications.
+     * @param id The review's ID.
+     * @returns `{ success: true, data }`, or a failure with `notFound` set when it doesn't exist or is hidden from
+     * the viewer (the API answers the same for both, so the page shows one "not found" state).
+     */
     async getReview(id: number) {
         try {
             const response = await apiFetch(`${this.baseUrl}/${id}`, { credentials: 'include' });
@@ -47,6 +64,13 @@ class ReviewService {
         }
     }
 
+    /**
+     * Loads the average score and review count of a title. Separate from the review list because every media card
+     * asks for its own.
+     * @param externalApiId The TMDb or Spotify ID.
+     * @param mediaType The `MediaType` value (0 = movie, 1 = series, 2 = music).
+     * @returns `{ success: true, data }` with `{ averageScore, reviewCount }`, or `{ success: false, message }`.
+     */
     async getAverageScore(externalApiId: string, mediaType: number) {
         try {
             const response = await apiFetch(`${this.baseUrl}/stats/average-score?externalApiId=${externalApiId}&mediaType=${mediaType}`);
@@ -64,6 +88,13 @@ class ReviewService {
         }
     }
 
+    /**
+     * Tells whether the logged-in user has reviewed a title and returns that review, so the form can start in
+     * create or edit mode.
+     * @param externalApiId The TMDb or Spotify ID.
+     * @param mediaType The `MediaType` value.
+     * @returns `{ success: true, data }` with `{ hasReviewed, reviewData }`, or `{ success: false, message }`.
+     */
     async checkIfUserReviewedMedia(externalApiId: string, mediaType: number) {
         try {
             const response = await apiFetch(`${this.baseUrl}/check?externalApiId=${externalApiId}&mediaType=${mediaType}`, {
@@ -84,6 +115,12 @@ class ReviewService {
         }
     }
 
+    /**
+     * Creates the logged-in user's review of a title. The API fetches the title from TMDb / Spotify the first time
+     * anyone uses it, so an unknown title or an outage of the source fails here.
+     * @param data The title and the review's score, text and visibility.
+     * @returns `{ success: true, data }` with the API's confirmation, or a failure (e.g. the title is already reviewed).
+     */
     async createReview(data: ReviewMediaDto) {
         try {
             const response = await apiFetch(this.baseUrl, {
@@ -106,6 +143,12 @@ class ReviewService {
         }
     }
 
+    /**
+     * Edits the logged-in user's existing review of a title. The API finds it by user and title, so the request
+     * has the same shape as a create.
+     * @param data The title and the review's new values.
+     * @returns `{ success: true, data }` with the API's confirmation, or a failure (e.g. there is no review to edit).
+     */
     async editReview(data: ReviewMediaDto) {
         try {
             const response = await apiFetch(this.baseUrl, {
@@ -128,6 +171,11 @@ class ReviewService {
         }
     }
 
+    /**
+     * Deletes one of the logged-in user's reviews together with all of its replies.
+     * @param id The review's ID.
+     * @returns `{ success: true, data: null }`, or `{ success: false, message }`.
+     */
     async deleteReview(id: number) {
         try {
             const response = await apiFetch(`${this.baseUrl}/${id}`, {

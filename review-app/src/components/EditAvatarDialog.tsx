@@ -4,10 +4,13 @@ import { useState } from "preact/hooks";
 type EditAvatarDialogProps = {
     open: boolean;
     onClose: () => void;
+    /** The picture URL the field starts with; read once, when the component first renders. */
     currentAvatarUrl: string;
+    /** Receives the URL as typed; the caller saves it and closes the dialog. */
     onSave: (newUrl: string) => void;
 };
 
+/** Sets the profile picture from a pasted image URL (pictures are not uploaded), with a live preview. */
 export function EditAvatarDialog({ open, onClose, currentAvatarUrl = '', onSave }: EditAvatarDialogProps) {
     const [newAvatarUrl, setNewAvatarUrl] = useState(currentAvatarUrl);
 
@@ -26,7 +29,6 @@ export function EditAvatarDialog({ open, onClose, currentAvatarUrl = '', onSave 
                 value={newAvatarUrl}
                 onChange={(e: any) => setNewAvatarUrl(e.target.value)}
             />
-            {/* Quick preview if they pasted a link! */}
             {newAvatarUrl && (
                 <Box mt={3} display="flex" justifyContent="center">
                     <Avatar src={newAvatarUrl} sx={{ width: 100, height: 100 }} />

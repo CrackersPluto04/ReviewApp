@@ -39,12 +39,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 
+/** Sort and filter of a review list; the defaults span the whole score scale. */
 data class ReviewFilter(
     val sortBy: String = DiscoverOptions.DEFAULT_REVIEW_SORT,
     val minScore: Double = MIN_SCORE,
     val maxScore: Double = MAX_SCORE,
     val writtenOnly: Boolean = false,
 ) {
+    /** Whether nothing is filtered and the sort is the default, i.e. there is nothing to reset. */
     val isDefault: Boolean get() = this == ReviewFilter()
 }
 
@@ -58,6 +60,11 @@ data class ReviewChange(
     val fromSync: Boolean = false,
 )
 
+/**
+ * Reviews: the lists on media, profile and review pages, the user's own review, and its create, edit and delete.
+ * While offline mode is active a write is applied to the offline copy and queued; otherwise it goes straight to
+ * the API. [changes] tells the screens to refresh.
+ */
 class ReviewRepository(
     private val reviewApi: ReviewApi,
     private val appScope: CoroutineScope,
@@ -67,13 +74,17 @@ class ReviewRepository(
     // Average scores of the media cards. Shared by every screen, loaded once per media and refreshed
     // when the user writes a review. Few parallel requests, so long lists don't hit the rate limit.
     private val _scoreStats = MutableStateFlow<Map<String, ScoreStats>>(emptyMap())
+    /** The average score and review count per media key, filled by [requestStats]. */
     val scoreStats: StateFlow<Map<String, ScoreStats>> = _scoreStats.asStateFlow()
     private val statsInFlight = mutableSetOf<String>()
     private val statsPermits = Semaphore(4)
 
     private val _changes = MutableSharedFlow<ReviewChange>(extraBufferCapacity = 8)
+
+    /** Emitted after a review was created, edited or deleted. */
     val changes: SharedFlow<ReviewChange> = _changes.asSharedFlow()
 
+    /** Loads a title's average score in the background unless it is known or already loading; [force] reloads it. */
     fun requestStats(mediaType: MediaType, externalApiId: String, force: Boolean = false) {
         val key = mediaKey(mediaType, externalApiId)
         synchronized(statsInFlight) {
@@ -113,9 +124,11 @@ class ReviewRepository(
         )
     }
 
+    /** The newest public reviews that have written text, for the home feed. */
     suspend fun recent(count: Int = 10): ApiResult<List<FeedReview>> =
         apiCall { reviewApi.getRecent(count) }.map { list -> list.map { it.toDomain() } }
 
+    /** The public reviews of one title, filtered and paged. */
     suspend fun mediaReviews(
         mediaType: MediaType,
         externalApiId: String,
@@ -155,6 +168,7 @@ class ReviewRepository(
         }
     }
 
+    /** Creates the user's review of a title, or edits it when [isEdit]. Resolves to the message to show. */
     suspend fun save(media: Media, draft: ReviewDraft, isEdit: Boolean): ApiResult<String> {
         if (offline.writer.canWrite()) return saveOffline(media, draft, isEdit)
         val request = ReviewMediaRequest(media.toDto(), draft.toDto())
@@ -201,6 +215,7 @@ class ReviewRepository(
         _changes.tryEmit(ReviewChange(mediaKey = "", fromSync = true))
     }
 
+    /** Deletes one of the user's reviews together with its replies. */
     suspend fun delete(review: ProfileReview): ApiResult<Unit> {
         if (offline.writer.canWrite()) {
             return try {

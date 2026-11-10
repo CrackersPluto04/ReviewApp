@@ -20,7 +20,7 @@ var frontendBaseUrl = builder.Configuration["App:FrontendBaseUrl"]?.TrimEnd('/')
 if (string.IsNullOrEmpty(frontendBaseUrl))
     throw new InvalidOperationException("App:FrontendBaseUrl must be configured.");
 
-// Add services to the container.
+// The CORS origin has to match the frontend exactly, because the auth cookie only travels with credentialed requests
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
@@ -188,6 +188,8 @@ builder.Services.AddControllers(options => options.Filters.Add<MediaErrorFilter>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
+    options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, $"{typeof(Program).Assembly.GetName().Name}.xml"));
+
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. \r\n\r\n Enter 'Bearer' [space] and then your token in the text input below.\r\n\r\nExample: \"Bearer eyJhbGci...\"",
@@ -254,7 +256,8 @@ builder.AddRecognition();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// The order matters: the rate limiter comes after authentication so logged-in users are limited per account, and
+// CORS comes before it so even rejected requests carry the CORS headers.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -279,5 +282,8 @@ app.MapControllers();
 
 app.Run();
 
-// Lets the test project host the app in-process (WebApplicationFactory<Program>)
+/// <summary>
+/// The application entry point. Declared <c>partial</c> only so the test project can host the app in-process
+/// (<c>WebApplicationFactory&lt;Program&gt;</c>).
+/// </summary>
 public partial class Program { }

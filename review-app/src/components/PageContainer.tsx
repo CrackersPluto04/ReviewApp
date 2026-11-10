@@ -8,6 +8,10 @@ type PageContainerProps = HeaderProps & {
     children: ReactNode;
 }
 
+/**
+ * The shared page chrome: header, the email verification banner above the page content, and the footer. Most
+ * top-level routes are wrapped in it (see `AppRoutes`). It takes the header's props, so the theme toggle reaches it.
+ */
 export function PageContainer({ children, ...headerProps }: PageContainerProps) {
     return <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <Header {...headerProps} />

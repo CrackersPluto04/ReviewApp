@@ -3,10 +3,18 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services.Recognition;
 
+/// <summary>
+/// Dependency registration for camera recognition.
+/// </summary>
 public static class RecognitionSetup
 {
-    // Registers camera recognition and its AI provider. Fails fast when the feature is enabled with a provider that
-    // can't work (Gemini without a key) or must not be used (Fake outside Development).
+    /// <summary>
+    /// Registers camera recognition and its AI provider. Fails fast when the feature is enabled with a provider that
+    /// cannot work (Gemini without a key) or must not be used (Fake outside Development), and when the image limit
+    /// does not fit under the request limit. The result store and gate are singletons holding in-memory state, so the
+    /// API assumes a single instance.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The configuration is unsafe or incomplete.</exception>
     public static void AddRecognition(this WebApplicationBuilder builder)
     {
         var section = builder.Configuration.GetSection(RecognitionOptions.SectionName);

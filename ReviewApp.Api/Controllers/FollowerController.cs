@@ -4,6 +4,9 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Controllers;
 
+/// <summary>
+/// Follow relationships of the logged-in user: following, unfollowing and removing one of their own followers.
+/// </summary>
 [Route("api/[controller]")]
 [ApiController]
 [Authorize]
@@ -18,6 +21,13 @@ public class FollowerController : ControllerBase
         _userAuthHelper = userAuthHelper;
     }
 
+    /// <summary>
+    /// Makes the current user follow another user. The target is notified (at most once per actor in 7 days).
+    /// </summary>
+    /// <param name="targerUserId">ID of the user to follow.</param>
+    /// <returns>A confirmation message.</returns>
+    /// <response code="200">Now following.</response>
+    /// <response code="400">The follow was refused, e.g. following oneself, an unknown user or an existing follow.</response>
     [HttpPost("{targerUserId}/follow")]
     public async Task<IActionResult> Follow([FromRoute] int targerUserId)
     {
@@ -35,6 +45,13 @@ public class FollowerController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Stops the current user from following another user.
+    /// </summary>
+    /// <param name="targerUserId">ID of the user to unfollow.</param>
+    /// <returns>A confirmation message.</returns>
+    /// <response code="200">No longer following.</response>
+    /// <response code="400">The current user was not following that user.</response>
     [HttpDelete("{targerUserId}/unfollow")]
     public async Task<IActionResult> Unfollow([FromRoute] int targerUserId)
     {
@@ -52,6 +69,13 @@ public class FollowerController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Removes a follower from the current user's followers, without that user's involvement.
+    /// </summary>
+    /// <param name="followerToRemoveId">ID of the follower to remove.</param>
+    /// <returns>A confirmation message.</returns>
+    /// <response code="200">The follower was removed.</response>
+    /// <response code="400">That user was not following the current user.</response>
     [HttpDelete("{followerToRemoveId}/remove")]
     public async Task<IActionResult> Remove([FromRoute] int followerToRemoveId)
     {

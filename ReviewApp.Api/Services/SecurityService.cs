@@ -7,6 +7,12 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services;
 
+/// <summary>
+/// Email verification, email change and email based two-factor authentication, all built on single-purpose
+/// <c>SecurityToken</c> rows (see <see cref="SecurityTokens"/>). Issuing a token invalidates the older unused ones
+/// of the same user and type, consuming is an atomic <c>ExecuteUpdate</c> so a token can never be used twice, and
+/// each answer is deliberately the same for expired, used, unknown and wrong values so it reveals nothing.
+/// </summary>
 public class SecurityService : ISecurityService
 {
     // Expired, used, unknown and wrong values all get the same answer

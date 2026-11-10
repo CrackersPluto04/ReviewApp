@@ -110,6 +110,7 @@ fun PendingChangesScreen(
     }
 }
 
+/** A section's title. */
 @Composable
 private fun SectionTitle(text: String) = Text(
     text,
@@ -118,6 +119,7 @@ private fun SectionTitle(text: String) = Text(
     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
 )
 
+/** Explanatory text under a section's title. */
 @Composable
 private fun Hint(text: String) = Text(
     text,
@@ -126,7 +128,10 @@ private fun Hint(text: String) = Text(
     modifier = Modifier.padding(16.dp),
 )
 
-/** [onOpen]: a change in Sync issues opens its choices. */
+/**
+ * One waiting change. [onOpen] is given for a change in Sync issues, which shows "Resolve" and opens its choices;
+ * the others offer Discard (disabled while the change is being sent).
+ */
 @Composable
 private fun ChangeRow(row: PendingChangeRow, onDiscard: () -> Unit, onOpen: (() -> Unit)?) {
     ListItem(

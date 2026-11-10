@@ -50,11 +50,15 @@ val OpJson = Json {
 /** The thing an op changes: ops of one key are kept in order, combined and blocked together. */
 fun OutboxEntity.entityKey(): String = if (entityId == null) "bulk:$type" else "$entityType:$entityId"
 
+/** The opIds this op waits for. */
 fun OutboxEntity.dependencies(): List<String> = dependsOn?.split(',')?.filter { it.isNotBlank() }.orEmpty()
 
 /** What [OutboxCompactor.add] does to the queue. */
 data class Compaction(
+    /** The `seq` of queued ops to remove. */
     val delete: List<Long> = emptyList(),
+
+    /** Queued ops to replace with these versions. */
     val update: List<OutboxEntity> = emptyList(),
     /** The new op, when it isn't folded into an earlier one. */
     val insert: OutboxEntity? = null,
@@ -67,6 +71,7 @@ data class Compaction(
  */
 object OutboxCompactor {
 
+    /** The queue changes that bring [op] into [queue]: fold it into an earlier op, cancel ops out, or just append it. */
     fun add(queue: List<OutboxEntity>, op: OutboxEntity): Compaction {
         val sameKey = queue.filter { it.entityKey() == op.entityKey() }.sortedBy { it.seq }
         val lastLocked = sameKey.lastOrNull { it.state != OutboxState.PENDING }?.seq ?: Long.MIN_VALUE
@@ -209,7 +214,10 @@ object SyncPlanner {
 
 /** When a failed op is tried again. */
 object RetryPolicy {
+    /** The delay before the first retry; it doubles from there. */
     const val FIRST_DELAY_MILLIS = 5_000L
+
+    /** The longest delay between two attempts. */
     const val MAX_DELAY_MILLIS = 60 * 60_000L
     /** A `server_error` stops being retried (it goes to Sync issues) after this many attempts. */
     const val MAX_SERVER_ERRORS = 8
@@ -234,7 +242,9 @@ sealed interface OpOutcome {
     data object Waiting : OpOutcome
 }
 
+/** Turns the backend's answer to one op into what the queue does with it (pure, unit-tested). */
 object ResultInterpreter {
+    /** The outcome of [result]; a status this app version does not know is treated as a retry. */
     fun outcome(result: SyncOpResultDto, op: OutboxEntity, nowMillis: Long, random: Double = 0.5): OpOutcome = when (result.status) {
         "applied" -> OpOutcome.Done(result.entityId, merged = false)
         "merged" -> OpOutcome.Done(result.entityId, merged = true)

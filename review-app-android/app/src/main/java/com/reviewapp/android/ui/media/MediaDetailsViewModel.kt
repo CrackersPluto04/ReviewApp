@@ -41,6 +41,7 @@ import kotlinx.coroutines.launch
 /** What the write/edit button should do. */
 enum class OwnReviewState { LoggedOut, Loading, None, Exists }
 
+/** The media itself, the review filter and the state of the user's own review; the reviews list is separate. */
 data class MediaDetailsUiState(
     val media: Media? = null,
     val isLoadingMedia: Boolean = true,
@@ -49,6 +50,11 @@ data class MediaDetailsUiState(
     val ownReview: OwnReviewState = OwnReviewState.Loading,
 )
 
+/**
+ * The details of one media (route arguments: media type and the source's id) with its reviews. The media comes
+ * from [MediaRepository]'s cache when it was listed before; the reviews are an infinite list filtered by
+ * [ReviewFilter]. It reloads the list when a review of this media is saved or deleted anywhere in the app.
+ */
 class MediaDetailsViewModel(
     savedStateHandle: SavedStateHandle,
     private val mediaRepository: MediaRepository,
@@ -65,6 +71,7 @@ class MediaDetailsViewModel(
     private val _state = MutableStateFlow(MediaDetailsUiState())
     val state: StateFlow<MediaDetailsUiState> = _state.asStateFlow()
 
+    /** The average score of this media; `null` until it has loaded. */
     val stats: StateFlow<ScoreStats?> = reviewRepository.scoreStats
         .map { it[key] }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), reviewRepository.scoreStats.value[key])
@@ -75,6 +82,8 @@ class MediaDetailsViewModel(
     val reviews: StateFlow<PagedList<MediaReview>> = reviewsLoader.state
 
     private val _messages = Channel<String>(Channel.BUFFERED)
+
+    /** Notes about the user's own review changes of this media (e.g. a sync result), shown once on the snackbar. */
     val messages = _messages.receiveAsFlow()
 
     private var ownReviewJob: Job? = null
@@ -108,6 +117,7 @@ class MediaDetailsViewModel(
         }
     }
 
+    /** Loads the media (also the error retry). */
     fun loadMedia() {
         _state.update { it.copy(isLoadingMedia = true, mediaError = null) }
         viewModelScope.launch {
@@ -132,6 +142,7 @@ class MediaDetailsViewModel(
 
     private fun setOwnReview(value: OwnReviewState) = _state.update { it.copy(ownReview = value) }
 
+    /** Applies a new review filter and restarts the list. */
     fun updateFilter(filter: ReviewFilter) {
         if (filter == _state.value.filter) return
         _state.update { it.copy(filter = filter) }

@@ -15,6 +15,13 @@ type SecurityDialogProps = {
 // Enabling / disabling 2FA: password first (sends a code), then the code
 type TwoFactorStep = 'idle' | 'password' | 'code';
 
+/**
+ * Account settings > Security: the email's verification state (with a resend), a pending email change (with
+ * cancel) and two-factor authentication. Enabling or disabling 2FA is two steps, the password (which emails a
+ * code) and then the code, and enabling needs a verified email. The status is the only source of the email and
+ * 2FA state, so it is loaded every time the dialog opens, and the user is refreshed after a 2FA change.
+ * Everything typed, the password included, is cleared whenever the dialog opens or closes.
+ */
 export function SecurityDialog({ open, onClose }: SecurityDialogProps) {
     const { refreshUser } = useAuth();
 
@@ -37,7 +44,6 @@ export function SecurityDialog({ open, onClose }: SecurityDialogProps) {
         setLoading(false);
     };
 
-    // Everything (incl. the password) is cleared whenever the dialog is opened or closed
     useEffect(() => {
         setFeedback(undefined);
         setStep('idle');
@@ -49,6 +55,7 @@ export function SecurityDialog({ open, onClose }: SecurityDialogProps) {
 
     const enabling = !status?.isTwoFactorEnabled;
 
+    // Runs one request, shows its message as feedback and, on success, the follow-up; resolves to whether it succeeded
     const run = async (action: () => Promise<{ success: boolean, message?: string }>, onSuccess?: () => void | Promise<void>) => {
         setBusy(true);
         setFeedback(undefined);
@@ -105,7 +112,6 @@ export function SecurityDialog({ open, onClose }: SecurityDialogProps) {
             {loading && !status && <Box display="flex" justifyContent="center" p={3}><CircularProgress /></Box>}
 
             {status && <Stack spacing={3}>
-                {/* Email */}
                 <Box>
                     <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                         <Typography variant="subtitle1" fontWeight="bold">Email address</Typography>
@@ -138,7 +144,6 @@ export function SecurityDialog({ open, onClose }: SecurityDialogProps) {
 
                 <Divider />
 
-                {/* Two-factor authentication */}
                 <Box>
                     <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                         <VerifiedUserIcon fontSize="small" color={status.isTwoFactorEnabled ? 'success' : 'disabled'} />

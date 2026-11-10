@@ -14,6 +14,7 @@ import com.reviewapp.android.domain.model.mediaKey
 import com.reviewapp.android.util.DiscoverOptions
 import kotlinx.coroutines.launch
 
+/** The filters of a movie or series discover list; empty ones are not sent. [genreId] is a TMDb genre ID. */
 data class TmdbDiscoverFilters(
     val sortBy: String = DiscoverOptions.DEFAULT_TMDB_SORT,
     val genreId: String? = null,
@@ -22,6 +23,7 @@ data class TmdbDiscoverFilters(
     val maxRuntime: Int? = null,
 )
 
+/** The filters of the music discover list. */
 data class MusicDiscoverFilters(
     val genre: String = DiscoverOptions.DEFAULT_MUSIC_GENRE,
     val yearFrom: Int? = null,
@@ -51,6 +53,7 @@ class MediaRepository(
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Media>?) = size > CACHE_SIZE
     }
 
+    /** A media seen earlier in this run of the app, or `null`. */
     fun cached(mediaType: MediaType, externalApiId: String): Media? =
         synchronized(cache) { cache[mediaKey(mediaType, externalApiId)] }
 
@@ -60,6 +63,7 @@ class MediaRepository(
         return items
     }
 
+    /** One title: from memory if seen before, else from the API (which fetches and caches it on first use), else from the offline copy. */
     suspend fun getMedia(mediaType: MediaType, externalApiId: String): ApiResult<Media> {
         cached(mediaType, externalApiId)?.let { return ApiResult.Success(it) }
 
@@ -122,6 +126,7 @@ class MediaRepository(
         }
     }
 
+    /** Browses movies or series. */
     suspend fun discover(mediaType: MediaType, filters: TmdbDiscoverFilters, page: Int): ApiResult<Page<Media>> =
         apiCall {
             mediaApi.discoverTmdb(
@@ -135,6 +140,7 @@ class MediaRepository(
             )
         }.map { response -> response.toPage { it.toDomain() }.also { remember(it.items) } }
 
+    /** Browses music by genre, year range and market. */
     suspend fun discoverMusic(filters: MusicDiscoverFilters, page: Int): ApiResult<Page<Media>> =
         apiCall { mediaApi.discoverMusic(page, filters.genre, filters.yearParam, filters.market) }
             .map { response -> response.toPage { it.toDomain() }.also { remember(it.items) } }

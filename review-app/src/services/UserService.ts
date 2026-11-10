@@ -1,9 +1,21 @@
 import { apiFetch } from "./apiClient";
 import { ReviewFilterParams } from "../types/types";
 
+/**
+ * Wraps `api/User`: profiles and the content shown on them (reviews, collections, follower lists), and the
+ * logged-in user's account changes (`/me`). Reading is open to anonymous visitors, with visibility decided per
+ * viewer; the account changes need a login.
+ * Methods never throw; they resolve to `{ success, data }`, `{ success, message }` or `{ success: false, message }`.
+ */
 class UserService {
     private readonly baseUrl = 'https://localhost:7140/api/User';
 
+    /**
+     * Searches users by username for the user search.
+     * @param query The search text.
+     * @returns `{ success: true, data }` with the matching users. On any failure `{ success: false, data: [] }`
+     * with an empty list and no message, so a search box can simply show "no results".
+     */
     async searchUsers(query: string) {
         try {
             const response = await apiFetch(`${this.baseUrl}/search?q=${encodeURIComponent(query)}`, this.getFetchOptions());
@@ -20,6 +32,11 @@ class UserService {
         }
     }
 
+    /**
+     * Loads a user's public profile.
+     * @param username The profile's username.
+     * @returns `{ success: true, data }` with the profile, or `{ success: false, message }` (e.g. unknown user).
+     */
     async getUserProfile(username: string) {
         try {
             const response = await apiFetch(`${this.baseUrl}/${encodeURIComponent(username)}`,this.getFetchOptions());
@@ -37,6 +54,13 @@ class UserService {
         }
     }
 
+    /**
+     * Updates the logged-in user's bio and/or profile picture. `undefined` fields are left out of the request
+     * (`JSON.stringify` drops them), so they stay unchanged.
+     * @param bio The new bio.
+     * @param profilePictureUrl The new picture URL.
+     * @returns `{ success, message }`.
+     */
     async updateMyProfile(bio?: string, profilePictureUrl?: string) {
         try {
             const response = await apiFetch(`${this.baseUrl}/me`, this.getFetchOptions('PATCH', { bio, profilePictureUrl }));
@@ -54,6 +78,12 @@ class UserService {
         }
     }
 
+    /**
+     * Renames the logged-in user. Usernames are part of profile URLs, so the API applies the username rules
+     * (see `usernameError`).
+     * @param username The new username.
+     * @returns `{ success, message }`.
+     */
     async changeUsername(username: string) {
         try {
             const response = await apiFetch(`${this.baseUrl}/me`, this.getFetchOptions('PATCH', { username }));
@@ -70,6 +100,13 @@ class UserService {
         }
     }
 
+    /**
+     * Requests an email change. Nothing changes yet: the API stores it as pending and emails a confirmation link to
+     * the new address (see `SecurityService.confirmEmailChange`). Needs a verified current email.
+     * @param newEmail The new address.
+     * @param currentPassword The account password.
+     * @returns `{ success, message }`.
+     */
     async changeEmail(newEmail: string, currentPassword: string) {
         try {
             const response = await apiFetch(`${this.baseUrl}/me/email`, this.getFetchOptions('PUT', { newEmail, currentPassword }));
@@ -87,6 +124,13 @@ class UserService {
         }
     }
 
+    /**
+     * Changes the password. Revokes every other session; the response re-issues the cookie for this browser, so
+     * the user stays logged in here.
+     * @param currentPassword The current password.
+     * @param newPassword The new password, within the limits of `utils/validation`.
+     * @returns `{ success, message }`.
+     */
     async changePassword(currentPassword: string, newPassword: string) {
         try {
             const response = await apiFetch(`${this.baseUrl}/me/password`, this.getFetchOptions('PUT', { currentPassword, newPassword }));
@@ -104,6 +148,12 @@ class UserService {
         }
     }
 
+    /**
+     * Lists a user's collections that the viewer may see.
+     * @param username The profile's username.
+     * @param sortBy The sort key, e.g. `createdAt_desc`.
+     * @returns `{ success: true, data }` with the collections, or `{ success: false, message }`.
+     */
     async getUserCollections(username: string, sortBy: string = 'createdAt_desc') {
         try {
             const response = await apiFetch(`${this.baseUrl}/${encodeURIComponent(username)}/collections?sortBy=${encodeURIComponent(sortBy)}`, this.getFetchOptions());
@@ -121,6 +171,12 @@ class UserService {
         }
     }
 
+    /**
+     * Lists a user's reviews that the viewer may see, filtered, sorted and paged.
+     * @param username The profile's username.
+     * @param params Page, sort and filter values; `mediaType` and `externalApiId` are not used here.
+     * @returns `{ success: true, data }` with a paged response, or `{ success: false, message }`.
+     */
     async getUserReviews(username: string, params: ReviewFilterParams) {
         try {
             const query = new URLSearchParams();
@@ -146,6 +202,11 @@ class UserService {
         }
     }
 
+    /**
+     * Lists the users who follow this user.
+     * @param username The profile's username.
+     * @returns `{ success: true, data }` with the users, or `{ success: false, message }`.
+     */
     async getUserFollowers(username: string) {
         try {
             const response = await apiFetch(`${this.baseUrl}/${encodeURIComponent(username)}/followers`, this.getFetchOptions());
@@ -163,6 +224,11 @@ class UserService {
         }
     }
 
+    /**
+     * Lists the users this user follows.
+     * @param username The profile's username.
+     * @returns `{ success: true, data }` with the users, or `{ success: false, message }`.
+     */
     async getUserFollowing(username: string) {
         try {
             const response = await apiFetch(`${this.baseUrl}/${encodeURIComponent(username)}/following`, this.getFetchOptions());
@@ -179,8 +245,6 @@ class UserService {
             return { success: false, message: 'Network error while reaching user following.' }
         }
     }
-
-    /* Helper methods */
 
     // Our endpoints return { error }, DataAnnotations failures come back as ProblemDetails ({ errors: { Field: [messages] } })
     // and a revoked / expired token gives a 401 with an empty body
@@ -199,7 +263,6 @@ class UserService {
         return fallback;
     }
 
-    // Create fetch options for different HTTP methods and request bodies
     private getFetchOptions(method: string = 'GET', body?: any): RequestInit {
         return {
             method,

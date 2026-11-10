@@ -31,10 +31,12 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** The review page: the review, its reply thread and the reply box and dialogs. */
 data class ReviewUiState(
     val detail: ReviewDetail? = null,
     val isLoading: Boolean = true,
     val error: String? = null,
+    /** The review is deleted or hidden from this user (the API answers 404 for both). */
     val notFound: Boolean = false,
     /** The linked reply was deleted or isn't visible, the review is shown anyway. */
     val focusMissing: Boolean = false,
@@ -51,14 +53,24 @@ data class ReviewUiState(
 ) {
     /** Private reviews can't be replied to, not even by their owner. */
     val isReplyable: Boolean get() = detail != null && detail.review.visibility != Visibility.Private
+
+    /** The reply bar is shown: logged in and the review accepts replies. */
     val canReply: Boolean get() = isLoggedIn && isReplyable
+
+    /** Only a too long draft shows an error while typing; an empty one just disables sending. */
     val draftError: String? get() = if (draft.trim().length > Validation.MAX_REPLY_LENGTH) Validation.replyError(draft) else null
     val canSend: Boolean get() = canReply && !isPosting && Validation.replyError(draft) == null
 }
 
+/** One-off results of the review page. */
 sealed interface ReviewEvent {
+    /** A failure to show on the snackbar. */
     data class Message(val text: String) : ReviewEvent
+
+    /** The linked reply is on screen; scroll it into view. */
     data class ScrollToReply(val replyId: Int) : ReviewEvent
+
+    /** The review was deleted, so the page closes. */
     data object ReviewDeleted : ReviewEvent
 }
 
@@ -71,6 +83,8 @@ class ReviewViewModel(
 ) : ViewModel() {
 
     val reviewId = route.reviewId
+
+    /** The reply the route links to (from a notification or deep link), highlighted and scrolled to. */
     private val focusReplyId = route.replyId
 
     private val _state = MutableStateFlow(ReviewUiState())
@@ -96,6 +110,10 @@ class ReviewViewModel(
         }
     }
 
+    /**
+     * Loads the review and, when the route links a reply, that reply with its parent so the thread opens there.
+     * The first page of replies follows.
+     */
     fun load() {
         loadJob?.cancel()
         _state.update { it.copy(isLoading = it.detail == null, error = null, notFound = false) }
@@ -129,6 +147,7 @@ class ReviewViewModel(
         }
     }
 
+    /** Loads the next page of the review's replies (layer 2). */
     fun loadTop() {
         val list = _state.value.thread.top
         if (list.isLoading) return
@@ -147,6 +166,7 @@ class ReviewViewModel(
         }
     }
 
+    /** Loads the next page of the replies to the layer-2 reply [parentId] (layer 3). */
     fun loadChildren(parentId: Int) {
         val list = _state.value.thread.childrenOf(parentId)
         if (list.isLoading) return
@@ -182,12 +202,13 @@ class ReviewViewModel(
         _events.trySend(ReviewEvent.ScrollToReply(id))
     }
 
-    // Writing replies
-
+    /** Stores the reply text and clears the post error. */
     fun updateDraft(text: String) = _state.update { it.copy(draft = text, postError = null) }
 
+    /** Answers the layer-2 [reply] (`null`: back to replying to the review itself). */
     fun setReplyTarget(reply: Reply?) = _state.update { it.copy(replyTarget = reply, postError = null) }
 
+    /** Posts the draft as a reply to the review or to the reply target and adds it to the thread. */
     fun send() {
         val current = _state.value
         if (!current.canSend) return
@@ -208,10 +229,10 @@ class ReviewViewModel(
         }
     }
 
-    // Deleting
-
+    /** Asks for confirmation to delete [reply]; `null` cancels. */
     fun askDeleteReply(reply: Reply?) = _state.update { it.copy(replyToDelete = reply) }
 
+    /** Deletes the confirmed reply; the thread keeps a placeholder when it has children (see [ReplyThreadState.withDeleted]). */
     fun deleteReply() {
         val reply = _state.value.replyToDelete ?: return
         _state.update { it.copy(isDeleting = true) }
@@ -228,8 +249,10 @@ class ReviewViewModel(
         }
     }
 
+    /** Opens or closes the review's delete confirmation. */
     fun askDeleteReview(ask: Boolean) = _state.update { it.copy(askDeleteReview = ask) }
 
+    /** Deletes the review (and with it its replies); [ReviewEvent.ReviewDeleted] follows on success. */
     fun deleteReview() {
         val detail = _state.value.detail ?: return
         _state.update { it.copy(isDeleting = true) }

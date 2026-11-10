@@ -11,11 +11,16 @@ type MediaDetailsProps = {
     media: MediaDto;
 };
 
+/**
+ * The details tab of a title: poster, release date, overview (or the artists for music) and the title's public
+ * reviews, paged, with a sort and filter panel. The applied sort, score range, written-only switch and page live
+ * in the URL, so a filtered view can be linked and survives a reload. The router state that carries the title
+ * is passed along on every URL change, otherwise the media page would have to fetch the title again.
+ */
 export function MediaDetails({ media }: MediaDetailsProps) {
     const [searchParams, setSearchParams] = useSearchParams();
     const location = useLocation();
 
-    // --- States ---
     const [reviews, setReviews] = useState<any[]>([]);
     const [totalCount, setTotalCount] = useState(0);
     const [totalPages, setTotalPages] = useState(1);
@@ -24,7 +29,6 @@ export function MediaDetails({ media }: MediaDetailsProps) {
 
     const disabled = reviews.length === 0 || loading || !!errorMessage;
 
-    // --- Active States (From URL) ---
     const pageUrl = Number.parseInt(searchParams.get('page') || '1', 10);
     const sortByUrl = searchParams.get('sortBy') || 'created_desc';
     const minScoreUrl = searchParams.get('minScore') ? Number.parseFloat(searchParams.get('minScore')!) : 1;
@@ -33,14 +37,12 @@ export function MediaDetails({ media }: MediaDetailsProps) {
 
     const scoreRange = [minScoreUrl, maxScoreUrl];
 
-    // --- Local States (For Inputs) ---
     const [draftFilters, setDraftFilters] = useState({
         sortBy: sortByUrl,
         scoreRange: scoreRange,
         hasWrittenText: hasWrittenTextUrl
     });
 
-    // --- Sync local state to URL params ---
     useEffect(() => {
         setDraftFilters({
             sortBy: sortByUrl,
@@ -49,7 +51,6 @@ export function MediaDetails({ media }: MediaDetailsProps) {
         });
     }, [sortByUrl, minScoreUrl, maxScoreUrl, hasWrittenTextUrl]);
 
-    // --- Fetch Logic ---
     useEffect(() => {
         const fetchReviews = async () => {
             setLoading(true);
@@ -80,7 +81,6 @@ export function MediaDetails({ media }: MediaDetailsProps) {
         fetchReviews();
     }, [media, pageUrl, sortByUrl, minScoreUrl, maxScoreUrl, hasWrittenTextUrl]);
 
-    // --- Handlers ---
     const handlePageChange = (_event: any, newPage: number) => {
         setSearchParams(prev => {
             const newParams = new URLSearchParams(prev);
@@ -112,9 +112,7 @@ export function MediaDetails({ media }: MediaDetailsProps) {
     }
 
     return <Box sx={{ pb: 8 }}>
-        {/* --- TOP SECTION: Media Info --- */}
         <Grid container spacing={4} sx={{ mb: 6 }}>
-            {/* Left: Poster */}
             <Grid size={{ xs: 12, md: 3 }}>
                 <Card elevation={4} sx={{ borderRadius: 3 }}>
                     <CardMedia
@@ -126,7 +124,6 @@ export function MediaDetails({ media }: MediaDetailsProps) {
                 </Card>
             </Grid>
 
-            {/* Right: Details */}
             <Grid size={{ xs: 12, md: 9 }}>
                 <Typography variant="h3" fontWeight="bold" gutterBottom>
                     {media.title}
@@ -149,17 +146,14 @@ export function MediaDetails({ media }: MediaDetailsProps) {
 
         <Divider sx={{ mb: 4 }} />
 
-        {/* --- BOTTOM SECTION: Reviews & Filters & Pagination --- */}
         <Typography variant="h5" fontWeight="bold" sx={{ mb: 3 }}>
             Reviews ({totalCount})
         </Typography>
 
-        {/* Pagination Top */}
         {totalPages > 1 && !loading &&
             <MyPagination page={pageUrl} totalPages={totalPages} onPageChange={handlePageChange} size="medium" mt={2} mb={2} />}
 
         <Grid container spacing={4}>
-            {/* Left: Review List */}
             <Grid size={{ xs: 12, md: 8 }}>
                 {loading ? (
                     <Box display="flex" justifyContent="center" p={4}><CircularProgress /></Box>
@@ -174,7 +168,6 @@ export function MediaDetails({ media }: MediaDetailsProps) {
                 )}
             </Grid>
 
-            {/* Right: Sticky Filters */}
             <Grid size={{ xs: 12, md: 4 }}>
                 <ReviewFilter
                     filters={draftFilters}
@@ -185,7 +178,6 @@ export function MediaDetails({ media }: MediaDetailsProps) {
             </Grid>
         </Grid>
 
-        {/* Pagination Bottom */}
         {totalPages > 1 && !loading &&
             <MyPagination page={pageUrl} totalPages={totalPages} onPageChange={handlePageChange} size="large" />}
     </Box>

@@ -8,6 +8,12 @@ import { AuthUser, useAuth } from "../context/AuthContext";
 
 const RESEND_COOLDOWN_SECONDS = 60;
 
+/**
+ * Login and registration in one form (`/login`), switched by the link under it. Registering does not log in.
+ * A login of an account with two-factor authentication is two steps: after the password the page swaps to a
+ * code form, driven by the `challengeToken` the API returns instead of a session. Other pages send the user here
+ * with `location.state.returnTo`, and a successful login goes back there (or to `/home`).
+ */
 export function LoginPage() {
     const navigate = useNavigate();
     const location = useLocation();

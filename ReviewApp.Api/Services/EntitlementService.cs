@@ -5,6 +5,10 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services;
 
+/// <summary>
+/// Reads the tier from the stored subscription on every call and applies <see cref="SubscriptionRules"/>, so the
+/// answer reflects time passing (a period ending) without any job having to update a flag.
+/// </summary>
 public class EntitlementService : IEntitlementService
 {
     private readonly AppDbContext _context;

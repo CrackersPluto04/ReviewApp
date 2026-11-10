@@ -208,6 +208,7 @@ fun NotificationsScreen(
     }
 }
 
+/** The top bar's menu with "Delete all seen". */
 @Composable
 private fun OverflowMenu(enabled: Boolean, onDeleteSeen: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
@@ -227,6 +228,10 @@ private fun OverflowMenu(enabled: Boolean, onDeleteSeen: () -> Unit) {
     }
 }
 
+/**
+ * One notification. Unseen ones are tinted and bold; a card with a target opens it on tap, and the arrow button
+ * does the same ("Take me there").
+ */
 @Composable
 private fun NotificationCard(
     notification: AppNotification,
@@ -316,6 +321,7 @@ private fun NotificationIcon(notification: AppNotification) {
     }
 }
 
+/** The screen's content for a logged-out user. */
 @Composable
 private fun LoggedOut(onLogin: () -> Unit, modifier: Modifier) {
     Column(

@@ -2,16 +2,26 @@ import { Paper, Typography, Box, FormControl, InputLabel, Select, MenuItem, Slid
 import { useState } from "preact/hooks";
 
 type ReviewFilterProps = {
+    /** The applied filters the form starts with; read once, when the component first renders. */
     filters: {
         sortBy: string,
+        /** `[min, max]` of the score, 1 to 10. */
         scoreRange: number[],
         hasWrittenText: boolean
     };
+    /** Receives the edited filters when Apply is pressed. */
     handleApply: (filters: any) => void;
+    /** Called after the form reset itself, so the parent can drop the filters from its state or URL. */
     handleClear: () => void;
+    /** Disables Apply and Clear, e.g. while there is nothing to filter. */
     disabled: boolean
 }
 
+/**
+ * The sort and filter panel of a review list (sort order, score range, written reviews only), sticky beside
+ * the list. Edits stay in a draft until Apply, so every slider move doesn't refetch. The sort keys are the
+ * ones the review list endpoints accept.
+ */
 export function ReviewFilter({ filters, handleApply, handleClear, disabled }: ReviewFilterProps) {
     const [draftFilters, setDraftFilters] = useState(filters);
 
@@ -39,7 +49,6 @@ export function ReviewFilter({ filters, handleApply, handleClear, disabled }: Re
         </Typography>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 2 }}>
-            {/* Sort Dropdown */}
             <FormControl fullWidth>
                 <InputLabel>Sort By</InputLabel>
 
@@ -53,7 +62,6 @@ export function ReviewFilter({ filters, handleApply, handleClear, disabled }: Re
                 </Select>
             </FormControl>
 
-            {/* Score Range Slider */}
             <Box sx={{ px: 1 }}>
                 <Typography gutterBottom>
                     Score Range: {draftFilters.scoreRange[0]} - {draftFilters.scoreRange[1]}
@@ -66,7 +74,6 @@ export function ReviewFilter({ filters, handleApply, handleClear, disabled }: Re
                 />
             </Box>
 
-            {/* Has Written Text Checkbox */}
             <FormControlLabel
                 control={
                     <Switch
@@ -78,7 +85,6 @@ export function ReviewFilter({ filters, handleApply, handleClear, disabled }: Re
                 label="Only show written reviews"
             />
 
-            {/* Action Buttons */}
             <Box sx={{ display: 'flex', gap: 2 }}>
                 <Button variant="contained" color="success" fullWidth onClick={handleApplyClick} disabled={disabled}>
                     Apply

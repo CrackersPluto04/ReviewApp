@@ -31,7 +31,10 @@ type ThemeProps = {
 	toggleTheme: () => void;
 };
 
-// The light/dark mode, persisted to localStorage
+/**
+ * The light / dark mode, persisted to `localStorage` under `theme`; light on the first visit.
+ * @returns The current mode and a function that switches it.
+ */
 export function useThemeMode(): ThemeProps {
 	const [mode, setMode] = useState<ThemeMode>(() => {
 		return (localStorage.getItem("theme") as ThemeMode) || "light";
@@ -51,7 +54,11 @@ type AppProvidersProps = {
 	children: ReactNode;
 };
 
-// The global providers outside the router
+/**
+ * The global providers that need no router: the MUI theme, then auth, the notification count and the
+ * achievement toasts. The order matters: the notification provider reads the auth state, so it sits inside
+ * `AuthProvider`. Exported separately from `App` so tests can mount the app under their own router.
+ */
 export function AppProviders({ mode, children }: AppProvidersProps) {
 	const theme = useMemo(() => createTheme({
 		palette: {
@@ -72,7 +79,12 @@ export function AppProviders({ mode, children }: AppProvidersProps) {
 	</ThemeProvider>
 }
 
-// Everything inside the router: the providers that navigate and the route table
+/**
+ * The route table, with the providers that need the router (the Premium upsell dialog navigates to the plans
+ * page). Most pages are wrapped in `PageContainer` for the shared header and footer; the profile is a layout
+ * route whose tabs render in `ProfileLayout`'s `Outlet`, and the overview tab is still a placeholder. Unknown
+ * paths go to `/home`.
+ */
 export function AppRoutes({ mode, toggleTheme }: ThemeProps) {
 	return <PremiumUpsellProvider>
 		<ScrollToTop />
@@ -172,6 +184,7 @@ export function AppRoutes({ mode, toggleTheme }: ThemeProps) {
 	</PremiumUpsellProvider>
 }
 
+/** The application root: the theme state, the global providers and the browser router with the routes. */
 export function App() {
 	const { mode, toggleTheme } = useThemeMode();
 

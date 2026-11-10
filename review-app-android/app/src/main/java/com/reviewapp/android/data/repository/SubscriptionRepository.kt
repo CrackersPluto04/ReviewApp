@@ -27,10 +27,14 @@ class SubscriptionRepository(
 ) {
     // A locked feature was requested (402): the root shows the upsell
     private val _premiumRequired = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /** Emitted for every 402 response; the root screen shows the upsell dialog. */
     val premiumRequired: SharedFlow<Unit> = _premiumRequired.asSharedFlow()
 
+    /** The Premium plan (anonymous). */
     suspend fun plan(): ApiResult<Plan> = apiCall { api.getPlan() }.map { it.toDomain() }
 
+    /** The user's subscription; reloads the user when the Premium state differs from the cached one. */
     suspend fun status(): ApiResult<SubscriptionSummary> = syncUser(apiCall { api.getStatus() }.map { it.toDomain() })
 
     /** The checkout page to open in the browser. */
@@ -39,8 +43,10 @@ class SubscriptionRepository(
     /** The payment provider's page for payment details and invoices. */
     suspend fun portalUrl(): ApiResult<String> = apiCall { api.openPortal(SubscriptionRedirectRequest()) }.map { it.url }
 
+    /** Stops the renewal; Premium stays until the end of the paid period. */
     suspend fun cancel(): ApiResult<String> = afterChange(apiCall { api.cancel() }.message("Your subscription is cancelled."))
 
+    /** Undoes [cancel] while the paid period still runs. */
     suspend fun resume(): ApiResult<String> = afterChange(apiCall { api.resume() }.message("Your subscription will renew again."))
 
     /**

@@ -34,13 +34,16 @@ private fun <T> ApiResult<List<T>>.toSection(): Section<T> = when (this) {
     is ApiResult.Error -> Section(isLoading = false, error = message)
 }
 
+/** The three blocks of the home page; each loads and fails on its own, so one outage does not blank the page. */
 data class HomeUiState(
     val popularMovies: Section<Media> = Section(),
     val popularSeries: Section<Media> = Section(),
     val recentReviews: Section<FeedReview> = Section(),
+    /** Pull-to-refresh is running. */
     val isRefreshing: Boolean = false,
 )
 
+/** The home page: popular movies and series and the newest public reviews. */
 class HomeViewModel(
     private val mediaRepository: MediaRepository,
     private val reviewRepository: ReviewRepository,
@@ -72,6 +75,7 @@ class HomeViewModel(
         }
     }
 
+    /** Reloads all blocks (pull-to-refresh and the error retry). */
     fun refresh() {
         _state.update { it.copy(isRefreshing = true) }
         load()
@@ -102,6 +106,7 @@ class HomeViewModel(
         }
     }
 
+    /** The first [CAROUSEL_SIZE] of the default discover list (TMDb's popularity order) stand in for "popular". */
     private suspend fun popular(type: MediaType): ApiResult<List<Media>> =
         when (val result = mediaRepository.discover(type, TmdbDiscoverFilters(), page = 1)) {
             is ApiResult.Success -> ApiResult.Success(result.data.items.take(CAROUSEL_SIZE))

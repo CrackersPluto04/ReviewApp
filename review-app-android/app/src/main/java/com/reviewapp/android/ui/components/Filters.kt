@@ -75,6 +75,7 @@ fun DropdownFilterChip(
     }
 }
 
+/** One row of a [DropdownFilterChip] menu, with a check mark when it is the current choice. */
 @Composable
 private fun MenuOption(text: String, isSelected: Boolean, onClick: () -> Unit) {
     DropdownMenuItem(
@@ -84,7 +85,11 @@ private fun MenuOption(text: String, isSelected: Boolean, onClick: () -> Unit) {
     )
 }
 
-/** Dialog with one or more whole-number fields (year, runtime). Blank fields are null. */
+/**
+ * Dialog with one or more whole-number fields (year, runtime), each a label and its initial value. Blank fields
+ * are null. [validate] gets the parsed values and returns the error to show, which also disables Apply; input is
+ * limited to four digits.
+ */
 @Composable
 fun NumberFieldsDialog(
     title: String,

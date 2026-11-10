@@ -6,12 +6,16 @@ import { securityService } from "../services/SecurityService";
 import { useAuth } from "../context/AuthContext";
 
 type EmailLinkPageProps = {
-    // verify: link from the welcome / verification email, change: link sent to the new address
+    /** `verify`: the link from the welcome / verification email; `change`: the link sent to the new address. */
     mode: 'verify' | 'change';
 };
 
-// Landing page of the links in account emails. Opening the page alone confirms nothing:
-// the token is submitted with a POST from here, so email scanners that prefetch links can't use it up.
+/**
+ * Landing page of the links in account emails (`/verify-email` and `/confirm-email-change`, the `token` query
+ * parameter). Opening the page alone confirms nothing: the token is submitted once on mount with a POST, so email
+ * scanners that prefetch links can't use it up. A confirmed email change revokes every session, so the page
+ * reloads the user and, if they ended up logged out, offers the login.
+ */
 export function EmailLinkPage({ mode }: EmailLinkPageProps) {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();

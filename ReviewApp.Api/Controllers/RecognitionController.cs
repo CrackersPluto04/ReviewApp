@@ -9,8 +9,12 @@ using ReviewApp.Api.Services.Recognition;
 
 namespace ReviewApp.Api.Controllers;
 
-// Camera recognition (Premium). Errors are { error, code } so the clients can tell the states apart:
-// busy (409), daily_limit (429, with resetsAt), recognition_unavailable / source_unavailable (503), not_found (404).
+/// <summary>
+/// Camera recognition (Premium): identifies the title or franchise in a photo and lists related media.
+/// Errors are <c>{ error, code }</c> so the clients can tell the states apart: <c>busy</c> (409),
+/// <c>daily_limit</c> (429, with <c>resetsAt</c>), <c>recognition_unavailable</c> / <c>source_unavailable</c> (503)
+/// and <c>not_found</c> (404).
+/// </summary>
 [Route("api/[controller]")]
 [ApiController]
 [Authorize]
@@ -27,7 +31,12 @@ public class RecognitionController : ControllerBase
         _options = options.Value;
     }
 
-    // Not Premium-locked: Free users learn whether the feature exists (to show its entry and the upsell)
+    /// <summary>
+    /// Reports whether the feature is enabled, whether the caller has it, and the daily allowance left.
+    /// Deliberately not Premium-locked: Free users need it to show the feature's entry point and the upsell.
+    /// </summary>
+    /// <returns><c>{ enabled, premium, limit, remaining, resetsAt }</c>.</returns>
+    /// <response code="200">The caller's allowance.</response>
     [HttpGet("allowance")]
     public async Task<IActionResult> GetAllowance()
     {
@@ -41,7 +50,19 @@ public class RecognitionController : ControllerBase
         }
     }
 
-    // multipart/form-data with the photo in the "image" part (JPEG or PNG)
+    /// <summary>
+    /// Recognizes what a photo shows and returns the first page of matching media. The request is
+    /// <c>multipart/form-data</c> with the photo (JPEG or PNG) in the <c>image</c> part. The photo is read into
+    /// memory and is never stored or logged.
+    /// </summary>
+    /// <returns>The recognition ID, the recognized subject and the first page of ranked media.</returns>
+    /// <response code="200">Recognized, or nothing recognized (an empty list).</response>
+    /// <response code="400">Not multipart, no photo in the <c>image</c> part, or an unusable image.</response>
+    /// <response code="402">The caller is not Premium (<c>premium_required</c>).</response>
+    /// <response code="409">The caller already has a recognition running (<c>busy</c>).</response>
+    /// <response code="413">The photo is over the size limit.</response>
+    /// <response code="429">Daily allowance used up (<c>daily_limit</c>, with <c>resetsAt</c>), or the <c>recognition</c> rate limit.</response>
+    /// <response code="503">The feature is off or the AI provider failed (<c>recognition_unavailable</c>), or TMDb / Spotify were unreachable (<c>source_unavailable</c>).</response>
     [HttpPost]
     [RequiresFeature(FeatureKeys.CameraRecognition)]
     [EnableRateLimiting("recognition")]
@@ -85,7 +106,17 @@ public class RecognitionController : ControllerBase
         }
     }
 
-    // "Show more": the next items of the stored list, no new AI call. Locked as well, so a lapsed subscription stops here too.
+    /// <summary>
+    /// "Show more": returns further items of a stored recognition result without a new AI call or allowance use.
+    /// Premium-locked too, so a lapsed subscription stops here as well.
+    /// </summary>
+    /// <param name="id">The recognition ID from the original response.</param>
+    /// <param name="offset">Index of the first item to return.</param>
+    /// <param name="count">How many items to return; the configured page size when omitted.</param>
+    /// <returns>The requested slice of the stored list.</returns>
+    /// <response code="200">The items.</response>
+    /// <response code="402">The caller is not Premium (<c>premium_required</c>).</response>
+    /// <response code="404">The ID is unknown, expired (results are kept 30 minutes) or belongs to someone else (<c>not_found</c>).</response>
     [HttpGet("{id}/items")]
     [RequiresFeature(FeatureKeys.CameraRecognition)]
     public IActionResult GetItems([FromRoute] string id, [FromQuery] int offset = 0, [FromQuery] int? count = null)

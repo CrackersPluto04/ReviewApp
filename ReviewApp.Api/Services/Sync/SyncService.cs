@@ -8,25 +8,34 @@ using System.Text.Json;
 
 namespace ReviewApp.Api.Services.Sync;
 
-/* Applies the offline changes of the Android app (POST api/Sync/push), in the order they were made, each one on its
-   own and answered on its own, so one problem never blocks or rolls back the others.
-
-   Each op:
-   1. Already applied (its OperationID is stored)? Answer with the stored result, change nothing.
-   2. An op it depends on wasn't applied? Skipped.
-   3. Parse and validate the payload; resolve clientRefs (reviews / collections created offline) to real IDs and
-      media keys to stored media rows (TMDb / Spotify lookups happen here, outside any transaction).
-   4. In one transaction: claim the OperationID (a parallel push of the same op waits here and then replays),
-      lock the target row (UPDLOCK), compare with the base the device's change started from (FieldMerge), call the
-      service's core write, and store the result with the claim. Conflicts and rejections roll everything back.
-   5. After the commit: achievements and the new-follower notification, as if the user had just done it online.
-
-   The web app keeps "last write wins" (no version checks there); only changes from the phone carry a base. */
+/// <summary>
+/// Applies the offline changes of the Android app (<c>POST api/Sync/push</c>), in the order they were made, each
+/// one on its own and answered on its own, so one problem never blocks or rolls back the others.
+/// </summary>
+/// <remarks>
+/// <para>Each op goes through these steps:</para>
+/// <list type="number">
+/// <item>Already applied (its <c>OperationID</c> is stored)? Answer with the stored result and change nothing, so a
+/// change sent again after a lost answer is never applied twice.</item>
+/// <item>An op it depends on was not applied? Skipped.</item>
+/// <item>Parse and validate the payload; resolve client references (reviews and collections created offline) to
+/// real IDs and media keys to stored media rows. The TMDb / Spotify lookups happen here, outside any transaction.</item>
+/// <item>In one transaction: claim the <c>OperationID</c> (a parallel push of the same op waits here and then
+/// replays), lock the target row (<c>UPDLOCK</c>), compare with the base the device's change started from
+/// (<see cref="FieldMerge"/>), call the service's core write, and store the result with the claim. Conflicts and
+/// rejections roll everything back, so the device can send them again once the user has decided.</item>
+/// <item>After the commit: achievements and the new-follower notification, as if the user had just done it online.</item>
+/// </list>
+/// <para>The web app keeps "last write wins" (no version checks there); only changes from the phone carry a base.</para>
+/// </remarks>
 public class SyncService : ISyncService
 {
-    // Per request
+    /// <summary>The most ops one request may carry.</summary>
     public const int MaxOps = 50;
-    // Media unknown to our database that may be looked up at TMDb / Spotify per request (the rest are deferred)
+    /// <summary>
+    /// Media unknown to our database that may be looked up at TMDb / Spotify per request. The rest are deferred
+    /// (<c>retry deferred</c>), which protects the external API quotas.
+    /// </summary>
     public const int MaxNewMediaLookups = 20;
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);

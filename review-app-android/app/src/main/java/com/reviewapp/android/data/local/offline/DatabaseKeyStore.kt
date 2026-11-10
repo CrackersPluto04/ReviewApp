@@ -9,8 +9,11 @@ import com.reviewapp.android.data.local.CryptoStore
 import kotlinx.coroutines.flow.first
 import java.security.SecureRandom
 
+/** What the key store holds for a user. */
 sealed interface StoredKey {
+    /** The usable key. */
     class Found(val key: ByteArray) : StoredKey
+    /** No key was ever stored. */
     data object Missing : StoredKey
     /** Stored, but the Keystore key that wraps it is gone (restore to another device, keystore reset). */
     data object Lost : StoredKey
@@ -24,6 +27,7 @@ class DatabaseKeyStore(
     private val dataStore: DataStore<Preferences>,
     private val crypto: CryptoStore = CryptoStore("review_app_db_key"),
 ) {
+    /** The user's key, or why there is none. */
     suspend fun read(userId: Int): StoredKey {
         val wrapped = dataStore.data.first()[keyOf(userId)] ?: return StoredKey.Missing
         val encoded = crypto.decrypt(wrapped) ?: return StoredKey.Lost
@@ -41,6 +45,7 @@ class DatabaseKeyStore(
         return key
     }
 
+    /** Forgets the user's key, which makes their database file unreadable (it is deleted with it). */
     suspend fun delete(userId: Int) {
         dataStore.edit { it.remove(keyOf(userId)) }
     }

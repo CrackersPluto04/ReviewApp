@@ -1,8 +1,19 @@
 import { apiFetch } from "./apiClient";
 
+/**
+ * Wraps `api/Collection`. Reading is open to anonymous visitors; every change needs a login and works on the
+ * caller's own collections only. The default Favourites collection is permanent: the API refuses to rename,
+ * edit or delete it.
+ * Methods never throw; they resolve to `{ success, data }` or `{ success: false, message }`.
+ */
 class CollectionService {
     private readonly baseUrl = 'https://localhost:7140/api/Collection';
 
+    /**
+     * Opens a collection with its media in the saved order. Visibility is decided per viewer.
+     * @param collectionId The collection's ID.
+     * @returns `{ success: true, data }`, or a failure; a private or missing collection fails the same way (404).
+     */
     async getCollectionWithMedias(collectionId: number) {
         try {
             const response = await apiFetch(`${this.baseUrl}/${collectionId}`, this.getFetchOptions());
@@ -20,6 +31,12 @@ class CollectionService {
         }
     }
 
+    /**
+     * Creates a collection. Names are unique per user.
+     * @param name The collection's name.
+     * @param visibilityLevel The `VisibilityLevel` value (0 = private, 1 = public, 2 = followers only); private unless given.
+     * @returns `{ success: true, data }` with the created collection, or a failure (e.g. the name is taken).
+     */
     async createCollection(name: string, visibilityLevel: number = 0) {
         try {
             const response = await apiFetch(this.baseUrl, this.getFetchOptions('POST', { name, visibilityLevel }));
@@ -37,6 +54,13 @@ class CollectionService {
         }
     }
 
+    /**
+     * Changes a collection's name and visibility.
+     * @param collectionID The collection's ID.
+     * @param name The new name.
+     * @param visibilityLevel The new `VisibilityLevel` value.
+     * @returns `{ success: true, data }` with the updated collection, or a failure (empty or taken name, Favourites).
+     */
     async updateCollection(collectionID: number, name: string, visibilityLevel: number) {
         try {
             const response = await apiFetch(this.baseUrl, this.getFetchOptions('PUT', { collectionID, name, visibilityLevel }));
@@ -54,6 +78,11 @@ class CollectionService {
         }
     }
 
+    /**
+     * Deletes a collection and its item links; the media themselves stay.
+     * @param collectionId The collection's ID.
+     * @returns `{ success: true, data: null }`, or a failure (e.g. it is the Favourites collection).
+     */
     async deleteCollection(collectionId: number) {
         try {
             const response = await apiFetch(`${this.baseUrl}/${collectionId}`, this.getFetchOptions('DELETE'));
@@ -70,6 +99,14 @@ class CollectionService {
         }
     }
 
+    /**
+     * Adds a title. The API fetches it from TMDb / Spotify the first time anyone uses it, so an unknown title or
+     * an outage of the source fails here (`media_not_found`, `source_unavailable`).
+     * @param collectionId The collection's ID.
+     * @param type The `MediaType` value (0 = movie, 1 = series, 2 = music).
+     * @param externalApiID The title's TMDb or Spotify ID.
+     * @returns `{ success: true, data }`, or a failure (e.g. it is already in the collection).
+     */
     async addMediaToCollection(collectionId: number, type: number, externalApiID: string) {
         try {
             const response = await apiFetch(`${this.baseUrl}/${collectionId}/media`, this.getFetchOptions('POST', { type, externalApiID }));
@@ -87,6 +124,13 @@ class CollectionService {
         }
     }
 
+    /**
+     * Removes a title from a collection. The title is addressed as `{mediaType}-{externalApiId}` in the route.
+     * @param collectionId The collection's ID.
+     * @param mediaType The `MediaType` value.
+     * @param externalApiId The title's TMDb or Spotify ID.
+     * @returns `{ success: true, data: null }`, or a failure (e.g. the title is not in the collection).
+     */
     async removeMediaFromCollection(collectionId: number, mediaType: number, externalApiId: string) {
         try {
             const response = await apiFetch(`${this.baseUrl}/${collectionId}/media/${mediaType}-${externalApiId}`, this.getFetchOptions('DELETE'));
@@ -103,6 +147,13 @@ class CollectionService {
         }
     }
 
+    /**
+     * Moves one title to a new position, which is what a drag and drop produces.
+     * @param collectionId The collection's ID.
+     * @param dbMediaID The stored media ID (not the external API ID) of the title that moved.
+     * @param newOrderIndex Its new position in the list.
+     * @returns `{ success: true, data }`, or a failure (e.g. the title is not in the collection).
+     */
     async reorderMedia(collectionId: number, dbMediaID: number, newOrderIndex: number) {
         try {
             const response = await apiFetch(`${this.baseUrl}/${collectionId}/reorder`, this.getFetchOptions('PUT', { dbMediaID, newOrderIndex }));
@@ -120,9 +171,6 @@ class CollectionService {
         }
     }
 
-    /* Helper methods */
-
-    // Create fetch options for different HTTP methods and request bodies
     private getFetchOptions(method: string = 'GET', body?: any): RequestInit {
         return {
             method,

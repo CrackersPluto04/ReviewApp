@@ -7,6 +7,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
 
+/** The review score scale: 1 to 10 in steps of half a point, like the API and the web slider. */
 const val MIN_SCORE = 1.0
 const val MAX_SCORE = 10.0
 const val SCORE_STEP = 0.5
@@ -14,6 +15,7 @@ const val SCORE_STEP = 0.5
 /** Same thresholds and labels as the web app's review cards. */
 enum class ScoreTier(val label: String) { Great("Great"), Mixed("Mixed"), Poor("Poor") }
 
+/** The tier of a score: 7 and up is Great, 4 and up Mixed, below that Poor. */
 fun scoreTier(score: Double): ScoreTier = when {
     score >= 7.0 -> ScoreTier.Great
     score >= 4.0 -> ScoreTier.Mixed
@@ -47,6 +49,7 @@ fun formatDate(raw: String?): String? {
 /** True when two API dates fall on different days. */
 fun isDifferentDay(first: String, second: String): Boolean = first.take(10) != second.take(10)
 
+/** `"1 review"`, `"2 reviews"`; pass [plural] for irregular words. */
 fun pluralize(count: Int, singular: String, plural: String = singular + "s") =
     "$count ${if (count == 1) singular else plural}"
 

@@ -22,7 +22,9 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** The Premium screen: the plan, the user's subscription and the running action. */
 data class PremiumUiState(
+    /** The plan's price and features; public, so it loads for logged-out visitors too. */
     val plan: Plan? = null,
     val isLoggedIn: Boolean = false,
     /** Null while logged out or not loaded yet. */
@@ -31,13 +33,18 @@ data class PremiumUiState(
     val error: String? = null,
     /** A request of one of the buttons is running. */
     val isBusy: Boolean = false,
+    /** The cancel confirmation is open. */
     val confirmCancel: Boolean = false,
 )
 
+/** One-off results of the Premium screen. */
 sealed interface PremiumEvent {
     /** A payment provider page, opened in the browser. */
     data class OpenUrl(val url: String) : PremiumEvent
+    /** A confirmation or failure for the snackbar. */
     data class Message(val text: String) : PremiumEvent
+
+    /** A logged-out visitor tapped Subscribe; the screen opens the login. */
     data object LoginRequired : PremiumEvent
 }
 
@@ -53,7 +60,7 @@ class PremiumViewModel(
     private val _events = Channel<PremiumEvent>(Channel.BUFFERED)
     val events = _events.receiveAsFlow()
 
-    // Set when the browser was opened, so coming back checks with the provider
+    // Set when the browser was opened, so coming back checks with the provider (the user may have paid and returned by hand)
     private var awaitingReturn = false
 
     init {
@@ -69,6 +76,7 @@ class PremiumViewModel(
         loadPlan()
     }
 
+    /** Loads the public plan (also the error retry). */
     fun loadPlan() {
         _state.update { it.copy(isLoading = true, error = null) }
         viewModelScope.launch {
@@ -101,6 +109,7 @@ class PremiumViewModel(
         }
     }
 
+    /** Opens the provider's checkout page in the browser; the provider returns through the `reviewapp://` deep link. */
     fun subscribe() {
         if (!_state.value.isLoggedIn) {
             _events.trySend(PremiumEvent.LoginRequired)
@@ -109,18 +118,23 @@ class PremiumViewModel(
         openProviderPage { repository.checkoutUrl() }
     }
 
+    /** Opens the provider's customer portal (payment details, invoices) in the browser. */
     fun managePayment() = openProviderPage { repository.portalUrl() }
 
+    /** Opens the cancel confirmation. */
     fun askCancel() = _state.update { it.copy(confirmCancel = true) }
 
     fun dismissCancel() {
         if (!_state.value.isBusy) _state.update { it.copy(confirmCancel = false) }
     }
 
+    /** Stops renewing; Premium stays until the paid period ends. */
     fun confirmCancel() = change { repository.cancel() }
 
+    /** Takes back a cancellation that has not taken effect yet. */
     fun resume() = change { repository.resume() }
 
+    /** Asks the API for a provider page URL and hands it to the screen to open in the browser. */
     private fun openProviderPage(request: suspend () -> ApiResult<String>) {
         if (_state.value.isBusy) return
         _state.update { it.copy(isBusy = true) }
@@ -137,6 +151,7 @@ class PremiumViewModel(
         }
     }
 
+    /** Runs a subscription change (cancel / resume), shows its message and reloads the status. */
     private fun change(request: suspend () -> ApiResult<String>) {
         if (_state.value.isBusy) return
         _state.update { it.copy(isBusy = true) }

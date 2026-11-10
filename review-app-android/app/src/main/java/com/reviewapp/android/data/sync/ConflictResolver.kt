@@ -30,8 +30,11 @@ import java.util.UUID
 
 /** A change in Sync issues with what the conflict screen needs. */
 data class IssueDetails(
+    /** The change in Sync issues. */
     val op: OutboxEntity,
     val kind: IssueKind,
+
+    /** The backend's answer that put it there (kept in the op). */
     val answer: SyncOpResultDto?,
     /** The local row the change is about (null when it was deleted here afterwards, or never was a review / collection). */
     val localReview: ReviewEntity? = null,
@@ -48,9 +51,13 @@ data class IssueDetails(
 
 /** How a decision ended. */
 sealed interface Resolution {
+    /** The decision was applied and the sync was asked to run. */
     data object Done : Resolution
+
+
     /** Synced or discarded meanwhile. */
     data object Gone : Resolution
+    /** The choice cannot be applied; [message] says why, and nothing was changed. */
     data class Invalid(val message: String) : Resolution
 }
 
@@ -66,6 +73,7 @@ class ConflictResolver(
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
 
+    /** What the conflict screen shows for the change [seq]; `null` when it is no longer in Sync issues. */
     suspend fun details(seq: Long): IssueDetails? {
         val db = database() ?: return null
         val queue = db.outbox().all()
@@ -275,6 +283,7 @@ class ConflictResolver(
     }
 
     /** A rejection that may work now (the server kept failing): sent again. */
+    /** Sends the change again as it is. */
     suspend fun retry(seq: Long): Resolution = resolve(seq) { db, details ->
         requeue(db, details.op, details.op.payloadJson)
         Resolution.Done

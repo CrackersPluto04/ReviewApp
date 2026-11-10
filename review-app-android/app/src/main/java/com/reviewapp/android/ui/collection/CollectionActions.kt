@@ -72,11 +72,13 @@ data class CollectionSheet(
     val createError: String? = null,
 )
 
+/** What the media cards' collection buttons and the sheet need: the login state, the user's collections and the open sheet. */
 data class CollectionActionsState(
     val isLoggedIn: Boolean = false,
     val mine: MyCollections = MyCollections(),
     val sheet: CollectionSheet? = null,
 ) {
+    /** Whether [media] is in the Favourites collection. */
     fun isFavourite(media: Media): Boolean = mine.isFavourite(media.key)
 }
 
@@ -92,6 +94,7 @@ class CollectionActionsViewModel(
 
     private val sheet = MutableStateFlow<CollectionSheet?>(null)
 
+    /** Combined from the session, the cached collections and the sheet; started eagerly so a card never sees a stale default. */
     val state: StateFlow<CollectionActionsState> = combine(
         sessionManager.state,
         collectionRepository.mine,
@@ -101,8 +104,11 @@ class CollectionActionsViewModel(
     }.stateIn(viewModelScope, SharingStarted.Eagerly, CollectionActionsState())
 
     private val _messages = Channel<String>(Channel.BUFFERED)
+
+    /** Failures of the actions below, shown once on the root snackbar. */
     val messages = _messages.receiveAsFlow()
 
+    /** Adds [media] to or removes it from Favourites (optimistic in the repository, which reverts on failure). */
     fun toggleFavourite(media: Media) {
         viewModelScope.launch {
             val result = collectionRepository.toggleFavourite(media)
@@ -110,6 +116,7 @@ class CollectionActionsViewModel(
         }
     }
 
+    /** Opens the add-to-collection sheet for [media], loading the user's collections if that has not happened yet. */
     fun openSheet(media: Media) {
         collectionRepository.refreshIfNeeded()
         sheet.value = CollectionSheet(media)
@@ -121,6 +128,7 @@ class CollectionActionsViewModel(
 
     fun retryLoad() = collectionRepository.refresh()
 
+    /** Checks or unchecks the sheet's media in [collection]. */
     fun toggleInCollection(collection: MediaCollection) {
         val media = sheet.value?.media ?: return
         val add = !state.value.mine.contains(media.key, collection.id)
@@ -160,6 +168,7 @@ class CollectionActionsViewModel(
     }
 }
 
+/** The app's [CollectionActionsViewModel], provided by [CollectionActionsHost]; `null` outside it (e.g. in previews). */
 val LocalCollectionActions = staticCompositionLocalOf<CollectionActionsViewModel?> { null }
 
 /** Provides [LocalCollectionActions] to [content] and shows the add-to-collection sheet and errors. */
@@ -222,8 +231,10 @@ fun MediaCollectionButtons(media: Media, modifier: Modifier = Modifier) {
     }
 }
 
+/** The filled heart of a favourited media. */
 val FavouriteRed = Color(0xFFE53935)
 
+/** The sheet of the user's collections with a checkbox for each (the media's membership) and "New collection". */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddToCollectionSheet(mine: MyCollections, sheet: CollectionSheet, viewModel: CollectionActionsViewModel) {

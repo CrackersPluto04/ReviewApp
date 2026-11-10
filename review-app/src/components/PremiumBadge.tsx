@@ -6,7 +6,7 @@ type PremiumBadgeProps = {
     size?: 'small' | 'medium';
 };
 
-// Public badge of subscribed users (profile header)
+/** The public gold badge of subscribed users, shown in the profile header and in the subscription panel. */
 export function PremiumBadge({ size = 'small' }: PremiumBadgeProps) {
     return <Tooltip title="Premium member">
         <Chip

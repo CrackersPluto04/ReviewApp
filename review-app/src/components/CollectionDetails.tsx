@@ -11,11 +11,21 @@ import { CreateEditCollectionDialog } from "./CreateEditCollectionDialog";
 
 type CollectionDetailsProps = {
     collectionId: number;
+    /** Called after the collection was edited, so the parent's list can refresh its name and visibility. */
     onCollectionEdited: () => void;
+    /** Called after the collection was deleted. */
     onCollectionDeleted: () => void;
+    /** Called after a title was removed, so the parent can refresh the item counts. */
     onMediaRemoved: () => void;
 }
 
+/**
+ * One collection with its titles in the saved order. The owner can reorder by drag and drop, edit and delete it
+ * (the default Favourites collection is permanent, so it has no edit or delete buttons) and remove titles;
+ * other viewers see it read-only. A drop updates the list at once and sends the move to the API in the
+ * background, with the moved title's final index; a failed move is not reported, and the order is correct again
+ * after the next load. The pointer has to move 5 px before a drag starts, so a click on a card is not a drag.
+ */
 export function CollectionDetails({ collectionId, onCollectionEdited, onCollectionDeleted, onMediaRemoved }: CollectionDetailsProps) {
     const [data, setData] = useState<CollectionWithMediasDto | null>(null);
     const [mediaItems, setMediaItems] = useState<CollectionMediaDto[]>([]);
@@ -24,13 +34,11 @@ export function CollectionDetails({ collectionId, onCollectionEdited, onCollecti
     const [errorMessage, setErrorMessage] = useState<string>('');
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-    // Set up drag-and-drop sensors
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), // Requires moving 5px before drag starts (prevents accidental drags on clicks)
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
-    // Fetch the collection details and items
     useEffect(() => {
         fetchDetails();
     }, [collectionId]);
@@ -49,9 +57,7 @@ export function CollectionDetails({ collectionId, onCollectionEdited, onCollecti
         setLoading(false);
     };
 
-    /* Handlers */
 
-    // Handle Drag and Drop
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
 
@@ -73,7 +79,6 @@ export function CollectionDetails({ collectionId, onCollectionEdited, onCollecti
         }
     };
 
-    // Handle Editing
     const handleCollectionEdited = async (updatedColl: CollectionDto) => {
         setData((prevData) => {
             if (!prevData) return null;
@@ -87,7 +92,6 @@ export function CollectionDetails({ collectionId, onCollectionEdited, onCollecti
         onCollectionEdited();
     }
 
-    // Handle Collection Deletion
     const handleCollectionDelete = async () => {
         if (!globalThis.confirm("Are you sure you want to delete this collection? This cannot be undone.")) return;
 
@@ -98,7 +102,6 @@ export function CollectionDetails({ collectionId, onCollectionEdited, onCollecti
             setErrorMessage(result.message);
     };
 
-    // Handle Media item deletion
     const handleMediaRemoved = async (mediaType: number, externalApiId: string) => {
         const result = await collectionService.removeMediaFromCollection(collectionId, mediaType, externalApiId);
         if (result.success) {
@@ -117,7 +120,6 @@ export function CollectionDetails({ collectionId, onCollectionEdited, onCollecti
             setErrorMessage(result.message);
     }
 
-    // Check for loading and error states
     if (loading) {
         return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
             <CircularProgress />
@@ -127,14 +129,11 @@ export function CollectionDetails({ collectionId, onCollectionEdited, onCollecti
     if (!data || errorMessage)
         return <Typography color="error">{errorMessage}</Typography>;
 
-    // Get collection detals and ownership status
     const { collection } = data;
     const isOwner = collection.isOwner;
 
     return <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        {/* HEADER SECTION */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-            {/* Collection informations */}
             <Box>
                 <Typography variant="h4" fontWeight="bold">
                     {collection.name}
@@ -163,7 +162,6 @@ export function CollectionDetails({ collectionId, onCollectionEdited, onCollecti
 
         <Divider sx={{ mb: 3 }} />
 
-        {/* MEDIA GRID AREA */}
         <Box sx={{ flexGrow: 1 }}>
             {mediaItems.length === 0 ? (
                 <Box sx={{ p: 5, textAlign: 'center', color: 'text.secondary', border: '1px dashed grey', borderRadius: 2 }}>
@@ -176,7 +174,6 @@ export function CollectionDetails({ collectionId, onCollectionEdited, onCollecti
                     </Typography>}
                 </Box>
             ) : (
-                // Drag and drop context
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                     <SortableContext items={mediaItems.map(m => m.media.id)} strategy={verticalListSortingStrategy}>
                         <Box sx={{
@@ -198,7 +195,6 @@ export function CollectionDetails({ collectionId, onCollectionEdited, onCollecti
             )}
         </Box>
 
-        {/* EDIT COLLECTION DIALOG */}
         <CreateEditCollectionDialog
             open={isEditDialogOpen}
             onClose={() => setIsEditDialogOpen(false)}

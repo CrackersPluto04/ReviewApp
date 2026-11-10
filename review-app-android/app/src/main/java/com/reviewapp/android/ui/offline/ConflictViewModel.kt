@@ -21,8 +21,10 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** The conflict screen: what is shown for the issue, the user's choices so far and the progress of a decision. */
 data class ConflictUiState(
     val view: IssueView? = null,
+    /** The issue's details were read from the offline copy. */
     val isLoaded: Boolean = false,
     /** Synced, discarded or decided meanwhile. */
     val gone: Boolean = false,
@@ -32,8 +34,11 @@ data class ConflictUiState(
     val edits: Map<String, String> = emptyMap(),
     /** A taken collection name: the new one. */
     val name: String = "",
+    /** A decision is being applied; the buttons are disabled. */
     val isWorking: Boolean = false,
+    /** Why the decision was refused (e.g. a name that is still taken). */
     val error: String? = null,
+    /** The discard confirmation is open. */
     val confirmingDiscard: Boolean = false,
 )
 
@@ -55,6 +60,7 @@ class ConflictViewModel(
         load()
     }
 
+    /** Reads the issue and builds its view; when it is gone (synced or discarded meanwhile) the screen says so. */
     private fun load() = viewModelScope.launch {
         val db = gateway.database()
         val details = resolver.details(seq)
@@ -73,6 +79,7 @@ class ConflictViewModel(
         }
     }
 
+    /** Picks mine, theirs or an edited text for one conflicting field. */
     fun choose(field: String, choice: FieldChoice) = _state.update { state ->
         val diff = state.view?.diffs?.firstOrNull { it.field == field }
         // Editing starts from both texts
@@ -80,15 +87,19 @@ class ConflictViewModel(
         state.copy(choices = state.choices + (field to choice), edits = edits, error = null)
     }
 
+    /** Changes the text of an edited field, limited to the field's maximum length. */
     fun edit(field: String, text: String) = _state.update { state ->
         val max = state.view?.diffs?.firstOrNull { it.field == field }?.maxLength ?: Int.MAX_VALUE
         state.copy(edits = state.edits + (field to text.take(max)), error = null)
     }
 
+    /** The new collection name for a taken-name issue. */
     fun setName(name: String) = _state.update { it.copy(name = name, error = null) }
 
+    /** Opens or closes the discard confirmation. */
     fun askDiscard(show: Boolean) = _state.update { it.copy(confirmingDiscard = show) }
 
+    /** Applies the chosen [action] through the [ConflictResolver]; the screen closes when it is done. */
     fun act(action: IssueAction) {
         if (_state.value.isWorking) return
         _state.update { it.copy(isWorking = true, error = null, confirmingDiscard = false) }

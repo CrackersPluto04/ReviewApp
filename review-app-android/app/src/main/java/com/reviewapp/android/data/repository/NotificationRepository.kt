@@ -39,6 +39,8 @@ class NotificationRepository(
     private val offline: OfflineWrites,
 ) {
     private val _unseenCount = MutableStateFlow(0)
+
+    /** The number of unseen notifications, 0 while logged out. */
     val unseenCount: StateFlow<Int> = _unseenCount.asStateFlow()
 
     // Changes on every login/logout, so responses that belong to an earlier session are ignored
@@ -60,6 +62,7 @@ class NotificationRepository(
         }
     }
 
+    /** Fetches the unseen count now; a response that belongs to an earlier session is ignored. */
     suspend fun refreshUnseen() {
         if (!isLoggedIn) return
         val current = session.get()
@@ -90,6 +93,7 @@ class NotificationRepository(
     /** Optimistic badge changes of the notifications screen, never below 0. */
     fun adjustUnseen(delta: Int) = _unseenCount.update { (it + delta).coerceAtLeast(0) }
 
+    /** Sets the badge count directly, e.g. from a page's `unseenCount`. Never below 0. */
     fun setUnseen(count: Int) {
         _unseenCount.value = count.coerceAtLeast(0)
     }
@@ -109,10 +113,12 @@ class NotificationRepository(
         return result
     }
 
+    /** Marks one notification seen or unseen. While offline mode is active it is applied to the offline copy and queued. */
     suspend fun setSeen(id: Int, seen: Boolean): ApiResult<Unit> =
         if (offline.writer.canWrite()) offlineWrite { offline.writer.setNotificationSeen(id, seen) }
         else apiCall { api.setSeen(id, SetSeenRequest(seen)) }
 
+    /** Marks every notification seen. */
     suspend fun markAllSeen(): ApiResult<Unit> =
         if (offline.writer.canWrite()) offlineWrite { offline.writer.markAllNotificationsSeen() }
         else apiCall { api.markAllSeen() }
@@ -126,6 +132,7 @@ class NotificationRepository(
         }
     }
 
+    /** Deletes every seen notification. */
     suspend fun deleteSeen(): ApiResult<Unit> =
         if (offline.writer.canWrite()) offlineWrite { offline.writer.deleteSeenNotifications() }
         else apiCall { api.deleteSeen() }
@@ -139,7 +146,10 @@ class NotificationRepository(
     }
 
     companion object {
+        /** Notifications per page. */
         const val PAGE_SIZE = 20
+
+        /** The wait after a write before the badge is refreshed, so a burst of writes causes one request. */
         const val MUTATION_REFRESH_DELAY_MS = 800L
     }
 }

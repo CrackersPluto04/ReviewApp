@@ -6,20 +6,28 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services.Sync;
 
-/* The changes feed of the offline sync (GET api/Sync/changes): the user's own reviews and collections whose
-   rowversion is in [since, upper), plus the deletions (SyncTombstone) in that range, oldest change first.
-
-   upper is MIN_ACTIVE_ROWVERSION(): every rowversion below it belongs to a committed write, so a transaction that
-   is still running when the page is read can't be skipped (its rows get versions >= upper and come next time).
-   Rowversions are unique in the database, so "last sent + 1" is an exact cursor between pages.
-
-   Every collection change moves its rowversion (CollectionService sets UpdatedAt on item changes too), so a
-   changed collection is sent whole, with its items. */
+/// <summary>
+/// The changes feed of the offline sync (<c>GET api/Sync/changes</c>): the user's own reviews and collections whose
+/// rowversion is in <c>[since, upper)</c>, plus the deletions (<c>SyncTombstone</c>) in that range, oldest change
+/// first.
+/// </summary>
+/// <remarks>
+/// <para><c>upper</c> is <c>MIN_ACTIVE_ROWVERSION()</c>: every rowversion below it belongs to a committed write, so
+/// a transaction that is still running when the page is read cannot be skipped (its rows get versions at or above
+/// <c>upper</c> and come next time). Rowversions are unique in the database, so "last sent + 1" is an exact cursor
+/// between pages.</para>
+/// <para>Every collection change moves its rowversion (<c>CollectionService</c> sets <c>UpdatedAt</c> on item
+/// changes too), so a changed collection is sent whole, with its items.</para>
+/// </remarks>
 public class SyncChangesService : ISyncChangesService
 {
+    /// <summary>The page size, and the most a client may ask for.</summary>
     public const int DefaultLimit = 500;
-    // Tombstones live for SyncRetention.Retention; a device that last synced longer ago than this (with a day of
-    // margin) could have missed a deletion, so it gets everything again
+
+    /// <summary>
+    /// Tombstones live for <see cref="SyncRetention.Retention"/>; a device that last synced longer ago than this
+    /// (with a day of margin) could have missed a deletion, so it gets everything again.
+    /// </summary>
     public static readonly TimeSpan FullResyncAfter = SyncRetention.Retention - TimeSpan.FromDays(1);
 
     private readonly AppDbContext _db;
@@ -142,7 +150,11 @@ public class SyncChangesService : ISyncChangesService
         };
     }
 
-    // The same rules as the single review / collection pages: own, public, or followers-only while following
+    /// <summary>
+    /// Applies the same rules as the single review and collection pages: own, public, or followers-only while
+    /// following.
+    /// </summary>
+    /// <inheritdoc cref="ISyncChangesService.GetVisibleAsync"/>
     public async Task<SyncVisibleDto> GetVisibleAsync(int userId, IReadOnlyCollection<int> reviewIds, IReadOnlyCollection<int> collectionIds,
         CancellationToken cancellationToken = default)
     {

@@ -72,6 +72,7 @@ fun achievementIcon(iconKey: String): Int? = when (iconKey) {
 
 private val sortOptions = AchievementSort.entries.map { Option(it.name, it.label) }
 
+/** Locked icons are drawn without colour so they read as "not yet" in either theme. */
 private val greyscale = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
 
 /** Status chips, sort and Reset, then the category chips (the web's `AchievementFilterBar`). */
@@ -211,6 +212,7 @@ fun AchievementIcon(iconKey: String, locked: Boolean, modifier: Modifier = Modif
     }
 }
 
+/** One medal per tier, coloured when earned. */
 @Composable
 private fun TierMedals(achievement: Achievement) {
     Row {

@@ -1,9 +1,20 @@
 import { AchievementDto } from "../types/types";
 import { apiFetch } from "./apiClient";
 
+/**
+ * Wraps `api/Achievement`. Unlocks themselves are not fetched here: they arrive in the
+ * `X-Unlocked-Achievements` header of whatever request caused them (see `apiFetch`).
+ * Methods never throw; they resolve to `{ success, data }` or `{ success: false, message }`.
+ */
 class AchievementService {
     private readonly baseUrl = 'https://localhost:7140/api/Achievement';
 
+    /**
+     * Loads every achievement with the user's progress. The endpoint is public, so any profile can be viewed.
+     * The list is not paged: the profile tab filters and sorts it client-side.
+     * @param username The profile's username.
+     * @returns `{ success: true, data }` with an `AchievementDto[]`, or `{ success: false, message }`.
+     */
     async getUserAchievements(username: string) {
         try {
             const response = await apiFetch(`${this.baseUrl}/${encodeURIComponent(username)}`, this.getFetchOptions());
@@ -21,9 +32,6 @@ class AchievementService {
         }
     }
 
-    /* Helper methods */
-
-    // Create fetch options for different HTTP methods and request bodies
     private getFetchOptions(method: string = 'GET', body?: any): RequestInit {
         return {
             method,

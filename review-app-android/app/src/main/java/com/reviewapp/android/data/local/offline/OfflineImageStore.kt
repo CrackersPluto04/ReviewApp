@@ -21,8 +21,10 @@ class OfflineImageStore(context: Context, private val client: OkHttpClient) {
 
     private fun dirOf(userId: Int) = File(root, userId.toString())
 
+    /** The file of a poster, named by a hash of its URL. */
     fun fileFor(userId: Int, url: String): File = File(dirOf(userId), sha1(url) + ".img")
 
+    /** Whether the poster is already kept. */
     fun has(userId: Int, url: String): Boolean = fileFor(userId, url).exists()
 
     /** Downloads the small variant of [url]; true when the file is there afterwards. */
@@ -43,8 +45,10 @@ class OfflineImageStore(context: Context, private val client: OkHttpClient) {
         }
     }
 
+    /** The disk space the user's poster copies take. */
     fun sizeBytes(userId: Int): Long = dirOf(userId).listFiles()?.sumOf { it.length() } ?: 0L
 
+    /** Deletes all of the user's poster copies. */
     fun deleteUser(userId: Int) {
         dirOf(userId).deleteRecursively()
     }
@@ -57,6 +61,7 @@ class OfflineImageStore(context: Context, private val client: OkHttpClient) {
 object PosterUrls {
     private val tmdbSize = Regex("(image\\.tmdb\\.org/t/p/)(w\\d+|original)/")
 
+    /** The URL of the small variant (185 px wide) of a TMDb poster; any other URL is returned as it is. */
     fun small(url: String): String = tmdbSize.replace(url) { "${it.groupValues[1]}w185/" }
 }
 

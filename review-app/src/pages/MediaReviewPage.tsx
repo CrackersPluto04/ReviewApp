@@ -8,6 +8,12 @@ import { useAuth } from '../context/AuthContext';
 import { mediaService } from '../services/MediaService';
 import { useState, useEffect } from 'preact/hooks';
 
+/**
+ * One title with a Details and a Write/Edit Review tab (`/media/:mediaType/:externalApiId`, `?tab=`). The title
+ * normally arrives in `location.state.media` from the card that was clicked; opening the URL directly (or
+ * reloading) fetches it instead. The tab switch keeps that state, so it survives the change. Writing a review
+ * needs a login.
+ */
 export function MediaReviewPage() {
     const { isLoggedIn } = useAuth();
     const { mediaType, externalApiId } = useParams();

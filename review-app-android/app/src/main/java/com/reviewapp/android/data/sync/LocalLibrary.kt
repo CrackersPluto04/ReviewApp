@@ -42,6 +42,7 @@ class LocalLibrary(
     /** The logged-in user's offline database, while offline mode uses one. */
     fun database(): OfflineDatabase? = gateway.database()
 
+    /** Whether [username] is the logged-in user (case-insensitive, like the API). */
     fun isMe(username: String): Boolean = sessionManager.currentUser?.username.equals(username, ignoreCase = true)
 
     /**
@@ -91,6 +92,7 @@ class LocalLibrary(
     suspend fun ownsReview(id: Int): Boolean =
         id < 0 || safely { database()?.reviews()?.byId(resolve(EntityType.REVIEW, id)) != null } ?: false
 
+    /** True when [id] is one of the user's own collections in the offline copy (a temporary id too). */
     suspend fun ownsCollection(id: Int): Boolean =
         id < 0 || safely { database()?.collections()?.byId(resolve(EntityType.COLLECTION, id)) != null } ?: false
 
@@ -137,14 +139,15 @@ class LocalLibrary(
         }
     }
 
-    // Form drafts: unsaved text kept when the app is killed (only with an offline copy)
-
+    /** The unsaved form text under [key], kept when the app was killed; `null` without an offline copy. */
     suspend fun loadDraft(key: String): String? = safely { database()?.drafts()?.get(key)?.json }
 
+    /** Keeps the form text under [key] (debounced by the caller). */
     suspend fun saveDraft(key: String, json: String) {
         safely { database()?.drafts()?.put(com.reviewapp.android.data.local.offline.DraftEntity(key, json, clock())) }
     }
 
+    /** Drops the draft once the form was saved or left on purpose. */
     suspend fun deleteDraft(key: String) {
         safely { database()?.drafts()?.delete(key) }
     }
@@ -175,16 +178,20 @@ class LocalReads(
     private val profilePictureUrl: String?,
     private val isPremium: Boolean,
 ) {
+    /** Device time (epoch millis) of the last finished sync; shown as "Updated ...". */
     suspend fun lastSyncedAt(): Long? = db.syncMeta().get(SyncMetaKeys.LAST_SYNCED_AT)?.toLongOrNull()
 
+    /** Whether changes of [entityType] wait to be sent. */
     suspend fun hasPending(entityType: Int): Boolean = db.outbox().countOf(entityType) > 0
 
     private suspend fun resolve(entityType: Int, id: Int): Int =
         if (id < 0) db.idMap().realId(entityType, id) ?: id else id
 
+    /** The user's own reviews with the API's filters, sorts and paging. */
     suspend fun reviews(filter: ReviewFilter, page: Int): Page<ProfileReview> =
         LocalReviewQuery.page(db.reviews().all(), filter, page)
 
+    /** One of the user's own reviews with its author, or `null`. */
     suspend fun reviewDetail(id: Int): ReviewDetail? {
         val review = db.reviews().byId(resolve(EntityType.REVIEW, id)) ?: return null
         val profile = db.profile().get(userId)
@@ -197,9 +204,11 @@ class LocalReads(
             ReviewDraft(it.score, it.reviewText.orEmpty(), it.pros.orEmpty(), it.cons.orEmpty(), Visibility.fromId(it.visibility))
         }
 
+    /** The user's collections sorted like the API does. */
     suspend fun collections(sortBy: String): List<MediaCollection> =
         LocalCollectionQuery.sorted(db.collections().all(), sortBy)
 
+    /** One of the user's collections with its items, or `null`. */
     suspend fun collectionDetails(id: Int): CollectionDetails? {
         val realId = resolve(EntityType.COLLECTION, id)
         val collection = db.collections().byId(realId) ?: return null
@@ -228,9 +237,11 @@ class LocalReads(
             .groupBy({ mediaKey(MediaType.fromId(it.mediaType), it.externalApiId) }, { it.collectionId })
             .mapValues { it.value.toSet() }
 
+    /** The users who follow the logged-in user, among those the device knows. */
     suspend fun followers(): List<UserSummary> =
         db.follows().followers(userId).map { UserSummary(it.userId, it.username, it.profilePictureUrl, it.isFollowed) }
 
+    /** The users the logged-in user follows, among those the device knows. */
     suspend fun following(): List<UserSummary> =
         db.follows().following(userId).map { UserSummary(it.userId, it.username, it.profilePictureUrl, it.isFollowed) }
 
@@ -250,10 +261,13 @@ class LocalReads(
         )
     }
 
+    /** A page of the notification list, with the API's keyset paging. */
     suspend fun notifications(status: NotificationStatus, sort: NotificationSort, afterId: Int?, pageSize: Int): NotificationPage =
         LocalNotificationQuery.page(db.notifications().all(), status, sort, afterId, pageSize)
 
+    /** The unseen count the badge shows. */
     suspend fun unseenCount(): Int = db.notifications().unseenCount()
 
+    /** Searches the media the device knows (see [OfflineSearch]). */
     suspend fun search(query: String, type: MediaType? = null): List<Media> = OfflineSearch.search(db.media().all(), query, type)
 }

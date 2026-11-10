@@ -11,10 +11,18 @@ import { UserSearchBar } from './UserSearchBar';
 import { NotificationBell } from './NotificationBell';
 
 export type HeaderProps = {
+    /** The current theme mode, which decides the toggle's icon. */
     mode: 'light' | 'dark';
+    /** Switches between light and dark; the theme itself lives in `App.tsx`. */
     toggleTheme: () => void;
 };
 
+/**
+ * The top bar: navigation (movies, series, music, camera recognition for logged-in users, Premium), the user
+ * search, the theme toggle and the notification bell, and then the login button or the account menu. Subscribers
+ * get a gold ring and badge on their avatar. Login sends the current location along as `returnTo`, so the user
+ * lands back where they were.
+ */
 export function Header({ mode, toggleTheme }: HeaderProps) {
     const navigate = useNavigate();
     const location = useLocation();
@@ -30,7 +38,7 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
         setAnchorEl(null);
     };
 
-    // Hard reset after logout to clean memory
+    // A full page load, not a state change, so nothing of the old session stays in memory
     const handleLogout = async () => {
         handleMenuClose();
         await logout();
@@ -49,12 +57,10 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
     return <AppBar position="static" color="default" elevation={1}>
         <Container disableGutters maxWidth="xl" sx={{ pr: 12, pl: 12 }}>
             <Toolbar disableGutters sx={{ justifyContent: 'space-between' }}>
-                {/* Logo */}
                 <Typography variant="h6" fontWeight="bold" sx={{ cursor: 'pointer' }} onClick={() => navigate('/')}>
                     THE Review App
                 </Typography>
 
-                {/* Navigation Links */}
                 <Box sx={{ display: 'flex', gap: 2 }}>
                     <Button color="inherit" onClick={() => navigate('/discover?type=movie')}>Movies</Button>
                     <Button color="inherit" onClick={() => navigate('/discover?type=series')}>Series</Button>
@@ -68,10 +74,8 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
                     </Button>
                 </Box>
 
-                {/* User Search Bar */}
                 <UserSearchBar />
 
-                {/* Theme Toggle & Login/Profile */}
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                     <IconButton color="inherit" onClick={toggleTheme}>
                         {mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
@@ -99,7 +103,6 @@ export function Header({ mode, toggleTheme }: HeaderProps) {
                                 </Badge>
                             </IconButton>
 
-                            {/* Dropdown Menu */}
                             <Menu
                                 anchorEl={anchorEl}
                                 open={isMenuOpen}

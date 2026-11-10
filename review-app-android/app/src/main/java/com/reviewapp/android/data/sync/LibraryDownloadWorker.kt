@@ -22,9 +22,11 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 /** The state of "Make available offline" for the settings screen. */
 sealed interface LibraryDownloadState {
+    /** Nothing is running or waiting. */
     data object Idle : LibraryDownloadState
     /** Enqueued, waiting for its network (Wi-Fi only) or for its turn. */
     data object Waiting : LibraryDownloadState
+    /** Running: [done] of [total] media handled. */
     data class Running(val done: Int, val total: Int) : LibraryDownloadState
 }
 
@@ -72,6 +74,7 @@ class LibraryDownloadWorker(context: Context, params: WorkerParameters) : Corout
         private const val KEY_TOTAL = "total"
         private const val PACE_MILLIS = 1_100L
 
+        /** Enqueues a download; on an unmetered network only when [wifiOnly]. */
         fun start(context: Context, wifiOnly: Boolean) {
             val request = OneTimeWorkRequestBuilder<LibraryDownloadWorker>()
                 .setConstraints(
@@ -84,10 +87,12 @@ class LibraryDownloadWorker(context: Context, params: WorkerParameters) : Corout
             WorkManager.getInstance(context).enqueueUniqueWork(NAME, ExistingWorkPolicy.REPLACE, request)
         }
 
+        /** Cancels a waiting or running download; what was kept stays. */
         fun cancel(context: Context) {
             WorkManager.getInstance(context).cancelUniqueWork(NAME)
         }
 
+        /** The download's state for the settings screen. */
         fun state(context: Context): Flow<LibraryDownloadState> =
             WorkManager.getInstance(context).getWorkInfosForUniqueWorkFlow(NAME).map { infos ->
                 val info = infos.firstOrNull { !it.state.isFinished } ?: return@map LibraryDownloadState.Idle

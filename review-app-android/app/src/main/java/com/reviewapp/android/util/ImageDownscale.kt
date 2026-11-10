@@ -8,9 +8,13 @@ import kotlin.math.roundToInt
  * quickly and keep the AI cheap, big enough to read the text on posters and covers. Pure, so it is unit-tested.
  */
 object ImageDownscale {
+    /** The longer side of an uploaded photo, in pixels. */
     const val MAX_DIMENSION = 1280
+
+    /** JPEG quality of an uploaded photo, 0 to 100. */
     const val JPEG_QUALITY = 85
 
+    /** A width and a height in pixels. */
     data class Size(val width: Int, val height: Int)
 
     /** The size that fits within [max] x [max], keeping the aspect ratio; never enlarges. */

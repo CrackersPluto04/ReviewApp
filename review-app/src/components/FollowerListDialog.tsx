@@ -10,12 +10,20 @@ import CloseIcon from '@mui/icons-material/Close';
 type FollowerListDialogProps = {
     open: boolean;
     onClose: () => void;
+    /** Whose followers or following are listed. */
     username: string;
     type: 'followers' | 'following';
+    /** Called after the profile owner removed a follower, so the header count can drop. */
     onFollowerRemoved?: () => void;
+    /** Called when the profile owner follows (+1) or unfollows (-1) someone from the list, so the header count follows. */
     onFollowingCountChanged?: (delta: number) => void;
 }
 
+/**
+ * A dialog with a user's followers or following. Each row can be followed or unfollowed by the viewer, with an
+ * optimistic update that rolls back if the request fails. On their own followers list the owner can also remove
+ * a follower. The list is loaded every time the dialog opens, and clicking a user opens their profile.
+ */
 export function FollowerListDialog({ open, onClose, username, type, onFollowerRemoved, onFollowingCountChanged }: FollowerListDialogProps) {
     const { user, isLoggedIn } = useAuth();
     const navigate = useNavigate();
@@ -26,7 +34,6 @@ export function FollowerListDialog({ open, onClose, username, type, onFollowerRe
 
     const isOwner = user?.username === username;
 
-    // Fetch requested list
     useEffect(() => {
         if (!open) return;
 
@@ -138,17 +145,14 @@ export function FollowerListDialog({ open, onClose, username, type, onFollowerRe
                                 }
                             />
 
-                            {/* ACTION BUTTONS */}
                             {user?.username !== u.username && (
                                 <Box sx={{ display: 'flex', gap: 1 }}>
-                                    {/* Remove Button (Only for Owner looking at Followers) */}
                                     {isOwner && type === 'followers' && (
                                         <Button size="small" variant="outlined" color="error" onClick={() => handleRemoveFollower(u.id)}>
                                             Remove
                                         </Button>
                                     )}
 
-                                    {/* Follow/Unfollow Button */}
                                     <Button
                                         size="small"
                                         variant={u.isFollowedByCurrentUser ? "outlined" : "contained"}

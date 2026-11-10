@@ -1,7 +1,11 @@
 package com.reviewapp.android.data.sync
 
+/** What the app can reach right now. */
 enum class Connectivity {
+    /** A validated network and a backend that answers. */
     Online,
+
+
     /** No network, or one without real internet (a captive portal: Android doesn't validate it). */
     Offline,
     /** A working network, but the backend doesn't answer. */
@@ -16,6 +20,7 @@ data class ConnectivityState(
     val networkValidated: Boolean,
     val serverReachable: Boolean = true,
 ) {
+    /** The state the rest of the app uses. */
     val connectivity: Connectivity
         get() = when {
             !networkValidated -> Connectivity.Offline

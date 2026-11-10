@@ -6,15 +6,19 @@ type ChangeUsernameDialogProps = {
     open: boolean;
     onClose: () => void;
     currentUsername: string;
+    /** Performs the rename. The caller closes the dialog on success; a failure's message is shown here. */
     onSave: (newUsername: string) => Promise<{ success: boolean, message?: string }>;
 };
 
+/**
+ * Renames the account. The username is checked against the same rules as the API (`usernameError`) while typing,
+ * since usernames are part of profile URLs. Saving is disabled while the name is invalid or unchanged.
+ */
 export function ChangeUsernameDialog({ open, onClose, currentUsername, onSave }: ChangeUsernameDialogProps) {
     const [newUsername, setNewUsername] = useState(currentUsername);
     const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
 
-    // Reset the draft every time the dialog is opened
     useEffect(() => {
         if (open) {
             setNewUsername(currentUsername);

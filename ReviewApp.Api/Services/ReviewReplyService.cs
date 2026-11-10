@@ -7,6 +7,12 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services;
 
+/// <summary>
+/// Reply threads under reviews, at most three layers: review, reply (<c>ParentReplyID</c> null), reply to a reply.
+/// The layer is derived from the parent chain rather than stored. Replies have no visibility of their own: every
+/// read and write checks the parent review, so a hidden review hides its whole thread. Deleting is a soft delete,
+/// so child replies keep their parent. Listing uses keyset paging, which stays correct while replies change.
+/// </summary>
 public class ReviewReplyService : IReviewReplyService
 {
     private const int MaxPageSize = 50;
@@ -108,7 +114,6 @@ public class ReviewReplyService : IReviewReplyService
         if (content.Length == 0)
             return (false, false, "Reply cannot be empty.", null);
 
-        // Check if the review exists and the user is allowed to see it
         var review = await GetVisibleReviewAsync(dto.ReviewID, userId);
         if (review == null)
             return (false, true, "Review not found.", null);

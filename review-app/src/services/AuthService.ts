@@ -1,9 +1,26 @@
 import { apiFetch } from "./apiClient";
 import { isValidEmail, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, usernameError } from "../utils/validation";
 
+/**
+ * Wraps `api/Auth`: registration, the login flow (including the second step of a 2FA login), logout and the
+ * session check. The session itself is an httpOnly cookie the browser sends (`credentials: 'include'`), so no method
+ * reads or stores a token.
+ *
+ * Methods never throw: they resolve to `{ success: true, ... }` or `{ success: false, message }`, where `message`
+ * is ready to show. Credentials are checked here first so an obviously invalid form costs no request; the backend
+ * validates again.
+ */
 class AuthService {
     private readonly baseUrl = 'https://localhost:7140/api/Auth';
 
+    /**
+     * Creates an account. Does not log in: the caller sends the user to the login page.
+     * @param username The wanted username; trimmed, then checked with `usernameError`.
+     * @param email The email address; trimmed.
+     * @param password The password, within the length limits of `utils/validation`.
+     * @param confirmPassword Must equal `password`; checked here only, it is never sent.
+     * @returns `{ success, message }`; on success the message is the API's confirmation.
+     */
     async register(username: string, email: string, password: string, confirmPassword: string) {
         username = username.trim();
         email = email.trim();
@@ -34,6 +51,14 @@ class AuthService {
         }
     }
 
+    /**
+     * Logs in with email and password. The session cookie is set by the response, except for accounts with
+     * two-factor authentication.
+     * @param email The email address; trimmed.
+     * @param password The password; only the upper bound `MAX_PASSWORD_LENGTH` is checked here.
+     * @returns `{ success: true, data }` where `data` is the logged-in user, or, for a 2FA account,
+     * `{ twoFactorRequired, challengeToken }` to pass to `loginTwoFactor`; otherwise `{ success: false, message }`.
+     */
     async login(email: string, password: string) {
         email = email.trim();
 
@@ -68,7 +93,13 @@ class AuthService {
         }
     }
 
-    // Second step of a 2FA login: the login response gave a challengeToken instead of the session cookie
+    /**
+     * Second step of a 2FA login: `login` answered with a `challengeToken` instead of the session cookie, and this
+     * trades it plus the emailed code for the cookie.
+     * @param challengeToken The short-lived token from the login response.
+     * @param code The emailed code; trimmed.
+     * @returns `{ success: true, data }` with the logged-in user, or `{ success: false, message }`.
+     */
     async loginTwoFactor(challengeToken: string, code: string) {
         try {
             const response = await apiFetch(`${this.baseUrl}/login/2fa`, {
@@ -90,6 +121,11 @@ class AuthService {
         }
     }
 
+    /**
+     * Sends a new 2FA login code for a pending login. The API enforces a cooldown between sends.
+     * @param challengeToken The token from the login response.
+     * @returns `{ success, message }`; on success the message is the API's confirmation.
+     */
     async resendTwoFactorCode(challengeToken: string) {
         try {
             const response = await apiFetch(`${this.baseUrl}/login/2fa/resend`, {
@@ -110,6 +146,7 @@ class AuthService {
         }
     }
 
+    /** Logs out this browser. Failures are only logged: the caller clears the logged-in state either way. */
     async logout() {
         try {
             await apiFetch(`${this.baseUrl}/logout`, {
@@ -121,7 +158,10 @@ class AuthService {
         }
     }
 
-    // Revokes every session of the user (all devices), including this one
+    /**
+     * Revokes every session of the user (all devices), including this one.
+     * @returns `{ success }`, or `{ success: false, message }`.
+     */
     async logoutAll() {
         try {
             const response = await apiFetch(`${this.baseUrl}/logout-all`, {
@@ -140,6 +180,12 @@ class AuthService {
         }
     }
 
+    /**
+     * Asks the API who the cookie belongs to. Used on startup and by `refreshUser`, and the only way to learn the
+     * logged-in state because the cookie is invisible to scripts.
+     * @returns `{ success: true, data }` with the user (including tier and entitlements), or `{ success: false }`
+     * when logged out or unreachable; no message, since "not logged in" is not an error to show.
+     */
     async checkAuth() {
         try {
             const response = await apiFetch(`${this.baseUrl}/check-auth`, {
@@ -159,10 +205,6 @@ class AuthService {
         }
     }
 
-    /**
-     * Helper methods for validating input data before sending requests to the backend
-     */
-
     // Our endpoints return { error }, DataAnnotations failures come back as ProblemDetails ({ errors: { Field: [messages] } })
     private getErrorMessage(errorData: any): string | undefined {
         if (errorData?.error)
@@ -175,7 +217,6 @@ class AuthService {
         return undefined;
     }
 
-    // Validates registration datas
     private checkRegisterDatas(username: string, email: string, password: string, confirmPassword: string): string {
         if (!username || !email || !password || !confirmPassword)
             return "Please fill all the required fields.";
@@ -196,7 +237,6 @@ class AuthService {
         return "";
     }
 
-    // Validates login datas
     private checkLoginDatas(email: string, password: string): string {
         if (!email || !password)
             return "Please fill all the required fields.";

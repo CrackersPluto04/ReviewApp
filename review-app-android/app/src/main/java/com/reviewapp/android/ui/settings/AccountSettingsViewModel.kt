@@ -29,25 +29,38 @@ import kotlinx.coroutines.launch
 
 /** The open dialog of the settings screen with its fields. */
 sealed interface SettingsDialog {
+    /** Change username. */
     data class Username(val form: UsernameForm) : SettingsDialog
+    /** Change email. */
     data class Email(val form: EmailForm) : SettingsDialog
+
+    /** Change password. */
     data class Password(val form: PasswordForm) : SettingsDialog
+
+    /** Enable or disable two-factor authentication. */
     data class TwoFactor(val flow: TwoFactorFlow) : SettingsDialog
+
+    /** Confirmation of "log out of all devices". */
     data object LogoutAll : SettingsDialog
+
     /** Logging out with changes the backend hasn't accepted yet: sync first, or discard them. */
     data class LogoutPending(val count: Int) : SettingsDialog
 }
 
+/** What the account settings screen shows: the account, its security status and the open dialog. */
 data class AccountSettingsUiState(
     val username: String = "",
     /** From the cached user; the Premium screen loads the details. */
     val isPremium: Boolean = false,
+    /** Email, verification, pending email change and 2FA state from `Security/status`; `null` until loaded. */
     val status: SecurityStatus? = null,
     val isLoading: Boolean = true,
     val error: String? = null,
+    /** The open dialog; `null` when none. */
     val dialog: SettingsDialog? = null,
     /** A request of the open dialog (or of a button on the screen) is running. */
     val isSubmitting: Boolean = false,
+    /** An error shown in a dialog that has no form of its own (log out of all devices, the logout choice). */
     val dialogError: String? = null,
     /** Seconds until the verification email can be sent again (the API has a 60 s cooldown). */
     val verificationResendSecondsLeft: Int = 0,
@@ -55,11 +68,15 @@ data class AccountSettingsUiState(
     val codeResendSecondsLeft: Int = 0,
     /** Changes on this phone the backend hasn't accepted yet (offline mode). */
     val pendingChanges: Int = 0,
+    /** Offline, only the Premium, offline mode and logout entries stay usable. */
     val isOnline: Boolean = true,
 )
 
+/** One-off results of the account settings screen. */
 sealed interface AccountSettingsEvent {
+    /** A confirmation or failure for the snackbar. */
     data class Message(val text: String) : AccountSettingsEvent
+
     /** Logged out (here or by a revoked session): the screen closes. */
     data object LoggedOut : AccountSettingsEvent
 }
@@ -108,6 +125,7 @@ class AccountSettingsViewModel(
         if (_state.value.status != null) loadStatus(quiet = true)
     }
 
+    /** Loads the security status; [quiet] refreshes without a spinner and ignores a failure. */
     fun loadStatus(quiet: Boolean = false) {
         statusJob?.cancel()
         if (!quiet) _state.update { it.copy(isLoading = true, error = null) }
@@ -119,8 +137,7 @@ class AccountSettingsViewModel(
         }
     }
 
-    // Dialogs
-
+    /** Closes the open dialog, unless its request is still running. */
     fun dismissDialog() {
         if (_state.value.isSubmitting) return
         _state.update { it.copy(dialog = null, dialogError = null) }
@@ -155,8 +172,7 @@ class AccountSettingsViewModel(
             state.copy(dialog = transform(dialog))
         }
 
-    // Account
-
+    /** Sends the username change; the session follows the new name, so every screen shows it. */
     fun saveUsername() {
         val form = (_state.value.dialog as? SettingsDialog.Username)?.form ?: return
         if (!form.canSave || _state.value.isSubmitting) return
@@ -167,6 +183,7 @@ class AccountSettingsViewModel(
         )
     }
 
+    /** Starts an email change (the API mails a confirm link to the new address; nothing changes until it is opened). */
     fun saveEmail() {
         val form = (_state.value.dialog as? SettingsDialog.Email)?.form ?: return
         if (!form.canSave || _state.value.isSubmitting) return
@@ -183,6 +200,7 @@ class AccountSettingsViewModel(
         )
     }
 
+    /** Changes the password; the response re-issues this device's cookie, other sessions are revoked. */
     fun savePassword() {
         val form = (_state.value.dialog as? SettingsDialog.Password)?.form ?: return
         if (!form.canSave || _state.value.isSubmitting) return
@@ -195,8 +213,7 @@ class AccountSettingsViewModel(
         )
     }
 
-    // Security
-
+    /** Sends the verification email again and starts the 60 s cooldown. */
     fun resendVerification() {
         if (_state.value.isSubmitting || _state.value.verificationResendSecondsLeft > 0) return
         submit(
@@ -209,6 +226,7 @@ class AccountSettingsViewModel(
         )
     }
 
+    /** Cancels the email change that waits for confirmation. */
     fun cancelPendingEmail() {
         if (_state.value.isSubmitting) return
         submit(
@@ -241,6 +259,7 @@ class AccountSettingsViewModel(
         }
     }
 
+    /** Confirms the emailed code and turns 2FA on or off. */
     fun confirmTwoFactor() {
         val flow = (_state.value.dialog as? SettingsDialog.TwoFactor)?.flow ?: return
         if (!flow.canConfirm) return
@@ -258,8 +277,7 @@ class AccountSettingsViewModel(
         }
     }
 
-    // Sessions
-
+    /** Logs out of every device (all sessions are revoked, this one included). */
     fun logoutAll() {
         if (_state.value.isSubmitting) return
         submit(
@@ -320,6 +338,7 @@ class AccountSettingsViewModel(
         }
     }
 
+    /** Runs a request with [AccountSettingsUiState.isSubmitting] set around it and hands the result to the callbacks. */
     private fun <T> submit(
         request: suspend () -> ApiResult<T>,
         onSuccess: (T) -> Unit,

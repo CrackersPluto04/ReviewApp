@@ -2,6 +2,11 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services;
 
+/// <summary>
+/// Builds the account emails and enqueues them. Links point to the web frontend (<c>App:FrontendBaseUrl</c>), and
+/// stay there: the Android app does not handle email links. Security emails end with a hint on what to do if the
+/// recipient did not trigger them.
+/// </summary>
 public class AccountEmailService : IAccountEmailService
 {
     private const string NotYouHint = "If this wasn't you, change your password right away and log out of all devices from your account settings.";

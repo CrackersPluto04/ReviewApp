@@ -60,6 +60,11 @@ import com.reviewapp.android.ui.components.ScoreRangeSheet
 import com.reviewapp.android.ui.components.ScoreStatsText
 import com.reviewapp.android.util.formatDate
 
+/**
+ * A media's page: poster, facts, average score and the favourite / collection buttons, the expandable overview and
+ * the filterable list of its reviews. The button writes a review, or edits the user's existing one; logged-out users
+ * are sent to login through [onLoginRequired].
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MediaDetailsScreen(
@@ -166,6 +171,7 @@ fun MediaDetailsScreen(
     }
 }
 
+/** Poster, title, type and date, creator, average score and the collection buttons. */
 @Composable
 private fun MediaHeader(media: Media, stats: ScoreStats?) {
     Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -190,6 +196,7 @@ private fun MediaHeader(media: Media, stats: ScoreStats?) {
     }
 }
 
+/** The overview cut to four lines, expandable by a tap when it is longer. */
 @Composable
 private fun ExpandableOverview(overview: String) {
     var expanded by rememberSaveable { mutableStateOf(false) }

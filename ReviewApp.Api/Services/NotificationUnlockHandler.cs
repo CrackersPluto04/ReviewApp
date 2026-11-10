@@ -5,8 +5,10 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services;
 
-// Stores a notification for every newly unlocked tier. Unlike the response header handler,
-// this one also covers users whose progress changed during someone else's request.
+/// <summary>
+/// Stores a notification for every newly unlocked tier. Unlike <see cref="ResponseHeaderUnlockHandler"/>, this one
+/// also covers users whose progress changed during someone else's request.
+/// </summary>
 public class NotificationUnlockHandler : IAchievementUnlockHandler
 {
     private readonly INotificationService _notificationService;

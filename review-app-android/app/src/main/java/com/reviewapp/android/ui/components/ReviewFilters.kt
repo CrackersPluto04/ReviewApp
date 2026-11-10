@@ -50,6 +50,7 @@ fun ReviewsHeader(
     }
 }
 
+/** The "Reviews (N)" heading. */
 @Composable
 fun ReviewsTitle(totalCount: Int) {
     Text(
@@ -97,6 +98,7 @@ fun ReviewFilterChips(
     }
 }
 
+/** Bottom sheet with a range slider (1-10 in half steps) for the score filter; [onApply] gets the filter with the new range. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScoreRangeSheet(filter: ReviewFilter, onApply: (ReviewFilter) -> Unit, onDismiss: () -> Unit) {

@@ -7,6 +7,12 @@ using System.Text.Json;
 
 namespace ReviewApp.Api.Services;
 
+/// <summary>
+/// Spotify client using the client-credentials flow. Like <see cref="TmdbService"/> it has a lenient style (browsing:
+/// any failure is an empty result) and a strict one (<c>Find*</c>: only "unknown" is empty, everything else throws
+/// <see cref="MediaSourceUnavailableException"/>), so an outage is never mistaken for "does not exist". All
+/// searches return 10 tracks per page.
+/// </summary>
 public class SpotifyService : ISpotifyService
 {
     private readonly HttpClient _httpClient;
@@ -30,7 +36,7 @@ public class SpotifyService : ISpotifyService
 
     public async Task<SpotifyTracksDto> DiscoverMusicAsync(SpotifyParams p)
     {
-        // Build the query string based on the provided parameters
+        // Spotify has no discover call: genre and year are search filters
         var queryParts = new List<string>
         {
             $"genre:{p.Genre.ToLower()}"
@@ -123,7 +129,7 @@ public class SpotifyService : ISpotifyService
 
     /* Helper methods */
 
-    // Generic method to fetch data from Spotify API and deserialize it into the specified type
+    // Lenient fetch: any failure is an empty result
     private async Task<T> FetchFromSpotifyAsync<T>(string url) where T : class, new()
     {
         var token = await _tokenCache.GetAsync(GetAccessTokenAsync, CancellationToken.None);
@@ -140,7 +146,6 @@ public class SpotifyService : ISpotifyService
         return JsonSerializer.Deserialize<T>(jsonString) ?? new T();
     }
 
-    // Helper method to get Spotify access token using Client Credentials flow
     private async Task<SpotifyTokenDto> GetAccessTokenAsync(CancellationToken cancellationToken)
     {
         var clientId = _config["Spotify:ClientId"];
@@ -164,8 +169,12 @@ public class SpotifyService : ISpotifyService
     }
 }
 
-// Keeps the client-credentials token until shortly before it expires (Spotify issues them for an hour),
-// instead of fetching a new one for every call
+/// <summary>
+/// Keeps the client-credentials token until shortly before it expires (Spotify issues them for an hour) instead of
+/// fetching a new one for every call, which would be slow and count against Spotify's limits. Registered as a
+/// singleton, because the typed HTTP clients are created per use. A lock with a second check stops parallel
+/// callers from all fetching a token at once.
+/// </summary>
 public class SpotifyTokenCache
 {
     private static readonly TimeSpan Margin = TimeSpan.FromMinutes(1);
@@ -174,6 +183,9 @@ public class SpotifyTokenCache
     private string? _token;
     private DateTime _expiresAt;
 
+    /// <summary>Returns the cached token, fetching a new one first when there is none or it is about to expire.</summary>
+    /// <param name="fetch">Fetches a fresh token; called at most once at a time.</param>
+    /// <param name="cancellationToken">Cancels waiting for the lock or the fetch.</param>
     public async Task<string> GetAsync(Func<CancellationToken, Task<SpotifyTokenDto>> fetch, CancellationToken cancellationToken)
     {
         if (_token != null && DateTime.UtcNow < _expiresAt)

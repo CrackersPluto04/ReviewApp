@@ -2,13 +2,16 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services.Recognition;
 
-// Development-only provider (Recognition:Provider = Fake): every photo is "an Iron Man statue", without an AI call or an
-// API key, so the whole flow (TMDb / Spotify resolution, ranking, paging, the clients) can be tried for free.
-// Program.cs refuses to start with it outside Development.
+/// <summary>
+/// Development-only provider (<c>Recognition:Provider = Fake</c>): every photo is "an Iron Man statue", without an
+/// AI call or an API key, so the whole flow (TMDb / Spotify resolution, ranking, paging, the clients) can be tried
+/// for free. <c>Program.cs</c> refuses to start with it outside Development.
+/// </summary>
 public class FakeRecognitionProvider : IRecognitionProvider
 {
     private static readonly TimeSpan Delay = TimeSpan.FromSeconds(1.5);
 
+    /// <summary>The canned answer, in the shape of <see cref="RecognitionPrompt"/>. Covers all four tiers so ranking and paging can be exercised.</summary>
     public const string Answer = """
         {
           "outcome": "recognised",

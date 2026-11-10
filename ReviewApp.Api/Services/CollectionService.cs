@@ -7,6 +7,16 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services;
 
+/// <summary>
+/// Collections of media. Names are unique per user (case-insensitive, enforced by a unique index as well as a
+/// check), and the default Favourites collection, created by a database trigger, is permanent: its name always
+/// identifies it because no other collection can take it. Every change to a collection or its items sets
+/// <c>UpdatedAt</c>, which moves the row's <c>rowversion</c> and so reaches offline devices through the changes feed.
+/// </summary>
+/// <remarks>
+/// The public methods keep the tuples and messages the web app uses; the <c>*Core</c> methods report exact
+/// statuses, take stored media IDs and never evaluate achievements, because the offline sync shares them.
+/// </remarks>
 public class CollectionService : ICollectionService
 {
     private const string DefaultCollectionLockedMessage = "Your Favourites collection can't be renamed, edited or deleted.";
@@ -89,7 +99,6 @@ public class CollectionService : ICollectionService
         if (!await _context.Collections.AnyAsync(c => c.ID == collectionId && c.UserID == userId))
             return false;
 
-        // Check if media exists, if not create it
         var mediaId = await _mediaService.GetOrCreateMediaAsync(type, externalApiId);
         if (mediaId == -1) return false;
 
@@ -109,18 +118,16 @@ public class CollectionService : ICollectionService
 
     public async Task<bool> ReorderMediaAsync(int userId, int collectionId, int dbMediaId, int newOrderIndex)
     {
-        // Get collection and its media items
         var collection = await _context.Collections
             .Include(c => c.CollectionMedias)
             .FirstOrDefaultAsync(c => c.ID == collectionId && c.UserID == userId);
 
         if (collection == null) return false;
 
-        // Find the CollectionMedia item to reorder
         var mediaItem = collection.CollectionMedias.FirstOrDefault(cm => cm.MediaID == dbMediaId);
         if (mediaItem == null) return false;
 
-        // Get current order index and desired new index
+        // The target index is clamped, so a client with a stale list can't leave gaps in the order
         var maxIndex = collection.CollectionMedias.Count - 1;
         var oldIndex = mediaItem.OrderIndex;
         if (newOrderIndex < 0) newOrderIndex = 0;
@@ -128,17 +135,17 @@ public class CollectionService : ICollectionService
 
         if (newOrderIndex == oldIndex) return true; // No change needed, did not move
 
-        // Move the media item to the new index
+        // The items between the old and the new position shift by one to make room
         foreach (var item in collection.CollectionMedias)
         {
-            if (item.MediaID == dbMediaId) continue; // Skip the item we are moving
+            if (item.MediaID == dbMediaId) continue;
 
-            if (oldIndex < newOrderIndex) // Dragged DOWN the list
+            if (oldIndex < newOrderIndex) // Dragged down the list
             {
                 if (item.OrderIndex > oldIndex && item.OrderIndex <= newOrderIndex)
                     item.OrderIndex--;
             }
-            else // Dragged UP the list
+            else // Dragged up the list
             {
                 if (item.OrderIndex >= newOrderIndex && item.OrderIndex < oldIndex)
                     item.OrderIndex++;
@@ -306,9 +313,11 @@ public class CollectionService : ICollectionService
         return new CollectionWriteResult(CollectionWriteStatus.Removed, collection);
     }
 
-    // Puts the listed media first, in the given order, and every other item of the collection after them in their
-    // current order. Media that aren't in the collection (any more) are ignored, so an order made on another device
-    // never drops or invents items.
+    /// <summary>
+    /// Puts the listed media first, in the given order, and every other item of the collection after them in their
+    /// current order. Media that are not in the collection (any more) are ignored, so an order made on another
+    /// device never drops or invents items.
+    /// </summary>
     public async Task<CollectionWriteResult> SetOrderAsync(int userId, int collectionId, IReadOnlyList<int> mediaIdsInOrder)
     {
         var collection = await _context.Collections
@@ -338,7 +347,9 @@ public class CollectionService : ICollectionService
         return new CollectionWriteResult(CollectionWriteStatus.Reordered, collection);
     }
 
-    // The requested order for items that are still present, then the rest in their current order
+    /// <summary>Merges a requested order with the current one: the requested items that are still present first, then the rest in their current order.</summary>
+    /// <param name="currentOrder">The stored media IDs in their current order.</param>
+    /// <param name="requestedOrder">The order asked for, possibly with IDs that are gone or repeated.</param>
     public static List<int> MergeOrder(IReadOnlyList<int> currentOrder, IReadOnlyList<int> requestedOrder)
     {
         var present = currentOrder.ToHashSet();
@@ -356,12 +367,9 @@ public class CollectionService : ICollectionService
 
     public async Task<List<CollectionDto>?> GetUserCollectionsAsync(string targetUsername, int? requestingUserId, string sortBy = "createdAt_asc")
     {
-        // Find target user by username, null if there is none
         var targetUser = await _context.Users.FirstOrDefaultAsync(u => u.Username == targetUsername);
         if (targetUser == null) return null;
 
-        // Check if requesting user is the owner of the collections
-        // or a follower of the owner
         bool isOwner = requestingUserId.HasValue && requestingUserId.Value == targetUser.ID;
 
         var isFollower = false;
@@ -370,7 +378,6 @@ public class CollectionService : ICollectionService
                 uf.FollowerID == requestingUserId.Value &&
                 uf.FollowingID == targetUser.ID);
 
-        // Build the query to get collections, applying visibility filter
         var query = _context.Collections.Where(c => c.UserID == targetUser.ID);
 
         if (!isOwner)
@@ -383,7 +390,6 @@ public class CollectionService : ICollectionService
                 query = query.Where(c => c.VisibilityLevel == VisibilityLevel.Public);
         }
 
-        // Apply filters
         query = sortBy switch
         {
             "createdAt_desc" => query.OrderByDescending(c => c.CreatedAt),
@@ -392,7 +398,6 @@ public class CollectionService : ICollectionService
             _ => query.OrderBy(c => c.CreatedAt)
         };
 
-        // Map to DTO
         var selectedQuery = query.Select(c => new CollectionDto
         {
             ID = c.ID,
@@ -409,15 +414,13 @@ public class CollectionService : ICollectionService
 
     public async Task<CollectionWithMediasDto?> OpenCollectionAsync(int? requestingUserId, int collectionId)
     {
-        // Build the query
         var query = _context.Collections.Where(c => c.ID == collectionId);
 
-        // Get targerUserID
+        // The owner is looked up first because the visibility filter below depends on who owns it
         var targetUserId = await query
             .Select(c => c.UserID)
             .FirstOrDefaultAsync();
 
-        // Get visibility relationships
         var isOwner = requestingUserId.HasValue && requestingUserId.Value == targetUserId;
 
         var isFollower = false;
@@ -426,7 +429,6 @@ public class CollectionService : ICollectionService
                 uf.FollowerID == requestingUserId.Value &&
                 uf.FollowingID == targetUserId);
 
-        // Apply visibility filter
         if (!isOwner)
         {
             if (isFollower)
@@ -437,7 +439,6 @@ public class CollectionService : ICollectionService
                 query = query.Where(r => r.VisibilityLevel == VisibilityLevel.Public);
         }
 
-        // Get collection with medias
         var rawCollection = await query
             .Select(c => new
             {
@@ -462,7 +463,6 @@ public class CollectionService : ICollectionService
         if (rawCollection == null)
             return null;
 
-        // Map to DTO
         var result = new CollectionWithMediasDto
         {
             Collection = new CollectionDto

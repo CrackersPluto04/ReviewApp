@@ -33,6 +33,7 @@ enum class SearchTab(val label: String, val mediaType: MediaType?) {
     Music("Music", MediaType.Music),
 }
 
+/** The "Any" tab's combined results. */
 data class SearchAllState(
     val items: List<Media> = emptyList(),
     val isLoading: Boolean = false,
@@ -41,13 +42,20 @@ data class SearchAllState(
     val offline: Boolean = false,
 )
 
+/** What the search screen shows. */
 data class SearchUiState(
+    /** The text in the field, which only becomes [query] on submit. */
     val draftQuery: String,
+    /** The query the results belong to. */
     val query: String,
     val tab: SearchTab = SearchTab.Any,
     val all: SearchAllState = SearchAllState(),
 )
 
+/**
+ * Media search for the query of the route: the combined "Any" results plus one infinite list per media type, each
+ * loaded only when its tab is opened.
+ */
 class SearchViewModel(
     savedStateHandle: SavedStateHandle,
     private val mediaRepository: MediaRepository,
@@ -66,6 +74,7 @@ class SearchViewModel(
         .mapNotNull { tab -> tab.mediaType?.let { type -> tab to createLoader(type) } }
         .toMap()
 
+    /** The list of a media type tab ([SearchTab.Any] has none, it uses [SearchUiState.all]). */
     fun listState(tab: SearchTab): StateFlow<PagedList<Media>> = loaders.getValue(tab).state
 
     private var allJob: Job? = null
@@ -80,6 +89,7 @@ class SearchViewModel(
 
     fun onDraftQueryChange(value: String) = _state.update { it.copy(draftQuery = value) }
 
+    /** Searches for the typed text (ignored when blank) and restarts the visible tab. */
     fun submit() {
         val query = _state.value.draftQuery.trim()
         if (query.isBlank()) return
@@ -89,6 +99,7 @@ class SearchViewModel(
         loaders.forEach { (tab, loader) -> if (tab == _state.value.tab) loader.reload() else loader.reset() }
     }
 
+    /** Opens a tab and loads its list the first time. */
     fun selectTab(tab: SearchTab) {
         _state.update { it.copy(tab = tab) }
         loaders[tab]?.loadIfNeeded()

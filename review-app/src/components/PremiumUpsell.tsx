@@ -4,11 +4,17 @@ import { useNavigate } from "react-router-dom";
 import { PREMIUM_COLOR } from "../utils/subscription";
 
 type PremiumUpsellProps = {
+    /** The headline; defaults to "This is a Premium feature". */
     title?: string;
+    /** The explanation under it; defaults to a generic subscribe text. */
     message?: string;
 };
 
-// Inline prompt for a locked Premium feature: show it instead of hiding the feature
+/**
+ * Inline prompt for a locked Premium feature, linking to the plans page. Show it in place of the feature rather
+ * than hiding the feature, so users can discover what Premium offers. The dialog variant is
+ * `PremiumUpsellProvider`, which opens by itself on any 402 from the API.
+ */
 export function PremiumUpsell({
     title = 'This is a Premium feature',
     message = 'Subscribe to Premium to unlock it, along with every other Premium feature.'

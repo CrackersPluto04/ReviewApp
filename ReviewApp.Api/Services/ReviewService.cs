@@ -7,6 +7,15 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services;
 
+/// <summary>
+/// Reviews, with one per user and title enforced by a unique index. Visibility rules are shared with the profile
+/// lists: the owner sees everything, followers also see followers-only reviews, everyone else only public ones, and
+/// a hidden review is reported as missing. A review's <c>UpdatedAt</c> is maintained by a database trigger, not here.
+/// </summary>
+/// <remarks>
+/// The public create, edit and delete methods evaluate achievements. The <c>*Core</c> methods do not, because the
+/// offline sync calls them inside a transaction and evaluates after committing.
+/// </remarks>
 public class ReviewService : IReviewService
 {
     private const int MaxPageSize = 50;
@@ -37,12 +46,10 @@ public class ReviewService : IReviewService
             return new PagedResponse<object>([], 0, p.Page, p.PageSize);
         }
 
-        // Get public reviews for media
         var query = _context.Reviews
             .Include(r => r.User)
             .Where(r => r.MediaID == media.ID && r.VisibilityLevel == VisibilityLevel.Public);
 
-        // Apply filters
         if (p.HasWrittenText)
             query = query.Where(r => !string.IsNullOrWhiteSpace(r.ReviewText) || !string.IsNullOrWhiteSpace(r.Pros) || !string.IsNullOrWhiteSpace(r.Cons));
 
@@ -59,7 +66,6 @@ public class ReviewService : IReviewService
             _ => query.OrderByDescending(r => r.CreatedAt)
         };
 
-        // Count reviews and apply pagination
         var reviewsCount = await query.CountAsync();
         var reviews = await query
             .Skip((p.Page - 1) * p.PageSize)
@@ -123,7 +129,7 @@ public class ReviewService : IReviewService
             return (0, 0);
         }
 
-        // Calculate average score
+        // Only public reviews count, the average is shown to everyone
         var publicReviews = _context.Reviews.Where(r => r.MediaID == media.ID && r.VisibilityLevel == VisibilityLevel.Public);
         var count = await publicReviews.CountAsync();
         var average = count > 0 ? await publicReviews.AverageAsync(r => r.Score) : 0;
@@ -138,7 +144,6 @@ public class ReviewService : IReviewService
 
     public async Task<(bool Success, string Message)> CreateReviewAsync(int userId, ReviewMediaDto dto)
     {
-        // Check if media exists, if not add it to the database and get ID
         var mediaId = await _mediaService.GetOrCreateMediaAsync(dto.MediaDto.MediaType, dto.MediaDto.ExternalApiID);
         if (mediaId == -1)
         {
@@ -156,14 +161,13 @@ public class ReviewService : IReviewService
 
     public async Task<(bool Success, string Message)> EditReviewAsync(int userId, ReviewMediaDto dto)
     {
-        // Check if media exists
+        // An edit never fetches from the source: a review of an unstored title cannot exist
         var media = await _context.Media.FirstOrDefaultAsync(m => m.ExternalApiID == dto.MediaDto.ExternalApiID && m.MediaType == dto.MediaDto.MediaType);
         if (media == null)
         {
             return (false, "Media not found. Invalid media type or API ID.");
         }
 
-        // Check if user has not reviewed this media already
         var reviewId = await _context.Reviews
             .Where(r => r.UserID == userId && r.MediaID == media.ID)
             .Select(r => (int?)r.ID)
@@ -275,14 +279,12 @@ public class ReviewService : IReviewService
             return (false, null);
         }
 
-        // Check if user has reviewed this media already
         var review = await _context.Reviews.FirstOrDefaultAsync(r => r.UserID == userId && r.MediaID == media.ID);
         if (review == null)
         {
             return (false, null);
         }
 
-        // Return review data if user has reviewed
         var reviewDto = new ReviewDto
         {
             Score = review.Score,
@@ -345,13 +347,10 @@ public class ReviewService : IReviewService
     {
         p = ClampPaging(p);
 
-        // Find target user by username
         var targetUser = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
         if (targetUser == null)
             return (false, null);
 
-        // Check if requesting user is the owner of the collections
-        // or a follower of the owner
         var isOwner = requestingUserId.HasValue && requestingUserId.Value == targetUser.ID;
         var isFollower = false;
 
@@ -360,7 +359,6 @@ public class ReviewService : IReviewService
                 uf.FollowerID == requestingUserId.Value &&
                 uf.FollowingID == targetUser.ID);
 
-        // Build the query to get reviews, applying visibility filter
         var query = _context.Reviews.Where(r => r.UserID == targetUser.ID);
 
         if (!isOwner)
@@ -373,7 +371,6 @@ public class ReviewService : IReviewService
                 query = query.Where(r => r.VisibilityLevel == VisibilityLevel.Public);
         }
 
-        // Apply filters
         if (p.HasWrittenText)
             query = query.Where(r => !string.IsNullOrWhiteSpace(r.ReviewText) || !string.IsNullOrWhiteSpace(r.Pros) || !string.IsNullOrWhiteSpace(r.Cons));
 
@@ -390,7 +387,6 @@ public class ReviewService : IReviewService
             _ => query.OrderByDescending(r => r.CreatedAt)
         };
 
-        // Count reviews and apply pagination
         var reviewsCount = await query.CountAsync();
         var reviews = await query
             .Skip((p.Page - 1) * p.PageSize)

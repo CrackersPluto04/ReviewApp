@@ -52,7 +52,8 @@ fun PremiumBadge(modifier: Modifier = Modifier) {
 
 /**
  * Inline prompt for a locked Premium feature: show it instead of hiding the feature (the web's
- * `PremiumUpsell`). Future Premium features (offline mode, camera recognition) use it too.
+ * `PremiumUpsell`). The offline mode settings, camera recognition and the account settings' subscription section
+ * use it for Free users.
  */
 @Composable
 fun PremiumUpsell(

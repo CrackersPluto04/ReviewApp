@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** The review form: the media, the draft being edited and the load / save state. */
 data class WriteReviewUiState(
     val media: Media? = null,
     val isLoading: Boolean = true,
@@ -56,6 +57,8 @@ data class WriteReviewUiState(
     val isReviewTooLong get() = draft.reviewText.length > Validation.MAX_REVIEW_LENGTH
     val isProsTooLong get() = draft.pros.length > Validation.MAX_PROS_CONS_LENGTH
     val isConsTooLong get() = draft.cons.length > Validation.MAX_PROS_CONS_LENGTH
+
+    /** Saving is allowed once the media is loaded, nothing is being saved and no text is over its limit. */
     val canSave get() = media != null && !isLoading && !isSaving && !isReviewTooLong && !isProsTooLong && !isConsTooLong
 }
 
@@ -69,6 +72,10 @@ private data class StoredReviewDraft(val score: Double, val reviewText: String, 
     }
 }
 
+/**
+ * Create or edit the user's review of one media (route arguments). Whether it is an edit is decided by loading the
+ * existing review; unsaved text is kept in the offline copy's drafts while typing so a killed app does not lose it.
+ */
 class WriteReviewViewModel(
     savedStateHandle: SavedStateHandle,
     private val mediaRepository: MediaRepository,
@@ -125,6 +132,7 @@ class WriteReviewViewModel(
         }
     }
 
+    /** Applies [change] to the draft and schedules saving it on the device. */
     fun updateDraft(change: ReviewDraft.() -> ReviewDraft) {
         _state.update { it.copy(draft = it.draft.change(), saveError = null) }
         // Kept on the device while typing (debounced), so a killed app doesn't lose it
@@ -141,6 +149,7 @@ class WriteReviewViewModel(
         CoroutineScope(Dispatchers.IO).launch { local.deleteDraft(draftKey) }
     }
 
+    /** Creates or updates the review; [saved] fires on success. */
     fun save() {
         val current = _state.value
         val media = current.media ?: return

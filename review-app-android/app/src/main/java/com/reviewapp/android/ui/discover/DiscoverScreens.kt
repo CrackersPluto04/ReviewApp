@@ -126,6 +126,7 @@ fun DiscoverScreen(
     }
 }
 
+/** The runtime chip's text: the range, an open-ended bound, or the plain name when nothing is set. */
 private fun runtimeLabel(filters: TmdbDiscoverFilters): String {
     val min = filters.minRuntime
     val max = filters.maxRuntime
@@ -205,6 +206,7 @@ fun DiscoverMusicScreen(
     }
 }
 
+/** A chip that opens a dialog instead of a menu (year, runtime); highlighted while its filter is set. */
 @Composable
 private fun DialogChip(label: String, active: Boolean, onClick: () -> Unit) {
     FilterChip(
@@ -215,6 +217,7 @@ private fun DialogChip(label: String, active: Boolean, onClick: () -> Unit) {
     )
 }
 
+/** Resets every filter, shown while any differs from the default. */
 @Composable
 private fun ClearChip(onClick: () -> Unit) {
     AssistChip(

@@ -2,25 +2,34 @@ using System.Buffers.Binary;
 
 namespace ReviewApp.Api.Services.Recognition;
 
+/// <summary>The image formats accepted for recognition.</summary>
 public enum ImageFormat
 {
     Jpeg,
     Png
 }
 
+/// <summary>An image's format and dimensions, read from its header.</summary>
 public readonly record struct ImageInfo(ImageFormat Format, int Width, int Height)
 {
     public string MimeType => Format == ImageFormat.Png ? "image/png" : "image/jpeg";
+    /// <summary>Width times height, as a <c>long</c> so a huge image cannot overflow.</summary>
     public long Pixels => (long)Width * Height;
 }
 
-// Recognises an uploaded image by its content (never by the file name or the client's content type) and reads its
-// dimensions from the header. Nothing is decoded, so a "decompression bomb" costs nothing: its header gives it away.
-// The clients always send JPEG; PNG is accepted for picked screenshots. Anything else (HEIC, WebP, GIF, not an image) is refused.
+/// <summary>
+/// Recognises an uploaded image by its content (never by the file name or the client's content type) and reads its
+/// dimensions from the header. Nothing is decoded, so a "decompression bomb" costs nothing: its header gives it
+/// away. The clients always send JPEG; PNG is accepted for picked screenshots. Anything else (HEIC, WebP, GIF, not
+/// an image) is refused.
+/// </summary>
 public static class ImageInspector
 {
     private static readonly byte[] PngSignature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
+    /// <summary>Identifies an image by its magic bytes and reads its size from the header.</summary>
+    /// <param name="data">The upload's bytes.</param>
+    /// <returns>The format and size, or null when it is not a JPEG or PNG, or the header is malformed.</returns>
     public static ImageInfo? Inspect(ReadOnlySpan<byte> data)
     {
         if (data.Length >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF)

@@ -30,8 +30,11 @@ class AccountRepository(
 ) {
     // In memory only, so the verification banner comes back on the next app start (like the web's sessionStorage)
     private val _verificationBannerDismissed = MutableStateFlow(false)
+
+    /** Whether the user closed the email verification banner in this run of the app. */
     val verificationBannerDismissed: StateFlow<Boolean> = _verificationBannerDismissed.asStateFlow()
 
+    /** Hides the banner until the app restarts. */
     fun dismissVerificationBanner() {
         _verificationBannerDismissed.value = true
     }
@@ -46,6 +49,7 @@ class AccountRepository(
         return result
     }
 
+    /** Renames the user; the session and its cached copy follow the new name. Usernames are part of profile URLs, so the API applies its username rules. */
     suspend fun changeUsername(username: String): ApiResult<Unit> {
         val trimmed = username.trim()
         val result = apiCall { userApi.updateMe(UserUpdateRequest(username = trimmed)) }
@@ -53,6 +57,7 @@ class AccountRepository(
         return result.map { }
     }
 
+    /** Requests an email change. The email only changes once the link sent to the new address is opened. */
     suspend fun changeEmail(newEmail: String, currentPassword: String): ApiResult<String> =
         apiCall { userApi.changeEmail(ChangeEmailRequest(newEmail.trim(), currentPassword)) }
             .message("Check your new inbox to confirm the change.")
@@ -62,8 +67,10 @@ class AccountRepository(
         apiCall { userApi.changePassword(ChangePasswordRequest(currentPassword, newPassword)) }
             .message("Password changed successfully.")
 
+    /** Drops the pending email change. */
     suspend fun cancelPendingEmail(): ApiResult<Unit> = apiCall { securityApi.cancelPendingEmail() }
 
+    /** Sends the verification email again; the API allows one per minute. */
     suspend fun resendVerification(): ApiResult<String> =
         apiCall { securityApi.resendVerification() }.message("We sent you a new verification link.")
 
@@ -75,6 +82,7 @@ class AccountRepository(
         }.message("We sent a 6-digit code to your email address.")
     }
 
+    /** Confirms the emailed code, then reloads the user so the 2FA state is current. */
     suspend fun confirmTwoFactor(enable: Boolean, code: String): ApiResult<String> {
         val body = TwoFactorCodeRequest(code)
         val result = apiCall {
@@ -91,6 +99,7 @@ class AccountRepository(
         return result
     }
 
+    /** Reloads the logged-in user from the API (see [SessionManager.refreshUser]). */
     suspend fun refreshUser() = sessionManager.refreshUser()
 
     private fun ApiResult<MessageResponse>.message(fallback: String): ApiResult<String> =

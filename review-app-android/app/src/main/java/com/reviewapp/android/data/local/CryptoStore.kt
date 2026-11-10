@@ -18,6 +18,7 @@ class CryptoStore(private val keyAlias: String = "review_app_session_key") {
 
     private val keyStore: KeyStore by lazy { KeyStore.getInstance(KEYSTORE).apply { load(null) } }
 
+    // Created on first use; synchronized so two threads never generate two keys under one alias
     @Synchronized
     private fun key(): SecretKey {
         (keyStore.getKey(keyAlias, null) as? SecretKey)?.let { return it }
@@ -35,6 +36,7 @@ class CryptoStore(private val keyAlias: String = "review_app_session_key") {
             .generateKey()
     }
 
+    /** Encrypts [plainText] with a fresh random IV, returning Base64 of the IV followed by the ciphertext. */
     fun encrypt(plainText: String): String {
         val cipher = Cipher.getInstance(TRANSFORMATION).apply { init(Cipher.ENCRYPT_MODE, key()) }
         val encrypted = cipher.doFinal(plainText.toByteArray(Charsets.UTF_8))

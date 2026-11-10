@@ -17,10 +17,15 @@ data class ConnectivityBanner(
     val opensChanges: Boolean = false,
 )
 
-/** What the sync is doing, for the strip. */
+/** What the sync is doing, for the strip: a run in progress, or [paused] by the API's rate limit until its retry time. */
 data class SyncActivity(val running: Boolean = false, val paused: Boolean = false)
 
-/** What the strip says, or null when it is hidden (online, nothing waiting). Pure, so the texts are unit-tested. */
+/**
+ * What the strip says, or null when it is hidden (online, nothing waiting). Pure, so the texts are unit-tested.
+ * Online, a running or paused sync comes first, then changes that need the user (they never leave on their own and
+ * can hold back later changes of the same thing), then the plain waiting count. Offline the text follows the
+ * [OfflineMode].
+ */
 fun connectivityBanner(connectivity: Connectivity, status: OfflineStatus, sync: SyncActivity = SyncActivity()): ConnectivityBanner? {
     val hasChanges = status.pendingChanges > 0
     val waiting = status.toSend.takeIf { it > 0 }?.let { "${pluralize(it, "change")} waiting to sync" }

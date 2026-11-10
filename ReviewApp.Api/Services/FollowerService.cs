@@ -6,6 +6,11 @@ using ReviewApp.Api.Services.Interfaces;
 
 namespace ReviewApp.Api.Services;
 
+/// <summary>
+/// Follow relationships. Every write is idempotent: asking for a state that already holds is reported as
+/// <see cref="FollowWriteStatus.Unchanged"/>, and a parallel request that wins the race on the primary key is
+/// treated the same way, so retries and the offline sync can safely repeat a change.
+/// </summary>
 public class FollowerService : IFollowerService
 {
     private readonly AppDbContext _context;

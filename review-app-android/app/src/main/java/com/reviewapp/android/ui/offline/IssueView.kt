@@ -17,13 +17,27 @@ import com.reviewapp.android.util.formatScore
 
 /** A decision the conflict screen offers. */
 enum class IssueAction(val label: String) {
+    /** Field conflict: send the per-field choices on top of the backend's version. */
     SaveChoices("Save my choices"),
+
+    /** Deleted elsewhere: create it again from what this phone shows. */
     Recreate("Recreate it"),
+
+    /** Edited elsewhere since: delete it anyway. */
     DeleteAnyway("Delete anyway"),
+
+    /** Already reviewed: this phone's review replaces the one on the backend. */
     KeepMine("Keep mine"),
+
+    /** Name taken: pick another name for the collection. */
     Rename("Rename"),
+
+    /** Name taken: move what was put in the new collection into the existing one. */
     Merge("Add to the existing collection"),
+
+    /** Rejected: send the change again. */
     Retry("Try again"),
+
     /** The backend's version stays: the change (and the later ones of the same thing) is thrown away. */
     UseTheirs("Discard my change"),
 }
@@ -48,6 +62,11 @@ data class IssueView(
     val discardLabel: String = IssueAction.UseTheirs.label,
 )
 
+/**
+ * Picks the texts and the offered actions for one issue. Only the actions that can work are offered: recreating or
+ * keeping mine needs the local row to still exist, merging needs the existing collection, retrying needs a failure
+ * that can pass.
+ */
 fun issueView(details: IssueDetails, context: DescribeContext): IssueView {
     val op = details.op
     val title = OutboxDescriber.describe(op, context)
@@ -120,6 +139,7 @@ fun issueView(details: IssueDetails, context: DescribeContext): IssueView {
     }
 }
 
+/** A review's fields as the readable [ReviewVersion] of the side-by-side view. */
 private fun ReviewFieldsDto.toVersion() = ReviewVersion(
     score = formatScore(score),
     visibility = Visibility.fromId(visibility).label,

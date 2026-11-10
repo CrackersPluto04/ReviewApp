@@ -224,6 +224,30 @@ Always check for up-to-date documentation when implementing features from librar
 ### Testing Guidelines
 If finding it necessary, test the running application using the Playwright MCP server.
 
+### Code Comments (mandatory)
+
+Every change that adds or modifies code comes with its documentation in the same change. A feature is not finished while its new public types and members are undocumented. The whole repo was documented in a dedicated pass, so new code must match it; do not leave comments for a later session.
+
+**What to write**
+- Document the **why**, not the what: the intent, the rule or invariant, the constraint that is not visible in the code (an API quirk, a security reason, an ordering requirement, a deliberate trade-off). Never restate the next line.
+- Verify every claim against the code or the backend before writing it (defaults, limits, status codes, enum values). A wrong comment is worse than none.
+- Language: American English, third-person present ("Returns ...", "Creates ..."), neutral and technical. No conversational or AI-sounding text ("Let's ...", "Now we ..."), no first person, no emojis, no TODO / "for now" / "a later milestone" notes (put open work in the specs or FINDINGS files), no commented-out code.
+- When a change makes an existing comment untrue (renamed concept, moved behaviour, a milestone that has since shipped), fix the comment in the same change.
+
+**Format per language**
+- **C# (backend)**: XML docs (`///`) on every public type and member of `Controllers/`, `DTOs/`, `Services/`, `Enums/`, `DAL/`, `Filters/`. Interfaces carry the full `<summary>`, `<param>`, `<returns>`, `<exception>` docs; an implementing class gets a class `<summary>` with its rules and architecture, no repeated `<inheritdoc/>` per method. A method documents all of its parameters or none (CS1573). Controller actions document the intent and the status codes they return (`<response code="...">`, including the `{ error, code }` shapes), because the docs feed Swagger. Use `<see cref=""/>` for references and `<c>` for literals. `Migrations/` is generated: leave it alone.
+- **TypeScript (frontend)**: JSDoc `/** */` with `@param` / `@returns` on exported functions, hooks, components and context. Service classes state the shared result convention (`{ success, data | message }`, never throws). Private helpers need a comment only when the why is not obvious.
+- **Kotlin (Android)**: KDoc `/** */` on public (and `internal`) types and members: screens, ViewModels, UI-state classes and their non-obvious fields, repositories, DAOs and entities, pure rule objects, events. Fields of state classes get a line when their meaning, units, nullability or lifetime is not clear from the name. Private helpers only when the why is not obvious.
+
+**Inline `//` comments**
+- Only for a non-obvious why next to the code it explains (ordering, a workaround, a rule mirrored from the backend or web, why something is deliberately not done). No narration (`// Get the user`), no section labels (`// Loading`); a KDoc on the member says it better.
+
+**Do not**
+- Rename, reorder or change code while documenting; a documentation edit must leave the comment-stripped code identical.
+- Add trivial KDoc / XML docs that only repeat the name (`/** Gets the id. */`).
+
+**Before finishing a task**: re-read the diff for new or changed public members without docs, informal comments, and docs that no longer match the behaviour.
+
 ### Commit Rules:
 
 - Do NOT add "Co-authored-by" lines to commits
