@@ -10,10 +10,15 @@ type AchievementToastProviderProps = {
     children: ReactNode;
 };
 
-// Shows a toast for every achievement tier unlocked by any API call (see apiClient.ts),
-// so the components that trigger unlocks (reviews, replies, collections) don't need to know about it
+/**
+ * Shows a toast for every achievement tier unlocked by any API call, so the components that trigger unlocks
+ * (reviews, replies, collections) don't need to know about it. It registers itself with `setUnlockHandler`
+ * (see `apiClient.ts`), which hands it the tiers from the `X-Unlocked-Achievements` response header.
+ *
+ * One action can unlock several tiers; they are queued and shown one after the other, 5 seconds each.
+ * Mount it once, anywhere above the pages.
+ */
 export function AchievementToastProvider({ children }: AchievementToastProviderProps) {
-    // One action can unlock several tiers, they are shown one after the other
     const [queue, setQueue] = useState<UnlockedAchievementDto[]>([]);
     // The toast on screen, kept until its exit animation ends (not just until it starts closing)
     const [current, setCurrent] = useState<UnlockedAchievementDto>();

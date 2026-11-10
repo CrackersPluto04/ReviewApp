@@ -9,7 +9,7 @@ import { setPremiumRequiredHandler } from '../services/apiClient';
 import { PREMIUM_COLOR } from '../utils/subscription';
 
 interface PremiumUpsellContextType {
-    // Opens the "This is a Premium feature" dialog (also opened automatically on any 402 from the API)
+    /** Opens the "This is a Premium feature" dialog (it also opens automatically on any 402 from the API). */
     showUpsell: () => void;
 }
 
@@ -19,12 +19,18 @@ type PremiumUpsellProviderProps = {
 
 const PremiumUpsellContext = createContext<PremiumUpsellContextType | undefined>(undefined);
 
-// Inside the router: the dialog links to the plans page
+/**
+ * Owns the "This is a Premium feature" dialog. Any 402 from the API (via `setPremiumRequiredHandler`) opens it,
+ * so no caller has to handle the paywall itself; the caller still receives the 402 response and can show its
+ * own locked state (see `PremiumUpsell`).
+ * Mount it inside both `AuthProvider` and the router: it refreshes the user and the dialog links to the plans page.
+ */
 export function PremiumUpsellProvider({ children }: PremiumUpsellProviderProps) {
     const { refreshUser } = useAuth();
     const navigate = useNavigate();
     const [open, setOpen] = useState(false);
 
+    // The handler is registered once, so it reads the latest refreshUser through a ref instead of a stale closure
     const refreshUserRef = useRef(refreshUser);
     refreshUserRef.current = refreshUser;
 
@@ -65,6 +71,11 @@ export function PremiumUpsellProvider({ children }: PremiumUpsellProviderProps) 
     </PremiumUpsellContext.Provider>
 }
 
+/**
+ * Gives access to the upsell dialog.
+ * @returns `{ showUpsell }`.
+ * @throws When used outside a `PremiumUpsellProvider`.
+ */
 export function usePremiumUpsell() {
     const context = useContext(PremiumUpsellContext);
 
