@@ -50,8 +50,17 @@ import java.util.UUID
 /** A write the offline copy refuses at once, like the API would. */
 class OfflineWriteException(message: String) : Exception(message)
 
-/** How a queued change ended for "Discard". */
-enum class DiscardResult { Discarded, Sending, NotFound }
+/** How a "Discard" ended. */
+enum class DiscardResult {
+    /** The waiting changes of the thing are gone and its backend version is back. */
+    Discarded,
+
+    /** One of them is being sent right now, so nothing was changed. */
+    Sending,
+
+    /** The change is no longer in the queue (it was sent meanwhile). */
+    NotFound
+}
 
 /**
  * The write side of offline mode: each change is applied to the user's offline copy and queued in the outbox in one
@@ -119,6 +128,7 @@ class OfflineWriter(
         }
     }
 
+    /** Deletes one of the user's own reviews (also one still waiting to be created, which then never reaches the backend). */
     suspend fun deleteReview(id: Int) = transaction { db ->
         val realId = resolve(db, EntityType.REVIEW, id)
         val review = db.reviews().entity(realId) ?: return@transaction
@@ -131,6 +141,7 @@ class OfflineWriter(
 
     // Collections
 
+    /** Creates a collection with a temporary id. A name the copy already has is refused at once, like the API would. */
     suspend fun createCollection(name: String, visibility: Visibility): Pair<CollectionEntity, OutboxEntity> = transaction { db ->
         val trimmed = name.trim()
         checkNameFree(db, trimmed, exceptId = null)
@@ -142,6 +153,7 @@ class OfflineWriter(
         entity to enqueue(db, OpTypes.COLLECTION_CREATE, EntityType.COLLECTION, id, encode(CollectionCreatePayload.serializer(), payload), isCreate = true)
     }
 
+    /** Renames a collection or changes its visibility. The Favourites collection refuses it. */
     suspend fun updateCollection(id: Int, name: String, visibility: Visibility): OutboxEntity = transaction { db ->
         val realId = resolve(db, EntityType.COLLECTION, id)
         val collection = db.collections().entity(realId) ?: throw OfflineWriteException("Collection not found.")
@@ -160,6 +172,7 @@ class OfflineWriter(
         enqueue(db, OpTypes.COLLECTION_UPDATE, EntityType.COLLECTION, realId, encode(CollectionUpdatePayload.serializer(), payload), dependsOn = dependsOn)
     }
 
+    /** Deletes a collection. The Favourites collection refuses it. */
     suspend fun deleteCollection(id: Int) = transaction { db ->
         val realId = resolve(db, EntityType.COLLECTION, id)
         val collection = db.collections().entity(realId) ?: return@transaction
@@ -231,6 +244,7 @@ class OfflineWriter(
         enqueue(db, OpTypes.PROFILE_UPDATE, EntityType.PROFILE, me, encode(ProfileUpdatePayload.serializer(), payload))
     }
 
+    /** Follows or unfollows a user; [username] and [profilePictureUrl] let the follow lists show them before the sync. */
     suspend fun setFollowing(userId: Int, follow: Boolean, username: String?, profilePictureUrl: String?) = transaction { db ->
         val me = me()
         if (userId == me) throw OfflineWriteException("You can't follow yourself.")
@@ -242,6 +256,7 @@ class OfflineWriter(
         enqueue(db, OpTypes.FOLLOW_SET, EntityType.FOLLOW, userId, encode(FollowSetPayload.serializer(), FollowSetPayload(userId, follow)))
     }
 
+    /** Removes someone from the user's followers. */
     suspend fun removeFollower(userId: Int) = transaction { db ->
         val me = me()
         if (db.shadows().get(EntityType.FOLLOWER, userId) == null) {
@@ -253,12 +268,14 @@ class OfflineWriter(
 
     // Notifications
 
+    /** Marks a notification seen or unseen. */
     suspend fun setNotificationSeen(id: Int, seen: Boolean) = transaction { db ->
         keepNotificationShadow(db, id)
         db.notifications().setSeen(id, seen, SyncState.PENDING)
         enqueue(db, OpTypes.NOTIFICATION_SEEN, EntityType.NOTIFICATION, id, encode(NotificationSeenPayload.serializer(), NotificationSeenPayload(id, seen)))
     }
 
+    /** Deletes a notification; the hidden row stays until the delete is sent. */
     suspend fun deleteNotification(id: Int) = transaction { db ->
         keepNotificationShadow(db, id)
         db.notifications().markDeleted(id, SyncState.PENDING)
@@ -272,6 +289,7 @@ class OfflineWriter(
         enqueue(db, OpTypes.NOTIFICATION_MARK_ALL_SEEN, EntityType.NOTIFICATION, null, encode(NotificationUpToPayload.serializer(), NotificationUpToPayload(upTo)))
     }
 
+    /** Deletes every seen notification, up to the newest one on the device. */
     suspend fun deleteSeenNotifications() = transaction { db ->
         val upTo = db.notifications().maxId() ?: return@transaction
         db.notifications().deleteSeen(upTo)

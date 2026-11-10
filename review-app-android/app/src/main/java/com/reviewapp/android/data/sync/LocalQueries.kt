@@ -35,10 +35,12 @@ internal fun instantOf(raw: String): Instant = try {
     }
 }
 
+/** The user's own reviews, filtered, sorted and paged like `User/{username}/reviews`. */
 object LocalReviewQuery {
     /** The API's page size of `User/{username}/reviews`. */
     const val PAGE_SIZE = 10
 
+    /** One page of [reviews] under [filter]; ties are broken by id so the order is stable. */
     fun page(reviews: List<LocalReview>, filter: ReviewFilter, page: Int, pageSize: Int = PAGE_SIZE): Page<ProfileReview> {
         val matching = reviews.filter { local ->
             val r = local.review
@@ -58,6 +60,7 @@ object LocalReviewQuery {
         return Page(items, page, totalPages, sorted.size)
     }
 
+    /** The domain model of a stored review (the owner's, with the API's date-only strings). */
     fun LocalReview.toProfileReview() = ProfileReview(
         id = review.id,
         mediaTitle = title.orEmpty(),
@@ -78,7 +81,9 @@ object LocalReviewQuery {
     )
 }
 
+/** The user's own collections, sorted like `User/{username}/collections`. */
 object LocalCollectionQuery {
+    /** [collections] sorted by one of the API's sort keys (see `DiscoverOptions.collectionSortOptions`); an unknown key sorts oldest first. */
     fun sorted(collections: List<LocalCollection>, sortBy: String): List<MediaCollection> {
         val byName = compareBy<LocalCollection, String>(String.CASE_INSENSITIVE_ORDER) { it.collection.name }
         val sorted = when (sortBy) {
@@ -90,6 +95,7 @@ object LocalCollectionQuery {
         return sorted.map { it.toMediaCollection() }
     }
 
+    /** The domain model of a stored collection. */
     fun LocalCollection.toMediaCollection() = MediaCollection(
         id = collection.id,
         name = collection.name,
@@ -102,6 +108,7 @@ object LocalCollectionQuery {
     )
 }
 
+/** The notification list, filtered, sorted and paged like `GET Notification`. */
 object LocalNotificationQuery {
     /** Keyset paging like the API: [afterId] is the last notification of the previous page. */
     fun page(
@@ -131,6 +138,7 @@ object LocalNotificationQuery {
         )
     }
 
+    /** The domain model of a stored notification. */
     fun NotificationEntity.toDomain() = AppNotification(
         id = id,
         type = NotificationType.fromName(type),
@@ -149,8 +157,10 @@ object LocalNotificationQuery {
 
 /** Search of the offline library (own content and opened media) while there is no connection. */
 object OfflineSearch {
+    /** At most this many results. */
     const val MAX_RESULTS = 50
 
+    /** Titles and creators that contain every word of [query], best match first (title starts with it, then a word does), then most recently used. */
     fun search(media: List<MediaEntity>, query: String, type: MediaType? = null): List<Media> {
         val words = normalize(query).split(' ').filter { it.isNotBlank() }
         if (words.isEmpty()) return emptyList()
@@ -184,6 +194,7 @@ object OfflineSearch {
             .trim()
 }
 
+/** The domain model of a stored media; the overview is not kept offline. */
 fun MediaEntity.toMedia() = Media(
     externalApiId = externalApiId,
     mediaType = MediaType.fromId(mediaType),

@@ -17,13 +17,16 @@ data class DescribeContext(
     val mediaTitles: Map<String, String> = emptyMap(),
     /** Review id -> the title of its media. */
     val reviewTitles: Map<Int, String> = emptyMap(),
+    /** Collection id -> name. */
     val collectionNames: Map<Int, String> = emptyMap(),
+    /** User id -> username. */
     val usernames: Map<Int, String> = emptyMap(),
 )
 
 /** A queued change in plain language (pure, unit-tested). */
 object OutboxDescriber {
 
+    /** One line telling what the change does, e.g. "Wrote a review of Alien"; a payload that cannot be read becomes "A change". */
     fun describe(op: OutboxEntity, context: DescribeContext): String {
         val id = op.entityId
         val review = { id?.let { context.reviewTitles[it] } ?: "a title" }

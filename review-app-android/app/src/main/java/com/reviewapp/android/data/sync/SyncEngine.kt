@@ -36,17 +36,25 @@ import kotlinx.coroutines.sync.withLock
 
 /** What the last sync run did. */
 sealed interface SyncOutcome {
+    /** The queue was sent and the changes feed pulled. */
     data object Done : SyncOutcome
+
+
     /** Nothing to do: no offline copy, offline, or a mode that doesn't pull. */
     data object Skipped : SyncOutcome
+    /** The run stopped; [isNetwork] means the backend could not be reached. */
     data class Failed(val message: String, val isNetwork: Boolean) : SyncOutcome
 }
 
 /** Where an awaited op is ([SyncEngine.awaitOp]). */
 sealed interface OpWait {
+    /** The op left the queue: the backend accepted it. */
     data object Applied : OpWait
+
+
     /** Still queued (offline, or no answer within the wait). */
     data object Queued : OpWait
+    /** The backend found a conflict or refused it; [reason] is its reason code. */
     data class Issue(val reason: String?) : OpWait
 }
 
@@ -70,6 +78,8 @@ class SyncEngine(
     private val triggers = Channel<Unit>(Channel.CONFLATED)
 
     private val _running = MutableStateFlow(false)
+
+    /** Whether a run is in progress (the connectivity strip shows "Syncing"). */
     val running: StateFlow<Boolean> = _running.asStateFlow()
 
     /** Set while the backend asked to slow down (429): the sync continues by itself at that time. */
@@ -77,21 +87,29 @@ class SyncEngine(
     val pausedUntil: StateFlow<Long?> = _pausedUntil.asStateFlow()
 
     private val _lastOutcome = MutableStateFlow<SyncOutcome?>(null)
+
+    /** How the last run ended; `null` before the first. */
     val lastOutcome: StateFlow<SyncOutcome?> = _lastOutcome.asStateFlow()
 
     /** After a push that applied changes or put some in Sync issues (lists reload: real ids, markers, hearts). */
     private val _pushed = MutableSharedFlow<PushOutcome.Done>(extraBufferCapacity = 4)
+    /** Emitted after a push that applied changes or created issues. */
     val pushed: SharedFlow<PushOutcome.Done> = _pushed.asSharedFlow()
 
     /** After a run in the app that sent changes which had waited: the root shows the sync summary. */
     private val _summaries = MutableSharedFlow<PushOutcome.Done>(extraBufferCapacity = 4)
+    /** Emitted after a run that sent changes which had waited a while. */
     val summaries: SharedFlow<PushOutcome.Done> = _summaries.asSharedFlow()
 
     private var lastVisibilityCheck = 0L
     private var recoveredDb: OfflineDatabase? = null
     private var wakeUp: Job? = null
 
-    /** [changes]: the user's own online writes (they change the copy on the backend). */
+    /**
+     * Starts the triggers: the user getting an offline copy, the connection coming back, [changes] (the user's own
+     * online writes, which change the content on the backend, debounced) and a periodic run every 10 minutes so
+     * changes from the web or another device arrive by themselves.
+     */
     @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
     fun start(changes: Flow<Unit>) {
         scope.launch { for (trigger in triggers) runOnce() }
@@ -113,6 +131,7 @@ class SyncEngine(
         }
     }
 
+    /** Asks for a run; several requests while one runs become one more run. */
     fun requestSync() {
         triggers.trySend(Unit)
     }

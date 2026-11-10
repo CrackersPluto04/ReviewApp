@@ -57,6 +57,7 @@ data class AccountChange(
     val unseenCount: Int,
 )
 
+/** Constants of [ServerShadowEntity]. */
 object ServerShadow {
     /** The json of a shadow whose entity was deleted on the backend. */
     const val DELETED = "null"
@@ -71,6 +72,10 @@ object ChangesApplier {
 
     private val json = Json { encodeDefaults = true }
 
+    /**
+     * What one page of the changes feed does to the local copy. Entities in [pending] are not overwritten; their
+     * server version is kept as a shadow instead.
+     */
     fun plan(page: SyncChangesDto, pending: PendingEntities, nowMillis: Long): ChangeSet {
         val media = (page.reviews.map { it.media } + page.collections.flatMap { c -> c.items.map { it.media } })
             .distinctBy { it.mediaType to it.externalApiId }
@@ -104,6 +109,7 @@ object ChangesApplier {
     fun staleIds(localIds: Collection<Int>, seenIds: Set<Int>, pendingIds: Set<Int>): List<Int> =
         localIds.filter { it > 0 && it !in seenIds && it !in pendingIds }
 
+    /** What the first page's account data (profile, follows, notifications) does to the local copy, apart from the pending parts. */
     fun account(account: SyncAccountDto, pending: PendingEntities, nowMillis: Long): AccountChange {
         val me = account.userId
         val follows = account.following.filter { it.id !in pending.followUserIds }.map { FollowEntity(me, it.id) } +

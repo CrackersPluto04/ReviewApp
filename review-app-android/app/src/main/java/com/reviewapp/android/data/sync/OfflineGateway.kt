@@ -64,8 +64,11 @@ class OfflineGateway(
     private val scope: CoroutineScope,
 ) {
     private val _status = MutableStateFlow(OfflineStatus())
+
+    /** The mode and the numbers the offline UI shows. */
     val status: StateFlow<OfflineStatus> = _status.asStateFlow()
 
+    /** The current mode. */
     val mode: OfflineMode get() = _status.value.mode
 
     private val lock = Mutex()
@@ -90,6 +93,7 @@ class OfflineGateway(
         return open.db.takeIf { mode.usesLocalCopy && mode.userId == open.userId }
     }
 
+    /** Starts following the session. Called once by the application. */
     fun start() {
         scope.launch {
             sessionManager.state

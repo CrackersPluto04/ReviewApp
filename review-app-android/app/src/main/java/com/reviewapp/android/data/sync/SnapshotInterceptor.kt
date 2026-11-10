@@ -82,6 +82,7 @@ class SnapshotInterceptor(
         }
     }
 
+    /** Deletes the least recently used snapshots until the kept ones fit the budget. Runs every few writes, and after a sync. */
     fun evict(db: OfflineDatabase) {
         val snapshots = db.snapshots()
         val keys = SnapshotEviction.keysToEvict(snapshots.usage(), budgetBytes())
@@ -89,6 +90,7 @@ class SnapshotInterceptor(
     }
 
     companion object {
+        /** Set on a response made from a snapshot; its value is when the snapshot was saved (epoch millis). */
         const val HEADER = "X-Offline-Snapshot"
         private val JSON = "application/json; charset=utf-8".toMediaType()
         /** Bigger answers aren't kept (a page of media is a few tens of KB). */

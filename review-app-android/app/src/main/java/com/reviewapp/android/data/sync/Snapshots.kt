@@ -31,14 +31,18 @@ object SnapshotPolicy {
 
 /** The other users' reviews and collections a snapshot shows, so hidden ones can be pruned. */
 data class SnapshotContent(val reviewIds: Set<Int> = emptySet(), val collectionIds: Set<Int> = emptySet()) {
+    /** The review ids as a sorted, comma-separated string, the way they are stored. */
     fun reviewsCsv() = reviewIds.sorted().joinToString(",")
+    /** The collection ids as a sorted, comma-separated string, the way they are stored. */
     fun collectionsCsv() = collectionIds.sorted().joinToString(",")
 
     companion object {
+        /** The ids of a stored comma-separated string; unreadable parts are skipped. */
         fun parseIds(csv: String): Set<Int> = csv.split(',').mapNotNullTo(HashSet()) { it.trim().toIntOrNull() }
     }
 }
 
+/** Finds out which reviews and collections of other users a snapshot shows, from its key and body. */
 object SnapshotIndex {
     private val json = Json { ignoreUnknownKeys = true }
     private val reviewDetail = Regex("^Review/(\\d+)$")
@@ -82,6 +86,7 @@ object SnapshotIndex {
 
 /** The offline cache's storage budget: the least recently used snapshots go first. */
 object SnapshotEviction {
+    /** The keys to delete so the rest fits [budgetBytes], oldest use first; nothing when it already fits. */
     fun keysToEvict(usage: List<SnapshotUsage>, budgetBytes: Long): List<String> {
         var total = usage.sumOf { it.sizeBytes }
         if (total <= budgetBytes) return emptyList()

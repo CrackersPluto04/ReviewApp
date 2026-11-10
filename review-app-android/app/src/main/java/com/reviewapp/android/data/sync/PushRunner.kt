@@ -39,11 +39,15 @@ sealed interface PushOutcome {
         val unlocked: Int = 0,
         val overwritten: List<String> = emptyList(),
     ) : PushOutcome
+    /** The request got no answer; everything stays queued. */
     data object Offline : PushOutcome
+
+
     /** The session is gone (401): everything stays queued for after the login. */
     data object NeedsLogin : PushOutcome
     /** Too many requests: the backend said when to come back. */
     data class Paused(val untilMillis: Long) : PushOutcome
+    /** The whole request failed; each op backs off on its own. */
     data class Failed(val message: String) : PushOutcome
 }
 
@@ -61,6 +65,7 @@ class PushRunner(
     private val clock: () -> Long = System::currentTimeMillis,
     private val random: () -> Double = { Random.nextDouble() },
 ) {
+    /** Sends what can go now (at most [MAX_BATCHES_PER_RUN] batches) and delivers the run's unlocked achievements once. */
     suspend fun push(db: OfflineDatabase): PushOutcome {
         val user = userId() ?: return PushOutcome.NeedsLogin
         val unlocked = ArrayList<UnlockedAchievement>()
@@ -264,6 +269,7 @@ class PushRunner(
     companion object {
         /** A long queue continues in the next run (the rate limit lets ~20 requests through at once). */
         const val MAX_BATCHES_PER_RUN = 10
+        /** The pause after a 429 that carries no `Retry-After`. */
         const val DEFAULT_PAUSE_SECONDS = 30L
         /** A change older than this when its answer came had waited (made offline): the sync summary mentions it. */
         const val WAITED_MILLIS = 15_000L
