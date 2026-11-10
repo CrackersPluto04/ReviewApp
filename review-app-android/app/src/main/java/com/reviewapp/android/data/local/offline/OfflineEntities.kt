@@ -15,8 +15,13 @@ import androidx.room.PrimaryKey
 
 /** The "waiting to sync" marker of a row. */
 object SyncState {
+    /** Matches the backend. */
     const val SYNCED = 0
+
+    /** A change of the row waits in the outbox. */
     const val PENDING = 1
+
+
     /** In conflict or rejected: shown in Sync issues until the user decides. */
     const val ISSUE = 2
 }
@@ -56,6 +61,7 @@ data class CollectionEntity(
     val syncState: Int = SyncState.SYNCED,
 )
 
+/** One title in one of the user's collections, with its position; the media details are in [MediaEntity]. */
 @Entity(
     tableName = "collection_items",
     primaryKeys = ["collectionId", "mediaType", "externalApiId"],
@@ -196,10 +202,17 @@ object EntityType {
 
 /** The state of a queued change. */
 object OutboxState {
+    /** Waiting to be sent (or to be sent again after a failure, see `nextAttemptAt`). */
     const val PENDING = 0
+
+
     /** Sent and not answered yet; back to pending when the app starts again. */
     const val IN_FLIGHT = 1
+
+    /** The backend found the change in conflict with another one; it waits in Sync issues for the user's decision. */
     const val CONFLICT = 2
+
+    /** The backend refused the change; it waits in Sync issues. */
     const val REJECTED = 3
 }
 

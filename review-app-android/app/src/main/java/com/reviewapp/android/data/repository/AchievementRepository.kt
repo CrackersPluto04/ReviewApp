@@ -13,13 +13,19 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
+/**
+ * Achievement progress and the stream of newly unlocked tiers. Unlocks are not requested: they arrive in the
+ * `X-Unlocked-Achievements` header of the request that earned them, or in the sync's answer.
+ */
 class AchievementRepository(private val api: AchievementApi) {
 
     // Tiers unlocked by the current user's requests, shown as banners and reloading the owner's tab. Tiers that came
     // together (one response, one sync run) are one group, shown as one banner.
     private val _unlocks = MutableSharedFlow<List<UnlockedAchievement>>(extraBufferCapacity = 16)
+    /** Groups of tiers that were just unlocked. */
     val unlocks: SharedFlow<List<UnlockedAchievement>> = _unlocks.asSharedFlow()
 
+    /** Every achievement of a user with their progress (public). */
     suspend fun achievements(username: String): ApiResult<List<Achievement>> =
         apiCall { api.getAchievements(username) }.map { list -> list.map { it.toDomain() } }
 

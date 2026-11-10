@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
+/** Profiles, user search, a user's reviews and follow lists, and the logged-in user's follow and profile changes. */
 class UserRepository(
     private val userApi: UserApi,
     private val followerApi: FollowerApi,
@@ -30,10 +31,15 @@ class UserRepository(
     // Emitted after the current user followed, unfollowed or removed someone, so the profile
     // headers (counts) and the visibility-dependent lists refresh
     private val _followChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
+
+    /** Emitted after the current user followed, unfollowed or removed someone. */
     val followChanges: SharedFlow<Unit> = _followChanges.asSharedFlow()
 
-    // Own pages: the snapshot of the page when there is one (it has the counts and join date as last seen), else the
-    // offline tables. Other users: snapshots only
+    /**
+     * A profile. Own page: the snapshot of the page when there is one (it has the counts and join date as last
+     * seen), else the offline tables. Other users: snapshots only. Changes still waiting to sync (bio, picture,
+     * follows) are shown as the user left them.
+     */
     suspend fun profile(username: String): ApiResult<UserProfile> {
         val own = local.isMe(username)
         val result = local.networkFirst(
@@ -57,6 +63,7 @@ class UserRepository(
         return result
     }
 
+    /** Users whose name contains [query]. */
     suspend fun search(query: String): ApiResult<List<UserSummary>> =
         apiCall { userApi.search(query) }.map { list -> list.map { it.toDomain() } }
 
@@ -85,6 +92,7 @@ class UserRepository(
         return result
     }
 
+    /** The users who follow [username]. */
     suspend fun followers(username: String): ApiResult<List<UserSummary>> = local.networkFirst(
         own = local.isMe(username),
         snapshotFirst = true,
@@ -93,6 +101,7 @@ class UserRepository(
         local = { followers() },
     )
 
+    /** The users [username] follows. */
     suspend fun following(username: String): ApiResult<List<UserSummary>> = local.networkFirst(
         own = local.isMe(username),
         snapshotFirst = true,
@@ -108,6 +117,7 @@ class UserRepository(
             else apiCall { if (follow) followerApi.follow(userId) else followerApi.unfollow(userId) },
         )
 
+    /** Removes someone from the user's followers. */
     suspend fun removeFollower(userId: Int): ApiResult<Unit> = notifyOnSuccess(
         if (offline.writer.canWrite()) offlineWrite { offline.writer.removeFollower(userId) }
         else apiCall { followerApi.removeFollower(userId) },
@@ -118,6 +128,7 @@ class UserRepository(
         if (offline.writer.canWrite()) offlineWrite { offline.writer.updateProfile(bio = bio) }
         else apiCall { userApi.updateMe(UserUpdateRequest(bio = bio)) }.map { }
 
+    /** Sets the profile picture URL; the session's cached user follows. */
     suspend fun updateAvatar(url: String): ApiResult<Unit> {
         val result = if (offline.writer.canWrite()) offlineWrite { offline.writer.updateProfile(profilePictureUrl = url) }
         else apiCall { userApi.updateMe(UserUpdateRequest(profilePictureUrl = url)) }.map { }

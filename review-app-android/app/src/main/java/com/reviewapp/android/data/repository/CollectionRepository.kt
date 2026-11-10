@@ -50,18 +50,23 @@ data class MyCollections(
     val isLoading: Boolean = false,
     val error: String? = null,
 ) {
+    /** The permanent default collection, once loaded. */
     val favourites: MediaCollection? get() = collections.firstOrNull { it.isDefault }
 
+    /** Whether the title is in the collection. */
     fun contains(mediaKey: String, collectionId: Int): Boolean = collectionId in memberships[mediaKey].orEmpty()
 
+    /** Whether the title is in Favourites. */
     fun isFavourite(mediaKey: String): Boolean = favourites?.let { contains(mediaKey, it.id) } == true
 
+    /** A copy with the title added to or removed from the collection (the optimistic update). */
     fun withMembership(mediaKey: String, collectionId: Int, inCollection: Boolean): MyCollections {
         val current = memberships[mediaKey].orEmpty()
         val updated = if (inCollection) current + collectionId else current - collectionId
         return copy(memberships = if (updated.isEmpty()) memberships - mediaKey else memberships + (mediaKey to updated))
     }
 
+    /** A copy without a deleted collection and its memberships. */
     fun withoutCollection(collectionId: Int): MyCollections = copy(
         collections = collections.filterNot { it.id == collectionId },
         memberships = memberships
@@ -76,6 +81,11 @@ data class MyCollections(
  */
 data class CollectionChange(val collectionId: Int, val fromSync: Boolean = false)
 
+/**
+ * The logged-in user's collections: the cached [MyCollections] behind the hearts and checkmarks, the collection
+ * lists and screens, and every change of them. While offline mode is active a change is applied to the offline copy
+ * and queued; otherwise it goes straight to the API. [changes] tells the screens to refresh.
+ */
 class CollectionRepository(
     private val collectionApi: CollectionApi,
     private val userApi: UserApi,
@@ -85,9 +95,13 @@ class CollectionRepository(
     private val offline: OfflineWrites,
 ) {
     private val _mine = MutableStateFlow(MyCollections())
+
+    /** The user's collections and memberships; reset on login and logout. */
     val mine: StateFlow<MyCollections> = _mine.asStateFlow()
 
     private val _changes = MutableSharedFlow<CollectionChange>(extraBufferCapacity = 8)
+
+    /** Emitted after a change of a collection or its media. */
     val changes: SharedFlow<CollectionChange> = _changes.asSharedFlow()
 
     // Membership changes run one at a time, so quick repeated taps toggle in order
@@ -165,6 +179,7 @@ class CollectionRepository(
         setMembershipLocked(media, favourites.id, add).map { add }
     }
 
+    /** Adds or removes a title in one collection (optimistic, serialized with the other membership changes). */
     suspend fun setInCollection(media: Media, collectionId: Int, add: Boolean): ApiResult<Unit> =
         mutex.withLock { setMembershipLocked(media, collectionId, add) }
 
@@ -193,6 +208,7 @@ class CollectionRepository(
         return result
     }
 
+    /** A user's collections that the viewer may see, sorted by [sortBy] (see `DiscoverOptions.collectionSortOptions`). */
     suspend fun userCollections(username: String, sortBy: String): ApiResult<List<MediaCollection>> = local.networkFirst(
         own = local.isMe(username),
         pendingTypes = listOf(EntityType.COLLECTION),
@@ -200,6 +216,7 @@ class CollectionRepository(
         local = { collections(sortBy) },
     )
 
+    /** One collection with its titles in the saved order; a private or missing one is a 404. */
     suspend fun details(id: Int): ApiResult<CollectionDetails> {
         // Created offline: the real id once the backend has it
         val realId = local.resolve(EntityType.COLLECTION, id)
@@ -268,6 +285,7 @@ class CollectionRepository(
         return ApiResult.Success(updated)
     }
 
+    /** Creates a collection; names are unique per user. */
     suspend fun create(name: String, visibility: Visibility): ApiResult<MediaCollection> {
         if (offline.writer.canWrite()) return createOffline(name, visibility)
         val result = apiCall { collectionApi.create(CreateCollectionRequest(name.trim(), visibility.id)) }
@@ -279,6 +297,7 @@ class CollectionRepository(
         return result
     }
 
+    /** Renames a collection or changes its visibility. */
     suspend fun update(collection: MediaCollection, name: String, visibility: Visibility): ApiResult<MediaCollection> {
         if (offline.writer.canWrite()) return updateOffline(collection, name, visibility)
         val result = apiCall {
@@ -293,6 +312,7 @@ class CollectionRepository(
         return result
     }
 
+    /** Deletes a collection and its item links; the titles themselves stay. */
     suspend fun delete(collectionId: Int): ApiResult<Unit> {
         val result = if (offline.writer.canWrite()) {
             offlineWrite(collectionId) { offline.writer.deleteCollection(collectionId) }

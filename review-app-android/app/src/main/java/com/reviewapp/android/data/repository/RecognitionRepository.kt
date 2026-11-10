@@ -20,6 +20,7 @@ class RecognitionRepository(
     private val api: RecognitionApi,
     private val mediaRepository: MediaRepository,
 ) {
+    /** Whether the feature is on and what is left of the daily allowance; also answered for Free users. */
     suspend fun allowance(): ApiResult<RecognitionAllowance> = apiCall { api.getAllowance() }.map { it.toDomain() }
 
     /** Cancelling the calling coroutine cancels the upload (the result is then discarded). */
@@ -30,6 +31,7 @@ class RecognitionRepository(
         }
     }
 
+    /** "Show more": the next suggestions of a stored recognition, without a new AI call. */
     suspend fun items(recognitionId: String, offset: Int, count: Int? = null): ApiResult<RecognitionItems> =
         apiCall { api.getItems(recognitionId, offset, count) }.map { dto ->
             dto.toDomain().also { page -> mediaRepository.remember(page.items.map { it.media }) }

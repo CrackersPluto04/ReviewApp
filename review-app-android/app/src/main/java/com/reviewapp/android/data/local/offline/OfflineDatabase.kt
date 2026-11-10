@@ -12,9 +12,9 @@ import java.io.File
  * opened by [DatabaseManager]. Encrypted with SQLCipher; the 32 byte key is generated per file and kept wrapped by
  * the Android Keystore.
  *
- * Migrations: version 1 is still being shaped while offline mode is built (nothing is installed with it yet).
- * Once released, every schema change needs an explicit [androidx.room.migration.Migration] tested against the
- * exported schemas in `app/schemas/`, never a destructive one: the outbox holds changes that exist nowhere else.
+ * Migrations: version 1 is the released schema. Every schema change bumps the version and needs an explicit
+ * [androidx.room.migration.Migration] tested against the exported schemas in `app/schemas/`, never a destructive
+ * one: the outbox holds changes that exist nowhere else.
  */
 @Database(
     entities = [

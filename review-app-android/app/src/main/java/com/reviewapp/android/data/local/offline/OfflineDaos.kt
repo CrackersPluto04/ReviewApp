@@ -9,6 +9,7 @@ import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
+/** Reads and writes the small facts about the copy (see [SyncMetaKeys]). */
 @Dao
 interface SyncMetaDao {
     @Query("SELECT value FROM sync_meta WHERE `key` = :key")
@@ -26,6 +27,7 @@ interface SyncMetaDao {
     suspend fun remove(key: String)
 }
 
+/** The queue of changes made offline, in the order the user made them. The states are in [OutboxState]. */
 @Dao
 interface OutboxDao {
     /** Changes the backend hasn't accepted yet (waiting, being sent, or in Sync issues). */
@@ -81,6 +83,7 @@ interface OutboxDao {
     suspend fun countToSend(): Int
 }
 
+/** Maps the temporary (negative) ids of things created offline to the ids the backend gave them. */
 @Dao
 interface IdMapDao {
     @Upsert
@@ -90,6 +93,7 @@ interface IdMapDao {
     suspend fun realId(entityType: Int, tempId: Int): Int?
 }
 
+/** Unsaved form text, kept so it survives the app being killed. */
 @Dao
 interface DraftDao {
     @Query("SELECT * FROM drafts WHERE `key` = :key")
@@ -102,6 +106,7 @@ interface DraftDao {
     suspend fun delete(key: String)
 }
 
+/** Achievements unlocked while the app was in the background, shown on the next open. */
 @Dao
 interface PendingUnlockDao {
     @Insert
@@ -121,6 +126,7 @@ data class LocalReview(
     val posterUrl: String?,
 )
 
+/** The user's own reviews. A review is joined with its media for the title and poster. */
 @Dao
 interface ReviewDao {
     @Upsert
@@ -182,6 +188,7 @@ data class LocalCollectionItem(
     val creator: String?,
 )
 
+/** The user's own collections and their items. */
 @Dao
 interface CollectionDao {
     @Upsert
@@ -242,6 +249,7 @@ interface CollectionDao {
     suspend fun remapId(tempId: Int, realId: Int)
 }
 
+/** The media the device knows. Those in the user's own reviews and collections are never pruned. */
 @Dao
 interface MediaDao {
     @Upsert
@@ -276,6 +284,7 @@ interface MediaDao {
     suspend fun deleteUnreferenced()
 }
 
+/** The logged-in user's own profile row. */
 @Dao
 interface ProfileDao {
     @Upsert
@@ -293,6 +302,7 @@ data class LocalFollowUser(
     val isFollowed: Boolean,
 )
 
+/** Who follows whom for the logged-in user's two lists. Only users in `known_users` can be listed. */
 @Dao
 interface FollowDao {
     @Query(
@@ -342,6 +352,7 @@ interface FollowDao {
     }
 }
 
+/** The user's newest notifications. A deleted one stays as a hidden row until its delete is sent. */
 @Dao
 interface NotificationDao {
     @Query("SELECT * FROM notifications WHERE deleted = 0")
