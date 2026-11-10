@@ -1,39 +1,71 @@
 import { apiFetch } from "./apiClient";
 
-// Payment happens on the provider's hosted pages: checkout / portal return a URL to send the browser to
+/**
+ * Wraps `api/Subscription` (the Premium plan). Payment happens on the provider's hosted pages: `startCheckout`
+ * and `openPortal` return a URL to send the browser to, and the local subscription only changes from what the
+ * provider reports, never from a call made here.
+ * Methods never throw; they resolve to `{ success, message?, data? }` or `{ success: false, status?, message }`.
+ */
 class SubscriptionService {
     private readonly baseUrl = 'https://localhost:7140/api/Subscription';
 
+    /**
+     * Loads the plan (price, interval, features) for the plans page. Anonymous, so visitors can see it too.
+     * @returns `{ success: true, data }` with the plan.
+     */
     async getPlan() {
         return this.send(`${this.baseUrl}/plan`, 'GET', 'Something went wrong while loading the plans.');
     }
 
+    /**
+     * Loads the logged-in user's subscription: tier, state and dates.
+     * @returns `{ success: true, data }` with the status.
+     */
     async getStatus() {
         return this.send(`${this.baseUrl}/status`, 'GET', 'Something went wrong while loading your subscription.');
     }
 
+    /**
+     * Starts a checkout.
+     * @returns `{ success: true, data }` where `data` holds the provider's checkout URL to redirect to. The
+     * `platform` tells the API which return page the provider sends the user back to.
+     */
     async startCheckout() {
         return this.send(`${this.baseUrl}/checkout`, 'POST', 'Something went wrong while starting the checkout.', { platform: 'web' });
     }
 
+    /**
+     * Opens the provider's customer portal (payment details, invoices).
+     * @returns `{ success: true, data }` where `data` holds the portal URL to redirect to.
+     */
     async openPortal() {
         return this.send(`${this.baseUrl}/portal`, 'POST', 'Something went wrong while opening the payment settings.', { platform: 'web' });
     }
 
+    /**
+     * Stops the subscription from renewing; Premium stays until the end of the paid period.
+     * @returns `{ success, message }`.
+     */
     async cancel() {
         return this.send(`${this.baseUrl}/cancel`, 'POST', 'Something went wrong while cancelling your subscription.');
     }
 
+    /**
+     * Undoes `cancel` while the paid period is still running.
+     * @returns `{ success, message }`.
+     */
     async resume() {
         return this.send(`${this.baseUrl}/resume`, 'POST', 'Something went wrong while resuming your subscription.');
     }
 
-    // Asks the backend to check with the payment provider (after returning from checkout)
+    /**
+     * Asks the backend to check with the payment provider and update the local record. The return page calls it
+     * because it never trusts the redirect alone, and the provider's webhook may arrive later.
+     * @returns `{ success, message }`.
+     */
     async sync() {
         return this.send(`${this.baseUrl}/sync`, 'POST', 'Something went wrong while checking your subscription.');
     }
-
-    /* Helper methods */
 
     private async send(url: string, method: string, fallback: string, body?: any) {
         try {

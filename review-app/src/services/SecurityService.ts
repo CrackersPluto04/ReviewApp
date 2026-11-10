@@ -1,8 +1,18 @@
 import { apiFetch } from "./apiClient";
 
+/**
+ * Wraps `api/Security`: email verification, the pending email change and two-factor authentication (enable and
+ * disable are each two steps: the password is checked and a code is emailed, then the code is confirmed).
+ * Methods never throw; they resolve to `{ success, message?, data? }` or `{ success: false, message }`, the message
+ * being ready to show. Request bodies are never logged: they hold passwords and codes.
+ */
 class SecurityService {
     private readonly baseUrl = 'https://localhost:7140/api/Security';
 
+    /**
+     * Loads the account's security state: the only source of the email, the pending email change and the 2FA state.
+     * @returns `{ success: true, data }` with the status, or `{ success: false, message }`.
+     */
     async getStatus() {
         try {
             const response = await apiFetch(`${this.baseUrl}/status`, this.getFetchOptions());
@@ -18,35 +28,63 @@ class SecurityService {
         }
     }
 
-    // Token from the link in the email, sent with a POST so opening the link alone confirms nothing
+    /**
+     * Confirms the email address with the token from the emailed link. Sent as a POST by the link's page, never by
+     * the link itself, so mail scanners that prefetch links confirm nothing.
+     * @param token The token from the link.
+     * @returns `{ success, message }`.
+     */
     async verifyEmail(token: string) {
         return this.send(`${this.baseUrl}/verify-email`, 'POST', 'Something went wrong while verifying your email.', { token });
     }
 
+    /**
+     * Sends the verification email again.
+     * @returns `{ success, message }`. The API enforces a cooldown between sends and does not report it.
+     */
     async resendVerification() {
         return this.send(`${this.baseUrl}/resend-verification`, 'POST', 'Something went wrong while sending the verification email.');
     }
 
+    /**
+     * Confirms a requested email change with the token from the link sent to the new address. Confirming revokes
+     * every session; the browser that confirms keeps a fresh one if it belongs to the same user.
+     * @param token The token from the link.
+     * @returns `{ success, message }`.
+     */
     async confirmEmailChange(token: string) {
         return this.send(`${this.baseUrl}/confirm-email-change`, 'POST', 'Something went wrong while confirming your new email.', { token });
     }
 
+    /**
+     * Cancels the pending email change.
+     * @returns `{ success, message }`.
+     */
     async cancelEmailChange() {
         return this.send(`${this.baseUrl}/pending-email`, 'DELETE', 'Something went wrong while cancelling the email change.');
     }
 
-    // Sends a code to the user's email (checks the password)
+    /**
+     * First step of enabling or disabling 2FA: checks the password and emails a code.
+     * @param enable `true` to enable, `false` to disable.
+     * @param currentPassword The account password.
+     * @returns `{ success, message }`.
+     */
     async requestTwoFactorChange(enable: boolean, currentPassword: string) {
         const action = enable ? 'enable' : 'disable';
         return this.send(`${this.baseUrl}/2fa/${action}/request`, 'POST', `Something went wrong while trying to ${action} two-factor authentication.`, { currentPassword });
     }
 
+    /**
+     * Second step of enabling or disabling 2FA: confirms the emailed code.
+     * @param enable `true` to enable, `false` to disable; must match the request step.
+     * @param code The emailed code.
+     * @returns `{ success, message }`.
+     */
     async confirmTwoFactorChange(enable: boolean, code: string) {
         const action = enable ? 'enable' : 'disable';
         return this.send(`${this.baseUrl}/2fa/${action}/confirm`, 'POST', `Something went wrong while trying to ${action} two-factor authentication.`, { code });
     }
-
-    /* Helper methods */
 
     private async send(url: string, method: string, fallback: string, body?: any) {
         try {

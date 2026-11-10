@@ -1,8 +1,18 @@
 import { apiFetch } from "./apiClient";
 import { SpotifyParams, TmdbParams } from "../types/types";
 
+/**
+ * Wraps `api/Media`: title details, search and discovery for movies, series (TMDb) and music (Spotify).
+ * The endpoints are anonymous but rate limited (`external-api`) to protect the TMDb / Spotify quotas.
+ * Methods never throw; they resolve to `{ success, data }` or `{ success: false, message }`.
+ */
 class MediaService {
     private readonly baseUrl = 'https://localhost:7140/api/Media';
+
+    /**
+     * Accumulated Spotify results of the current music search, see `searchMusic`. Lives as long as the service
+     * (until the page reloads), so going back to an earlier page of the same query costs no request.
+     */
     private spotifyBuffer = {
         query: '',
         uniqueTracks: [] as any[],
@@ -10,6 +20,13 @@ class MediaService {
         hasMore: true
     };
 
+    /**
+     * Loads one title. The API fetches it from TMDb / Spotify on first use and caches it, so an unknown ID answers
+     * 404 (`media_not_found`) and an outage of the source 503 (`source_unavailable`).
+     * @param mediaType The `:mediaType` segment of the `/media/:mediaType/:externalApiId` route.
+     * @param externalApiId The TMDb or Spotify ID.
+     * @returns `{ success: true, data }` with the title, or `{ success: false, message }`.
+     */
     async getMediaDetails(mediaType: string, externalApiId: string) {
         try {
             const response = await apiFetch(`${this.baseUrl}/media/${mediaType}/${externalApiId}`);
@@ -27,21 +44,52 @@ class MediaService {
         }
     }
 
+    /**
+     * Searches movies, series and music at once. One page only: the API returns a short mixed list (movies first,
+     * then series, then music) without paging.
+     * @param query The search text.
+     * @returns `{ success: true, data }` with the titles, or `{ success: false, message }`.
+     */
     async searchAll(query: string) {
         return this.search(query, 'all');
     }
 
+    /**
+     * Searches movies.
+     * @param query The search text.
+     * @param page 1-based page number.
+     * @returns `{ success: true, data }` with a paged response, or `{ success: false, message }`.
+     */
     async searchMovies(query: string, page: number = 1) {
         return this.search(query, 'movie', page);
     }
 
+    /**
+     * Searches series.
+     * @param query The search text.
+     * @param page 1-based page number.
+     * @returns `{ success: true, data }` with a paged response, or `{ success: false, message }`.
+     */
     async searchSeries(query: string, page: number = 1) {
         return this.search(query, 'series', page);
     }
 
+    /**
+     * Searches music with the same page shape as the TMDb searches. Spotify's API pages are smaller than the
+     * 20 items the UI shows per page (10 per request), so the results are collected in `spotifyBuffer`: requests
+     * are made until the buffer holds enough unique tracks (one already collected is skipped) for the wanted page,
+     * which is then cut out of it. A new query resets the buffer.
+     *
+     * The reported `totalPages` is a guess while Spotify has more: one page beyond what is loaded, so the pager
+     * keeps offering "next" until Spotify runs out.
+     * @param query The search text.
+     * @param page 1-based page number of 20 tracks.
+     * @returns `{ success: true, data: { items, totalCount, totalPages } }`, where `totalCount` is the number of
+     * tracks loaded so far, or `{ success: false, message }` when the network fails. A failing request mid-way
+     * (HTTP error) ends the loop and returns what was gathered, so the user sees a short page instead of an error.
+     */
     async searchMusic(query: string, page: number = 1) {
         try {
-            // 1. If the user typed a BRAND NEW search, wipe the buffer clean
             if (this.spotifyBuffer.query !== query) {
                 this.spotifyBuffer = {
                     query: query,
@@ -52,16 +100,10 @@ class MediaService {
             }
 
             const pageSize = 20;
-            const targetTrackCount = page * pageSize; // e.g., Page 2 needs 40 total tracks
+            const targetTrackCount = page * pageSize;
 
-            // 2. The "Just-In-Time" Loop: Keep fetching until we have enough tracks for this page
             while (this.spotifyBuffer.uniqueTracks.length < targetTrackCount && this.spotifyBuffer.hasMore) {
-                // We have to hit the real C# endpoint, but we pass the OFFSET as the 'page' parameter 
-                // Note: You'll need to slightly tweak C# to accept this, or just let C# do its normal math
-                // Wait, simpler: We just call the C# endpoint asking for the exact Spotify limit pages.
-                // Since C# expects 'page' (and translates it to offset), we just ask C# for page 1, 2, 3, etc.
-
-                // Let's use a local C# page tracker based on offset
+                // The API pages by the Spotify page size (10 tracks), so the buffer's offset maps to its page number
                 const cSharpPageToRequest = (this.spotifyBuffer.currentOffset / 10) + 1;
 
                 const response = await apiFetch(`${this.baseUrl}/search/music?query=${encodeURIComponent(query)}&page=${cSharpPageToRequest}`);
@@ -71,31 +113,24 @@ class MediaService {
                 const data = await response.json();
                 const fetchedItems = data.items;
 
-                // Break out if Spotify is completely empty
                 if (fetchedItems.length === 0) {
                     this.spotifyBuffer.hasMore = false;
                     break;
                 }
 
-                // 3. Deduplicate! Only add tracks we haven't seen yet
                 for (const item of fetchedItems) {
                     if (!this.spotifyBuffer.uniqueTracks.some(t => t.externalApiID === item.externalApiID)) {
                         this.spotifyBuffer.uniqueTracks.push(item);
                     }
                 }
 
-                // Increment our offset tracker by 10 (Spotify's new max limit)
                 this.spotifyBuffer.currentOffset += 10;
             }
 
-            // 4. Slice out ONLY the 20 items the UI actually asked for
             const startIndex = (page - 1) * pageSize;
             const endIndex = startIndex + pageSize;
             const pageItems = this.spotifyBuffer.uniqueTracks.slice(startIndex, endIndex);
 
-            // 5. Fake the UI's PagedResponse exactly how it expects it!
-            // If we have 60 items total, totalPages = 3. 
-            // If hasMore is true, we pretend there is always at least 1 more page to keep the "Next" button alive.
             const fakeTotalPages = this.spotifyBuffer.hasMore
                 ? Math.ceil((this.spotifyBuffer.uniqueTracks.length + pageSize) / pageSize)
                 : Math.ceil(this.spotifyBuffer.uniqueTracks.length / pageSize);
@@ -115,14 +150,29 @@ class MediaService {
         }
     }
 
+    /**
+     * Browses movies by filter (the TMDb discover endpoint).
+     * @param params Page, sort order and the optional year, genre and runtime filters.
+     * @returns `{ success: true, data }` with a paged response, or `{ success: false, message }`.
+     */
     async discoverMovies(params: TmdbParams) {
         return this.discover(params, 'movie');
     }
 
+    /**
+     * Browses series by filter (the TMDb discover endpoint).
+     * @param params Page, sort order and the optional year, genre and runtime filters.
+     * @returns `{ success: true, data }` with a paged response, or `{ success: false, message }`.
+     */
     async discoverSeries(params: TmdbParams) {
         return this.discover(params, 'series');
     }
 
+    /**
+     * Browses music by genre (Spotify). Optional filters left empty are not sent.
+     * @param params Page, genre, optional year and the market.
+     * @returns `{ success: true, data }` with a paged response, or `{ success: false, message }`.
+     */
     async discoverMusic(params: SpotifyParams) {
         try {
             const query = new URLSearchParams();
@@ -147,9 +197,6 @@ class MediaService {
         }
     }
 
-    /* Helper methods */
-
-    // Private helper to handle the actual search logic
     private async search(query: string, what: 'all' | 'movie' | 'series', page: number = 1) {
         try {
             const response = await apiFetch(`${this.baseUrl}/search/${what}?query=${encodeURIComponent(query)}&page=${page}`);
