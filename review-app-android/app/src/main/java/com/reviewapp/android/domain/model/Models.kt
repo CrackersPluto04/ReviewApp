@@ -1,5 +1,8 @@
 package com.reviewapp.android.domain.model
 
+// The app's own view of the API's data: plain Kotlin types, mapped from the DTOs with `toDomain()`.
+// Enums that come from the API read an unknown value as a safe default, so a newer backend never crashes an older app.
+
 /** Same values as the API's `MediaType` enum. [pathSegment] is the name used in search/discover routes. */
 enum class MediaType(val id: Int, val label: String, val pathSegment: String) {
     Movie(0, "Movie", "movie"),
@@ -11,7 +14,7 @@ enum class MediaType(val id: Int, val label: String, val pathSegment: String) {
     }
 }
 
-/** Same values as the API's `VisibilityLevel` enum. */
+/** Same values as the API's `VisibilityLevel` enum (stored there as integers). An unknown id reads as [Public]. */
 enum class Visibility(val id: Int, val label: String) {
     Public(1, "Public"),
     FollowersOnly(2, "Followers only"),
@@ -22,6 +25,7 @@ enum class Visibility(val id: Int, val label: String) {
     }
 }
 
+/** A movie, series or track. Unique by [mediaType] and [externalApiId] (the TMDb or Spotify ID), see [key]. */
 data class Media(
     val externalApiId: String,
     val mediaType: MediaType,
@@ -31,11 +35,14 @@ data class Media(
     val overview: String,
     val creator: String,
 ) {
+    /** The identity of this title, used as a list key and in the caches. */
     val key: String get() = mediaKey(mediaType, externalApiId)
 }
 
+/** The identity of a title: the media type and its external API ID, which are only unique together. */
 fun mediaKey(mediaType: MediaType, externalApiId: String) = "${mediaType.id}:$externalApiId"
 
+/** The logged-in user, as returned by login and check-auth. */
 data class AuthUser(
     val id: Int,
     val username: String,
@@ -49,6 +56,7 @@ data class AuthUser(
     fun hasFeature(key: String) = key in entitlements
 }
 
+/** The community average score of a title and how many reviews it is based on. */
 data class ScoreStats(val averageScore: Double, val reviewCount: Int)
 
 /** A review in the list on a media's page. */
@@ -91,6 +99,7 @@ data class ReviewDraft(
     val visibility: Visibility,
 )
 
+/** A numbered page of a list; [page] is 1-based. */
 data class Page<T>(
     val items: List<T>,
     val page: Int,
@@ -144,6 +153,7 @@ data class ProfileReview(
     val mediaKey: String get() = mediaKey(mediaType, externalApiId)
 }
 
+/** A collection as listed on a profile; [syncState] is set when it has a change waiting to sync (offline mode). */
 data class MediaCollection(
     val id: Int,
     val name: String,
@@ -159,6 +169,7 @@ data class MediaCollection(
 /** A media in a collection; [dbMediaId] is the API's own id, needed for reordering. */
 data class CollectionItem(val dbMediaId: Int, val media: Media, val syncState: Int = 0)
 
+/** A collection with its titles in the saved order. */
 data class CollectionDetails(val collection: MediaCollection, val items: List<CollectionItem>)
 
 /** A single review with its author (the review page). */
@@ -168,6 +179,7 @@ data class ReviewDetail(
     val profilePictureUrl: String?,
 )
 
+/** A reply in a thread. Threads are at most three layers: review, reply, reply to a reply. */
 data class Reply(
     val id: Int,
     /** Null for a reply to the review (layer 2), set for a reply to a reply (layer 3). */
@@ -185,12 +197,13 @@ data class Reply(
     val isTopLevel: Boolean get() = parentReplyId == null
 }
 
+/** A keyset ("load more") page of replies. */
 data class ReplyPage(val items: List<Reply>, val hasMore: Boolean)
 
+/** A reply with its layer-2 parent (when it is a layer-3 reply), used to open a thread at it. */
 data class ReplyContext(val reviewId: Int, val reply: Reply, val parentReply: Reply?)
 
-// Notifications
-
+/** The kinds of notification; the last four open the Premium screen. [label] is the short chip text. */
 enum class NotificationType(val label: String) {
     System("System"),
     ReviewReply("Reply"),
@@ -246,12 +259,12 @@ enum class NotificationStatus(val apiValue: String) {
     }
 }
 
+/** The order of the notification list, [apiValue] is the query parameter. */
 enum class NotificationSort(val apiValue: String, val label: String) {
     Newest("newest", "Newest first"), Oldest("oldest", "Oldest first")
 }
 
-// Achievements
-
+/** The tiers of an achievement, in order. An unknown name reads as [Bronze]. */
 enum class AchievementTier {
     Bronze, Silver, Gold;
 
@@ -260,6 +273,7 @@ enum class AchievementTier {
     }
 }
 
+/** The categories an achievement can be in (the names of the API's category flags). */
 enum class AchievementCategory {
     Movie, Series, Music, Review, Reply, Collection;
 
@@ -268,6 +282,7 @@ enum class AchievementCategory {
     }
 }
 
+/** One tier of an achievement: what it asks for and whether it is earned. */
 data class AchievementTierInfo(
     val tier: AchievementTier,
     val description: String,
@@ -285,16 +300,16 @@ data class Achievement(
     /** Bronze -> Silver -> Gold. */
     val tiers: List<AchievementTierInfo>,
 ) {
+    /** How many tiers are earned. */
     val unlockedCount: Int get() = tiers.count { it.isUnlocked }
     /** The first tier not unlocked yet, null when completed. */
     val nextTier: AchievementTierInfo? get() = tiers.firstOrNull { !it.isUnlocked }
+    /** Whether every tier is earned (an achievement without tiers is never completed). */
     val isCompleted: Boolean get() = tiers.isNotEmpty() && tiers.all { it.isUnlocked }
 }
 
 /** A tier unlocked by the current user's last request (the `X-Unlocked-Achievements` header). */
 data class UnlockedAchievement(val groupCode: String, val title: String, val tier: AchievementTier)
-
-// Account security
 
 /** `GET Security/status`: the only place with the email, the pending change and the 2FA state. */
 data class SecurityStatus(
@@ -325,6 +340,7 @@ enum class RecognitionTier(val apiName: String, val label: String) {
     }
 }
 
+/** How a recognition ended; an unknown value reads as [NothingRecognised]. */
 enum class RecognitionOutcome(val apiName: String) {
     Recognised("recognised"),
     NothingRecognised("nothing_recognised"),
@@ -336,6 +352,7 @@ enum class RecognitionOutcome(val apiName: String) {
     }
 }
 
+/** One suggestion of a recognition: a title and how closely it relates to the photo. */
 data class RecognizedMedia(val media: Media, val tier: RecognitionTier)
 
 /** `GET Recognition/allowance`: whether the feature is on, and the daily allowance (null counters for Free users). */
@@ -390,6 +407,7 @@ data class SubscriptionSummary(
     val accessEndsAt: String?,
 )
 
+/** A feature on the plans screen; [comingSoon] ones are listed but not granted yet. */
 data class PlanFeature(val key: String, val title: String, val description: String, val comingSoon: Boolean)
 
 /** The Premium plan; the price is for display, the payment provider charges the real one. */

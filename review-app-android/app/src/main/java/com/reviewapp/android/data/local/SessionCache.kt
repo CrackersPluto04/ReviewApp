@@ -14,6 +14,7 @@ import kotlinx.serialization.json.Json
 @Serializable
 data class CachedSession(val user: CachedUser, val confirmedAt: ClockReading)
 
+/** The parts of [AuthUser] that are stored; the entitlements decide whether offline mode may start. */
 @Serializable
 data class CachedUser(
     val id: Int,
@@ -39,6 +40,7 @@ class SessionCache(
     private val dataStore: DataStore<Preferences>,
     private val crypto: CryptoStore,
 ) {
+    /** The stored session, or `null` when there is none or it cannot be decrypted (the key is lost on a reinstall). */
     suspend fun read(): CachedSession? {
         val encrypted = dataStore.data.first()[KEY] ?: return null
         val decoded = crypto.decrypt(encrypted) ?: return null
@@ -58,6 +60,7 @@ class SessionCache(
         if (current.user.id == user.id) write(current.copy(user = CachedUser.from(user)))
     }
 
+    /** Forgets the cached user (logout, or a session the API refused). */
     suspend fun clear() {
         dataStore.edit { it.remove(KEY) }
     }

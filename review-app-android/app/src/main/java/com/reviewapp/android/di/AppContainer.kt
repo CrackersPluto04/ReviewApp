@@ -84,14 +84,25 @@ import java.util.concurrent.TimeUnit
 private val Context.sessionDataStore: DataStore<Preferences> by preferencesDataStore(name = "session")
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
-/** Manual dependency injection: one instance of everything for the app's lifetime. */
+/**
+ * Manual dependency injection: one instance of everything for the app's lifetime, built in dependency order
+ * (network stack, then session and offline mode, then the repositories). Properties are created eagerly, which
+ * is why a few collaborators that depend on each other are passed as lambdas that read the property per call
+ * (for example [snapshotInterceptor] needs the offline gateway, which is created after it).
+ *
+ * The single OkHttp client carries the app-wide reactions to a response, in this order: the offline snapshot
+ * cache (outermost, so it still sees a failed request), the connectivity report, the 401 / 402 handling and the
+ * unlock / notification handling. They mirror what `apiFetch` does on the web.
+ */
 class AppContainer(context: Context) {
 
+    /** Scope for work that outlives any screen (sync, session restore, shared caches). A failing child does not cancel the others. */
     val appScope = CoroutineScope(SupervisorJob())
 
     private val sessionCrypto = CryptoStore()
     private val cookieJar = SecureCookieJar(context.sessionDataStore, sessionCrypto)
 
+    /** The user's app settings (theme, offline mode, cache budget). */
     val settingsStore = SettingsStore(context.settingsDataStore)
 
     private val clock = DeviceClock {
@@ -109,6 +120,7 @@ class AppContainer(context: Context) {
         .readTimeout(10, TimeUnit.SECONDS)
         .build()
 
+    /** Whether the device is online, the backend is unreachable or there is no network. */
     val connectivityMonitor = ConnectivityMonitor(context, appScope) {
         withContext(Dispatchers.IO) {
             runCatching {
@@ -129,6 +141,7 @@ class AppContainer(context: Context) {
 
     // Offline mode: GET answers are kept and served again when there is no answer (only while the user's offline
     // copy is open; the gateway is created below, the lambda reads it per request)
+    /** Keeps successful GET answers in the open offline copy and serves them again when a request gets no answer. */
     val snapshotInterceptor = SnapshotInterceptor(
         database = { offlineGateway.database() },
         budgetBytes = { cacheBudgetBytes.value },
@@ -213,6 +226,7 @@ class AppContainer(context: Context) {
         .create(RecognitionApi::class.java)
     private val syncApi: SyncApi = retrofit.create(SyncApi::class.java)
 
+    /** The logged-in state of the app, including the offline start from a cached session. */
     val sessionManager = SessionManager(
         authApi = authApi,
         cookieJar = cookieJar,
@@ -222,8 +236,14 @@ class AppContainer(context: Context) {
         isOnline = { connectivityMonitor.connectivity.value == Connectivity.Online },
         offlineEnabled = { userId -> settingsStore.offlineEnabled(userId).first() },
     )
+
+    /** The encrypted offline databases, one file per user. */
     val databaseManager = DatabaseManager(context, DatabaseKeyStore(context.sessionDataStore), offlineImages)
+
+    /** Decides per user whether offline mode is inactive, preparing, active, read-only or draining, and owns the open copy. */
     val offlineGateway = OfflineGateway(sessionManager, settingsStore, databaseManager, clock, appScope)
+
+    /** The reading side of offline mode: answers from the offline copy when the network cannot. */
     val localLibrary = LocalLibrary(offlineGateway, sessionManager)
 
     /** Set by the application: whether an activity is visible (unlocks of a background push wait for the next open). */
@@ -234,7 +254,11 @@ class AppContainer(context: Context) {
         userId = { sessionManager.currentUser?.id },
         onUnlocked = { unlocked -> deliverUnlocks(unlocked) },
     )
+
+    /** Pushes the queued offline changes and pulls the backend's changes into the offline copy. */
     val syncEngine = SyncEngine(syncApi, offlineGateway, connectivityMonitor, snapshotInterceptor, pushRunner, appScope)
+
+    /** Applies the user's own changes to the offline copy and queues them for the sync. */
     val offlineWriter = OfflineWriter(
         database = { offlineGateway.database() },
         offlineActive = { offlineGateway.status.value.mode.canEditOffline },
@@ -246,6 +270,8 @@ class AppContainer(context: Context) {
         },
     )
     private val offlineWrites = OfflineWrites(offlineWriter, syncEngine)
+
+    /** Applies the user's decision on a sync issue (a conflict or a rejection). */
     val conflictResolver = ConflictResolver(
         database = { offlineGateway.database() },
         writer = offlineWriter,
@@ -293,6 +319,9 @@ class AppContainer(context: Context) {
     val recognitionPhotos = RecognitionPhotos(context)
 }
 
-/** For ViewModel factories: `initializer { val c = appContainer(); ... }` */
+/**
+ * The [AppContainer] of the running application, for ViewModel factories:
+ * `initializer { val c = appContainer(); ... }`.
+ */
 fun CreationExtras.appContainer(): AppContainer =
     (this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as ReviewApplication).container

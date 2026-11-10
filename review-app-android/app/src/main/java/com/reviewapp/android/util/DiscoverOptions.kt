@@ -7,10 +7,14 @@ data class Option(val value: String, val label: String)
 
 /** Filter values of the discover and review lists, the same as on the web app. */
 object DiscoverOptions {
+    /** The sort a TMDb discover list starts with. */
     const val DEFAULT_TMDB_SORT = "popularity.desc"
+    /** The genre the music discover list starts with. */
     const val DEFAULT_MUSIC_GENRE = "pop"
+    /** The Spotify market (country) the music discover list starts with. */
     const val DEFAULT_MARKET = "US"
 
+    /** TMDb `sort_by` options; the date and title fields are named differently for movies and series. */
     fun tmdbSortOptions(type: MediaType): List<Option> {
         val dateField = if (type == MediaType.Series) "first_air_date" else "primary_release_date"
         val nameField = if (type == MediaType.Series) "name" else "title"
@@ -24,6 +28,7 @@ object DiscoverOptions {
         )
     }
 
+    /** The TMDb genres with their IDs, which differ between movies and series. */
     fun tmdbGenres(type: MediaType): List<Option> =
         if (type == MediaType.Series) seriesGenres else movieGenres
 
@@ -46,17 +51,20 @@ object DiscoverOptions {
         Option("37", "Western"),
     )
 
+    /** Spotify genre seeds, labelled with a capital first letter. */
     val musicGenres: List<Option> = listOf(
         "acoustic", "afrobeat", "alt-rock", "alternative", "ambient", "anime", "classical",
         "country", "dance", "edm", "hip-hop", "indie", "jazz", "k-pop", "metal", "pop", "r-n-b",
         "rock", "synth-pop", "techno",
     ).map { Option(it, it.replaceFirstChar(Char::uppercase)) }
 
+    /** The Spotify markets (two-letter country codes) offered in the filter. */
     val markets: List<Option> = listOf(
         "US", "GB", "CA", "DE", "FR", "IT", "ES", "AU", "BR", "MX", "JP", "KR", "SE", "NL", "RU",
         "IN", "ZA", "AR", "BE", "CH", "HU", "RO", "PL", "AT", "GR",
     ).map { Option(it, it) }
 
+    /** The sort of the review lists; the options below are the keys the review endpoints accept. */
     const val DEFAULT_REVIEW_SORT = "created_desc"
 
     val reviewSortOptions: List<Option> = listOf(

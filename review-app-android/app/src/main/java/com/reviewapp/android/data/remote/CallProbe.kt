@@ -12,10 +12,12 @@ import okhttp3.Request
  * ([ProbingCallFactory.newCall]) synchronously on the calling thread before the request is sent.
  */
 class CallProbe(val allowSnapshot: Boolean) {
+    /** When the snapshot that answered the call was saved (epoch millis); set by the snapshot interceptor, `null` for a live answer. */
     @Volatile
     var servedSnapshotAt: Long? = null
 
     companion object {
+        /** The probe of the [apiCall] running on this thread, read when Retrofit creates the OkHttp call. */
         val current = ThreadLocal<CallProbe?>()
     }
 }

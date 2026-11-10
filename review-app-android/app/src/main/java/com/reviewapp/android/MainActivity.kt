@@ -14,6 +14,11 @@ import com.reviewapp.android.data.local.ThemeMode
 import com.reviewapp.android.ui.navigation.ReviewAppRoot
 import com.reviewapp.android.ui.theme.ReviewAppTheme
 
+/**
+ * The app's only activity (`singleTask`, so a deep link of a new intent arrives in the running instance).
+ * It resolves the theme mode from [com.reviewapp.android.data.local.SettingsStore], keeps the system bars in
+ * step with it and hosts [ReviewAppRoot], which owns navigation and every other screen.
+ */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

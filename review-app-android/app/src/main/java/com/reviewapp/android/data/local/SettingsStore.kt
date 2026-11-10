@@ -8,15 +8,18 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
+/** The app's light / dark setting; [System] follows the device. */
 enum class ThemeMode(val label: String) { System("System"), Light("Light"), Dark("Dark") }
 
 /** Non-sensitive user preferences (the web app keeps the same in localStorage). */
 class SettingsStore(private val dataStore: DataStore<Preferences>) {
 
+    /** The chosen theme mode; [ThemeMode.System] until the user picks one. */
     val themeMode: Flow<ThemeMode> = dataStore.data.map { prefs ->
         prefs[THEME_KEY]?.let { name -> ThemeMode.entries.firstOrNull { it.name == name } } ?: ThemeMode.System
     }
 
+    /** Stores the theme mode. */
     suspend fun setThemeMode(mode: ThemeMode) {
         dataStore.edit { it[THEME_KEY] = mode.name }
     }
@@ -24,6 +27,7 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
     /** The camera recognition screen's "your photo goes to an AI service" notice was dismissed. */
     val recognitionNoticeDismissed: Flow<Boolean> = dataStore.data.map { it[RECOGNITION_NOTICE_KEY] ?: false }
 
+    /** Remembers that the notice was dismissed. */
     suspend fun dismissRecognitionNotice() {
         dataStore.edit { it[RECOGNITION_NOTICE_KEY] = true }
     }
@@ -34,6 +38,7 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
      */
     fun offlineEnabled(userId: Int): Flow<Boolean> = dataStore.data.map { it[offlineKey(userId)] ?: true }
 
+    /** Turns offline mode on or off for one account. */
     suspend fun setOfflineEnabled(userId: Int, enabled: Boolean) {
         dataStore.edit { it[offlineKey(userId)] = enabled }
     }
@@ -43,6 +48,7 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
         prefs[CACHE_BUDGET_KEY]?.let { name -> CacheBudget.entries.firstOrNull { it.name == name } } ?: CacheBudget.Default
     }
 
+    /** Stores the cache budget; it applies to snapshots at once and to the image cache from the next app start. */
     suspend fun setCacheBudget(budget: CacheBudget) {
         dataStore.edit { it[CACHE_BUDGET_KEY] = budget.name }
     }
@@ -50,6 +56,7 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
     /** "Make available offline" downloads only on unmetered networks. */
     val offlineDownloadWifiOnly: Flow<Boolean> = dataStore.data.map { it[WIFI_ONLY_KEY] ?: true }
 
+    /** Stores whether the library download waits for an unmetered network. */
     suspend fun setOfflineDownloadWifiOnly(wifiOnly: Boolean) {
         dataStore.edit { it[WIFI_ONLY_KEY] = wifiOnly }
     }
@@ -71,13 +78,16 @@ enum class CacheBudget(val megabytes: Int, val label: String) {
     Large(500, "500 MB"),
     Huge(1024, "1 GB");
 
+    /** The budget in bytes. */
     val bytes: Long get() = megabytes * 1024L * 1024L
 
     /** A quarter for the kept API answers (lists, details), the rest for images (Coil's disk cache). */
     val snapshotBytes: Long get() = bytes / 4
+    /** The image share of the budget. */
     val imageBytes: Long get() = bytes - snapshotBytes
 
     companion object {
+        /** The budget a user starts with. */
         val Default = Medium
     }
 }

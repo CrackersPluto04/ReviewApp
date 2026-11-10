@@ -44,6 +44,7 @@ import kotlinx.serialization.Serializable
 
 // Request/response shapes of the API (camelCase JSON, enums as ints). Note `externalApiID`.
 
+/** The confirmation message many write endpoints answer with. */
 @Serializable
 data class MessageResponse(val message: String? = null)
 
@@ -57,6 +58,7 @@ data class ErrorResponse(
     val code: String? = null,
 )
 
+/** A numbered page of results; the defaults make an empty or partial answer read as an empty list. [toPage] maps it to the domain type. */
 @Serializable
 data class PagedResponse<T>(
     val items: List<T> = emptyList(),
@@ -70,6 +72,7 @@ fun <T, R> PagedResponse<T>.toPage(transform: (T) -> R) =
 
 // Auth
 
+/** The logged-in user as login and check-auth return it. */
 @Serializable
 data class UserDto(
     val id: Int,
@@ -83,9 +86,11 @@ data class UserDto(
     fun toDomain() = AuthUser(id, username, profilePictureUrl, isEmailConfirmed, isPremium, entitlements.toSet())
 }
 
+/** `POST Auth/register`. Does not log in. */
 @Serializable
 data class RegisterRequest(val username: String, val email: String, val password: String)
 
+/** `POST Auth/login`. Credentials are sent as plain JSON over HTTPS by design, never hashed client-side. */
 @Serializable
 data class LoginRequest(val email: String, val password: String)
 
@@ -98,14 +103,17 @@ data class LoginResponse(
     val challengeToken: String? = null,
 )
 
+/** The second step of a 2FA login: the challenge token from [LoginResponse] and the emailed code. */
 @Serializable
 data class TwoFactorLoginRequest(val challengeToken: String, val code: String)
 
+/** Asks for a new 2FA login code for a pending login. */
 @Serializable
 data class TwoFactorResendRequest(val challengeToken: String)
 
 // Media
 
+/** A movie, series or track. `id` is a key the API builds (the external ID with the media type name), the app identifies a title by `mediaType` and `externalApiID`. Blank strings are read as missing. */
 @Serializable
 data class MediaDto(
     val id: String = "",
@@ -142,11 +150,13 @@ fun Media.toDto() = MediaDto(
 
 // Reviews
 
+/** The community average score and review count of a title. */
 @Serializable
 data class AverageScoreResponse(val averageScore: Double = 0.0, val reviewCount: Int = 0) {
     fun toDomain() = ScoreStats(averageScore, reviewCount)
 }
 
+/** A review in the list on a media's page, with its author. */
 @Serializable
 data class MediaReviewDto(
     val id: Int,
@@ -165,6 +175,7 @@ data class MediaReviewDto(
     )
 }
 
+/** A review in the home feed: its author and the reviewed media. */
 @Serializable
 data class FeedReviewDto(
     val id: Int,
@@ -187,6 +198,7 @@ data class FeedReviewDto(
     )
 }
 
+/** The user-written part of a review. A missing `visibilityLevel` reads as public here, matching the app's default for a new review. */
 @Serializable
 data class ReviewDto(
     val score: Double,
@@ -212,14 +224,17 @@ fun ReviewDraft.toDto() = ReviewDto(
     visibilityLevel = visibility.id,
 )
 
+/** Create or edit a review: the title and the review (the API finds an existing review by user and title). */
 @Serializable
 data class ReviewMediaRequest(val mediaDto: MediaDto, val reviewDto: ReviewDto)
 
+/** Whether the current user already reviewed a title, with that review. */
 @Serializable
 data class ReviewCheckResponse(val hasReviewed: Boolean = false, val reviewData: ReviewDto? = null)
 
 // Users and followers
 
+/** A user's public profile. */
 @Serializable
 data class UserProfileDto(
     val id: Int,
@@ -290,6 +305,7 @@ data class ProfileReviewDto(
 
 // Collections
 
+/** A collection as listed on a profile. A missing `visibilityLevel` reads as private, the API's default. */
 @Serializable
 data class CollectionDto(
     val id: Int,
@@ -305,6 +321,7 @@ data class CollectionDto(
     )
 }
 
+/** One title in a collection; `dbMediaID` is the API's own media id, needed for reordering. */
 @Serializable
 data class CollectionMediaDto(
     @SerialName("dbMediaID") val dbMediaId: Int,
@@ -323,9 +340,11 @@ data class CollectionWithMediasDto(
     fun toDomain() = CollectionDetails(collection.toDomain(), mediaItems.map { it.toDomain() })
 }
 
+/** `POST Collection`. Names are unique per user. */
 @Serializable
 data class CreateCollectionRequest(val name: String, val visibilityLevel: Int)
 
+/** `PUT Collection`: a new name and visibility. */
 @Serializable
 data class UpdateCollectionRequest(
     @SerialName("collectionID") val collectionId: Int,
@@ -347,6 +366,7 @@ data class ReorderMediaRequest(
     val newOrderIndex: Int,
 )
 
+/** One title in one of the caller's collections; the app caches the whole list to show favourite and collection state on cards. */
 @Serializable
 data class CollectionMembershipDto(
     @SerialName("collectionID") val collectionId: Int,
@@ -481,14 +501,17 @@ data class NotificationPageDto(
     fun toDomain() = NotificationPage(items.map { it.toDomain() }, hasMore, totalCount, unseenCount)
 }
 
+/** The cheap answer of the badge poll. */
 @Serializable
 data class UnseenCountDto(val count: Int = 0)
 
+/** Marks one notification seen or unseen. */
 @Serializable
 data class SetSeenRequest(val isSeen: Boolean)
 
 // Achievements
 
+/** One tier of an achievement. */
 @Serializable
 data class AchievementTierDto(
     val tier: String = "",
@@ -527,6 +550,7 @@ data class UnlockedAchievementDto(val groupCode: String = "", val title: String 
 
 // Account security
 
+/** `GET Security/status`. */
 @Serializable
 data class SecurityStatusDto(
     val email: String = "",
@@ -537,9 +561,11 @@ data class SecurityStatusDto(
     fun toDomain() = SecurityStatus(email, isEmailConfirmed, isTwoFactorEnabled, pendingEmail?.takeIf { it.isNotBlank() })
 }
 
+/** Requests an email change; needs the current password. */
 @Serializable
 data class ChangeEmailRequest(val newEmail: String, val currentPassword: String)
 
+/** Changes the password; needs the current one. */
 @Serializable
 data class ChangePasswordRequest(val currentPassword: String, val newPassword: String)
 
@@ -547,11 +573,13 @@ data class ChangePasswordRequest(val currentPassword: String, val newPassword: S
 @Serializable
 data class CurrentPasswordRequest(val currentPassword: String)
 
+/** The emailed code confirming enabling or disabling 2FA. */
 @Serializable
 data class TwoFactorCodeRequest(val code: String)
 
 // Subscription
 
+/** The current user's subscription. `currentPeriodEnd` is the end of the paid period, `accessEndsAt` when Premium access stops (the period end, or the end of the payment grace period). */
 @Serializable
 data class SubscriptionStatusDto(
     val status: String = "None",
@@ -572,6 +600,7 @@ data class SubscriptionStatusDto(
     )
 }
 
+/** One feature on the plans screen. */
 @Serializable
 data class PlanFeatureDto(
     val key: String,
@@ -580,6 +609,7 @@ data class PlanFeatureDto(
     val comingSoon: Boolean = false,
 )
 
+/** The Premium plan. The price is for display; the payment provider charges the real one. */
 @Serializable
 data class PlanDto(
     val priceAmount: Double = 0.0,
@@ -599,11 +629,13 @@ data class PlanDto(
 @Serializable
 data class SubscriptionRedirectRequest(val platform: String = "android")
 
+/** A provider page (checkout or customer portal) to open in the browser. */
 @Serializable
 data class SubscriptionUrlDto(val url: String)
 
 // Camera recognition
 
+/** Whether camera recognition is on and what is left of the daily allowance. */
 @Serializable
 data class RecognitionAllowanceDto(
     val enabled: Boolean = false,
@@ -615,6 +647,7 @@ data class RecognitionAllowanceDto(
     fun toDomain() = RecognitionAllowance(enabled, premium, limit, remaining, resetsAt)
 }
 
+/** One suggestion: a normal media item and its tier. */
 @Serializable
 data class RecognizedMediaDto(
     val media: MediaDto = MediaDto(),
@@ -623,6 +656,7 @@ data class RecognizedMediaDto(
     fun toDomain() = RecognizedMedia(media.toDomain(), RecognitionTier.fromApi(tier))
 }
 
+/** A slice of a stored recognition result, for "Show more". */
 @Serializable
 data class RecognitionItemsDto(
     val items: List<RecognizedMediaDto> = emptyList(),
@@ -633,6 +667,7 @@ data class RecognitionItemsDto(
     fun toDomain() = RecognitionItems(items.map { it.toDomain() }, total, hasMore, nextOffset)
 }
 
+/** The answer to a recognition: the outcome, what was seen and the first page of the ranked list. */
 @Serializable
 data class RecognitionResponseDto(
     val recognitionId: String? = null,

@@ -63,7 +63,7 @@ import retrofit2.http.Query
 
 // One interface per API controller, paths are relative to BuildConfig.API_BASE_URL (".../api/").
 
-/** The offline sync: the changes feed and the visibility check (the push comes with offline editing). */
+/** The offline sync: pushing queued changes, the changes feed and the visibility check. Not Premium-gated, so changes made offline still arrive after Premium lapses. */
 interface SyncApi {
     @GET("Sync/changes")
     suspend fun changes(
@@ -80,6 +80,7 @@ interface SyncApi {
     suspend fun push(@Body body: com.reviewapp.android.data.remote.dto.SyncPushRequest): com.reviewapp.android.data.remote.dto.SyncPushResponse
 }
 
+/** Registration, login (with the second step of a 2FA login), logout and the session check. The session is a cookie, handled by the cookie jar. */
 interface AuthApi {
     @POST("Auth/register")
     suspend fun register(@Body body: RegisterRequest): MessageResponse
@@ -104,6 +105,7 @@ interface AuthApi {
     suspend fun logoutAll(): MessageResponse
 }
 
+/** Title details, search and discovery for movies, series (TMDb) and music (Spotify). Rate limited by the API to protect the source quotas. */
 interface MediaApi {
     @GET("Media/media/{mediaType}/{externalApiId}")
     suspend fun getMedia(
@@ -145,6 +147,7 @@ interface MediaApi {
     ): PagedResponse<MediaDto>
 }
 
+/** Reviews: the lists on media pages and the home feed, the user's own review of a title and the writes. At most one review per user and title. */
 interface ReviewApi {
     @GET("Review/recent")
     suspend fun getRecent(@Query("count") count: Int): List<FeedReviewDto>
@@ -188,6 +191,7 @@ interface ReviewApi {
     suspend fun deleteReview(@Path("id") id: Int)
 }
 
+/** Profiles, user search, the logged-in user's account changes and the content shown on profiles. */
 interface UserApi {
     /** Up to 10 users whose name contains [query]. */
     @GET("User/search")
@@ -232,6 +236,7 @@ interface UserApi {
     suspend fun getFollowing(@Path("username") username: String): List<UserCompactDto>
 }
 
+/** Following, unfollowing and removing a follower; all act as the logged-in user. */
 interface FollowerApi {
     @POST("Follower/{userId}/follow")
     suspend fun follow(@Path("userId") userId: Int)
@@ -244,6 +249,7 @@ interface FollowerApi {
     suspend fun removeFollower(@Path("userId") userId: Int)
 }
 
+/** Collections and their titles. The default Favourites collection cannot be renamed, edited or deleted. */
 interface CollectionApi {
     /** Every media in the current user's collections. */
     @GET("Collection/me/memberships")
@@ -277,6 +283,7 @@ interface CollectionApi {
     suspend fun reorder(@Path("id") id: Int, @Body body: ReorderMediaRequest)
 }
 
+/** Reply threads of reviews, at most three layers deep. A reply follows its review's visibility. */
 interface ReviewReplyApi {
     /** Oldest first; [parentReplyId] null lists the replies to the review, otherwise that reply's children. */
     @GET("ReviewReply")
@@ -327,6 +334,7 @@ interface NotificationApi {
     suspend fun deleteSeen()
 }
 
+/** Achievement progress. New unlocks arrive in the `X-Unlocked-Achievements` header of the request that earned them. */
 interface AchievementApi {
     /** Every achievement card with the user's progress, public. */
     @GET("Achievement/{username}")

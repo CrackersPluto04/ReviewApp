@@ -3,9 +3,10 @@ package com.reviewapp.android.util
 import com.reviewapp.android.domain.model.Achievement
 import com.reviewapp.android.domain.model.AchievementCategory
 
-// Filtering and sorting of the Achievements tab, the same as the web's src/utils/achievements.ts.
-
-/** The statuses overlap on purpose: a card with Bronze unlocked is both Unlocked and In progress. */
+/**
+ * Filtering and sorting of the Achievements tab, the same rules as the web's `src/utils/achievements.ts`.
+ * The statuses overlap on purpose: a card with Bronze unlocked is both Unlocked and In progress.
+ */
 enum class AchievementStatus(val label: String) {
     Unlocked("Unlocked"), Locked("Locked"), InProgress("In progress");
 
@@ -16,6 +17,7 @@ enum class AchievementStatus(val label: String) {
     }
 }
 
+/** The sort orders of the Achievements tab. */
 enum class AchievementSort(val label: String) {
     /** Cards with any unlocked tier first, otherwise in the API's (seed) order. */
     Default("Unlocked first"),
@@ -29,12 +31,15 @@ data class AchievementFilter(
     val categories: Set<AchievementCategory> = emptySet(),
     val sort: AchievementSort = AchievementSort.Default,
 ) {
+    /** Whether nothing is filtered and the sort is the default, i.e. there is nothing to reset. */
     val isDefault: Boolean get() = statuses.isEmpty() && categories.isEmpty() && sort == AchievementSort.Default
 
+    /** Whether the card passes the status and category filters. */
     fun matches(achievement: Achievement): Boolean =
         (statuses.isEmpty() || statuses.any { it.matches(achievement) }) &&
             (categories.isEmpty() || categories.any { it in achievement.categories })
 
+    /** The matching achievements in this filter's sort order; the input list is not changed. */
     fun apply(achievements: List<Achievement>): List<Achievement> {
         val filtered = achievements.filter(::matches)
         // sortedBy* are stable, so equal cards keep the API's order
@@ -56,6 +61,8 @@ fun completionRatio(achievement: Achievement): Double {
     return (achievement.unlockedCount + partial) / tierCount
 }
 
+/** How many tiers the user has unlocked across all the achievements. */
 fun earnedTiers(achievements: List<Achievement>): Int = achievements.sumOf { it.unlockedCount }
 
+/** How many tiers exist across all the achievements. */
 fun totalTiers(achievements: List<Achievement>): Int = achievements.sumOf { it.tiers.size }

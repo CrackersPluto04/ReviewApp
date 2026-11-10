@@ -18,6 +18,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 
+/**
+ * The process-wide setup. It builds the [AppContainer] and wires the parts that live as long as the app and
+ * belong to no screen: the connectivity monitor, the offline gateway, the sync triggers (the user's own
+ * changes, the app coming to the foreground, the connection coming back) and the session restore. It is
+ * also Coil's [ImageLoaderFactory].
+ */
 class ReviewApplication : Application(), ImageLoaderFactory {
 
     /**
@@ -43,7 +49,7 @@ class ReviewApplication : Application(), ImageLoaderFactory {
             .build()
     }
 
-
+    /** The app's dependencies, created in [onCreate]; ViewModels reach it through `appContainer()`. */
     lateinit var container: AppContainer
         private set
 

@@ -53,6 +53,7 @@ class SecureCookieJar(
         loaded().any { it.name == SESSION_COOKIE && it.expiresAt > System.currentTimeMillis() }
     }
 
+    /** Forgets every cookie, in memory and on disk (logout, or a session the API refused). */
     fun clear() = synchronized(lock) {
         val current = loaded()
         current.clear()
@@ -118,6 +119,7 @@ class SecureCookieJar(
     }
 
     companion object {
+        /** The name of the API's session cookie. */
         const val SESSION_COOKIE = "__Host-jwt_token"
         private val COOKIES_KEY = stringPreferencesKey("cookies")
         private val json = Json { ignoreUnknownKeys = true }

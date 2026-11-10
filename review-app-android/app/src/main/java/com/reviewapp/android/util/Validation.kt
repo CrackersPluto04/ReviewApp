@@ -20,12 +20,15 @@ object Validation {
     const val MAX_COLLECTION_NAME_LENGTH = 50
     const val MAX_REPLY_LENGTH = 500
 
+    // Same shape as the web: no whitespace, and no empty domain labels (a@b..c, a@.b, a@b.)
     private val EMAIL_REGEX = Regex("^[^\\s@]+@[^\\s@.]+(\\.[^\\s@.]+)+$")
     private val TWO_FACTOR_CODE_REGEX = Regex("^\\d{6}$")
 
+    /** A loose shape check, since only a delivered email proves an address. */
     fun isValidEmail(email: String): Boolean =
         email.length <= MAX_EMAIL_LENGTH && EMAIL_REGEX.matches(email)
 
+    /** Exactly six digits, the emailed login and 2FA codes. */
     fun isValidTwoFactorCode(code: String): Boolean = TWO_FACTOR_CODE_REGEX.matches(code)
 
     /** Case-insensitive and trimmed, like the web's change email dialog. */
@@ -33,11 +36,13 @@ object Validation {
 
     /** Usernames are part of URLs: only characters that never need escaping, and no route words (the API's UsernameRules). */
     private val USERNAME_REGEX = Regex("^[A-Za-z0-9_-]+$")
+    /** Route words the API refuses as usernames. */
     val RESERVED_USERNAMES = setOf(
         "search", "me", "admin", "administrator", "api", "login", "logout", "register", "settings",
         "premium", "support", "system", "root", "null", "undefined", "moderator", "reviewapp",
     )
 
+    /** The message for an invalid username (length, characters, reserved words), or `null` when it is valid. */
     fun usernameError(username: String): String? {
         val trimmed = username.trim()
         return when {
@@ -50,6 +55,7 @@ object Validation {
         }
     }
 
+    /** The message for a missing or malformed email, or `null`. */
     fun emailError(email: String): String? = when {
         email.isBlank() -> "Email is required."
         !isValidEmail(email.trim()) -> "Please enter a valid email address."
@@ -63,6 +69,7 @@ object Validation {
         else -> null
     }
 
+    /** The message for a new password outside the length limits, or `null`. The upper limit keeps it under BCrypt's 72 bytes even with multi-byte characters. */
     fun newPasswordError(password: String): String? = when {
         password.isEmpty() -> "Password is required."
         password.length !in MIN_PASSWORD_LENGTH..MAX_PASSWORD_LENGTH ->
@@ -70,6 +77,7 @@ object Validation {
         else -> null
     }
 
+    /** The message for an empty or too long collection name, or `null`. */
     fun collectionNameError(name: String): String? {
         val trimmed = name.trim()
         return when {
@@ -100,6 +108,7 @@ object Validation {
         return uri.scheme?.lowercase() in setOf("http", "https") && !uri.host.isNullOrBlank()
     }
 
+    /** The message when the confirmation is empty or differs from the password, or `null`. */
     fun confirmPasswordError(password: String, confirm: String): String? = when {
         confirm.isEmpty() -> "Please confirm your password."
         confirm != password -> "Passwords do not match."
