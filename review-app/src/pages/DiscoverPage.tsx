@@ -6,17 +6,24 @@ import { Box, Typography, FormControl, InputLabel, Select, MenuItem, Button, Cir
 import { MediaCard } from "../components/MediaCard";
 import { MyPagination } from "../components/MyPagination";
 
+/**
+ * Browse movies or series by sort order, genre, year and runtime (`/discover`, the TMDb discover endpoints).
+ * The applied filters live in the URL, so a filtered view can be linked and survives a reload; edits stay in
+ * drafts until Apply is pressed, so typing does not refetch.
+ *
+ * URL parameters: `type` (`movie` or `series`), `page` (1-based), `sortBy` (a TMDb `sort_by` value, default
+ * `popularity.desc`), `year`, `withGenres` (a TMDb genre ID), `minRuntime` and `maxRuntime` (minutes).
+ * The genre IDs and the date / title sort keys differ between movies and series, hence the two lists below.
+ */
 export function DiscoverPage() {
     const [searchParams, setSearchParams] = useSearchParams();
 
-    // --- State ---
     const [results, setResults] = useState<MediaDto[]>([]);
     const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
-    // --- Active States (From URL) ---
-    const typeUrl = searchParams.get('type') || 'movie'; // 'movie' or 'series'
+    const typeUrl = searchParams.get('type') || 'movie';
     const pageUrl = Number.parseInt(searchParams.get('page') || '1', 10);
     const sortByUrl = searchParams.get('sortBy') || 'popularity.desc';
     const yearUrl = searchParams.get('year') || '';
@@ -24,7 +31,6 @@ export function DiscoverPage() {
     const minRuntimeUrl = searchParams.get('minRuntime') || '';
     const maxRuntimeUrl = searchParams.get('maxRuntime') || '';
 
-    // --- Local States (For Inputs) ---
     const [draftFilters, setDraftFilters] = useState({
         type: typeUrl,
         sortBy: sortByUrl,
@@ -34,7 +40,7 @@ export function DiscoverPage() {
         maxRuntime: maxRuntimeUrl
     });
 
-    // --- Sync URL params to local state ---
+    // Back / forward navigation and Clear change the URL: the inputs follow it
     useEffect(() => {
         setDraftFilters({
             type: typeUrl,
@@ -46,7 +52,6 @@ export function DiscoverPage() {
         });
     }, [typeUrl, sortByUrl, yearUrl, withGenresUrl, minRuntimeUrl, maxRuntimeUrl]);
 
-    // --- Fetch Logic ---
     useEffect(() => {
         const fetchDiscover = async () => {
             setLoading(true);
@@ -69,7 +74,6 @@ export function DiscoverPage() {
         fetchDiscover();
     }, [typeUrl, pageUrl, sortByUrl, yearUrl, withGenresUrl, minRuntimeUrl, maxRuntimeUrl]);
 
-    // --- Handlers ---
     const updateFilter = (key: string, value: string) => {
         setDraftFilters(prev => ({ ...prev, [key]: value }));
     };
@@ -115,9 +119,7 @@ export function DiscoverPage() {
             Discover {typeUrl === 'movie' ? 'Movies' : 'Series'}
         </Typography>
 
-        {/* --- FILTER BAR --- */}
         <Box sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap' }}>
-            {/* Type Toggler */}
             <FormControl sx={{ minWidth: 120 }}>
                 <InputLabel>Type</InputLabel>
 
@@ -127,7 +129,6 @@ export function DiscoverPage() {
                 </Select>
             </FormControl>
 
-            {/* Sort By */}
             <FormControl sx={{ minWidth: 180 }}>
                 <InputLabel>Sort By</InputLabel>
 
@@ -147,7 +148,6 @@ export function DiscoverPage() {
                 </Select>
             </FormControl>
 
-            {/* Genre */}
             <FormControl sx={{ minWidth: 150 }}>
                 <InputLabel>Genre</InputLabel>
 
@@ -164,7 +164,6 @@ export function DiscoverPage() {
                 </Select>
             </FormControl>
 
-            {/* Year */}
             <TextField
                 label="Year"
                 type="number"
@@ -174,7 +173,6 @@ export function DiscoverPage() {
                 sx={{ width: 100 }}
             />
 
-            {/* Min/Max Runtime */}
             <TextField
                 label="Min Runtime"
                 type="number"
@@ -201,11 +199,9 @@ export function DiscoverPage() {
             </Button>
         </Box>
 
-        {/* --- PAGINATION TOP --- */}
         {totalPages > 1 && !loading &&
             <MyPagination page={pageUrl} totalPages={totalPages} onPageChange={handlePageChange} size="medium" mt={2} mb={2} />}
 
-        {/* --- RESULTS --- */}
         {loading ? (
             <Box display="flex" justifyContent="center" mt={4}><CircularProgress /></Box>
         ) : results.length > 0 ? (
@@ -218,7 +214,6 @@ export function DiscoverPage() {
             </Typography>
         )}
 
-        {/* --- PAGINATION BOTTOM --- */}
         {totalPages > 1 && !loading &&
             <MyPagination page={pageUrl} totalPages={totalPages} onPageChange={handlePageChange} size="large" />}
     </Box>

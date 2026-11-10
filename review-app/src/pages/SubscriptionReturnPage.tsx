@@ -20,9 +20,14 @@ const TITLES: Record<ReturnState, string> = {
     error: 'Your subscription'
 };
 
-// Where the payment provider sends the user back after checkout. The redirect proves nothing:
-// the backend is asked to check with the provider, then polled until Premium shows up (the
-// provider's notification can arrive a little later).
+/**
+ * Where the payment provider sends the user back after checkout (`/subscription/return?status=`). The redirect
+ * proves nothing, so a `success` status is never trusted: the page asks the backend to check with the provider
+ * (`sync`) and then polls the status every 2 seconds, for at most 30, until Premium shows up (the provider's own
+ * notification can arrive a little later). If it does not, the page says the payment is still processing, and a
+ * notification follows once Premium is active. A cancelled checkout needs no check. It reloads the user once
+ * Premium is confirmed, so the rest of the UI unlocks.
+ */
 export function SubscriptionReturnPage() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();

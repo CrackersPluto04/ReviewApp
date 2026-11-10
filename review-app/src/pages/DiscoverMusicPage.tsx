@@ -6,27 +6,31 @@ import { Box, Typography, FormControl, InputLabel, Select, MenuItem, TextField, 
 import { MediaCard } from "../components/MediaCard";
 import { MyPagination } from "../components/MyPagination";
 
+/**
+ * Browse music by genre, year range and market (`/discover/music`). Spotify has no discover call, so the API
+ * turns the filters into a search. The applied filters live in the URL, so a filtered view can be linked and
+ * survives a reload; edits stay in drafts until Apply is pressed, so typing does not refetch.
+ *
+ * URL parameters: `page` (1-based), `genre` (default `pop`), `year` (one year, or `from-to`), `market`
+ * (default `US`).
+ */
 export function DiscoverMusicPage() {
     const [searchParams, setSearchParams] = useSearchParams();
 
-    // --- State ---
     const [results, setResults] = useState<MediaDto[]>([]);
     const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
-    // --- Active States (From URL) ---
     const pageUrl = Number.parseInt(searchParams.get('page') || '1', 10);
     const genreUrl = searchParams.get('genre') || 'pop';
     const yearUrl = searchParams.get('year') || '';
     const marketUrl = searchParams.get('market') || 'US';
 
-    // Spliting the year parameter
     const yearParts = yearUrl.split('-');
     const activeFromYear = yearParts[0] || '';
     const activeToYear = yearParts.length > 1 ? yearParts[1] : '';
 
-    // --- Local States (For Inputs) ---
     const [draftFilters, setDraftFilters] = useState({
         genre: genreUrl,
         fromYear: activeFromYear,
@@ -34,7 +38,7 @@ export function DiscoverMusicPage() {
         market: marketUrl
     });
 
-    // --- Sync local state to URL params ---
+    // Back / forward navigation and Clear change the URL: the inputs follow it
     useEffect(() => {
         setDraftFilters({
             genre: genreUrl,
@@ -44,7 +48,6 @@ export function DiscoverMusicPage() {
         });
     }, [genreUrl, yearUrl, marketUrl]);
 
-    // --- Fetch Logic ---
     useEffect(() => {
         const fetchDiscover = async () => {
             setLoading(true);
@@ -66,7 +69,6 @@ export function DiscoverMusicPage() {
         fetchDiscover();
     }, [pageUrl, genreUrl, yearUrl, marketUrl]);
 
-    // --- Handlers ---
     const updateFilter = (key: string, value: string) => {
         setDraftFilters(prev => ({ ...prev, [key]: value }));
     };
@@ -107,9 +109,7 @@ export function DiscoverMusicPage() {
             Discover Music
         </Typography>
 
-        {/* --- FILTER BAR --- */}
         <Box sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap' }}>
-            {/* Genre Dropdown */}
             <FormControl sx={{ minWidth: 150 }}>
                 <InputLabel>Genre</InputLabel>
 
@@ -120,7 +120,6 @@ export function DiscoverMusicPage() {
                 </Select>
             </FormControl>
 
-            {/* Market Dropdown */}
             <FormControl sx={{ minWidth: 100 }}>
                 <InputLabel>Market</InputLabel>
 
@@ -131,7 +130,6 @@ export function DiscoverMusicPage() {
                 </Select>
             </FormControl>
 
-            {/* From-To Year */}
             <TextField
                 label="From (year)"
                 type="number"
@@ -158,11 +156,9 @@ export function DiscoverMusicPage() {
             </Button>
         </Box>
 
-        {/* --- PAGINATION TOP --- */}
         {totalPages > 1 && !loading &&
             <MyPagination page={pageUrl} totalPages={totalPages} onPageChange={handlePageChange} size="medium" mt={2} mb={2} />}
 
-        {/* --- RESULTS --- */}
         {loading ? (
             <Box display="flex" justifyContent="center" mt={4}><CircularProgress /></Box>
         ) : results.length > 0 ? (
@@ -175,7 +171,6 @@ export function DiscoverMusicPage() {
             </Typography>
         )}
 
-        {/* --- PAGINATION BOTTOM --- */}
         {totalPages > 1 && !loading &&
             <MyPagination page={pageUrl} totalPages={totalPages} onPageChange={handlePageChange} size="large" />}
     </Box>

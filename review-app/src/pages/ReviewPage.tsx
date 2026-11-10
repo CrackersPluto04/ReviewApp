@@ -6,7 +6,14 @@ import { reviewReplyService } from "../services/ReviewReplyService";
 import { ReviewCard } from "../components/ReviewCard";
 import { ReplyFocus } from "../components/ReplyThread";
 
-// A single review on its own URL, the target of reply notifications (?reply=<id> opens the thread at that reply)
+/**
+ * A single review on its own URL (`/review/:reviewId`), the shareable link and the target of reply notifications.
+ * `?reply=<id>` opens the thread at that reply: the review and the reply context are fetched together and passed
+ * down as a `replyFocus`, which `ReviewCard` hands to the thread to seed, expand, scroll to and highlight it.
+ *
+ * A review that does not exist and one hidden from the viewer look the same (404) on purpose, so the page shows
+ * one message for both. A missing reply, or one that belongs to another review, only shows a notice above the review.
+ */
 export function ReviewPage() {
     const { reviewId } = useParams();
     const [searchParams] = useSearchParams();
@@ -83,7 +90,6 @@ export function ReviewPage() {
         </Box>;
 
     return <Box sx={{ maxWidth: 900, mx: 'auto' }}>
-        {/* Author */}
         <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2, cursor: 'pointer', width: 'fit-content' }}
             onClick={() => navigate(`/profile/${encodeURIComponent(review.username)}`)}
         >

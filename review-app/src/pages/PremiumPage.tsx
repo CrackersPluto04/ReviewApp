@@ -20,7 +20,12 @@ const FREE_FEATURES = [
     'Everything the app offers today stays free'
 ];
 
-// Plans page: Free vs Premium, subscribing, and the current subscription for subscribers. Visible without logging in.
+/**
+ * The plans page (`/premium`): Free vs Premium, subscribing, and the current subscription for subscribers.
+ * Visible without logging in; the Subscribe button then leads to the login and back. Payment happens on the
+ * provider's hosted page, which returns to `SubscriptionReturnPage`. The Offline mode section is text only,
+ * because that feature lives in the Android app.
+ */
 export function PremiumPage() {
     const navigate = useNavigate();
     const location = useLocation();
@@ -73,7 +78,6 @@ export function PremiumPage() {
         {!plan && !loadError && <Box display="flex" justifyContent="center"><CircularProgress /></Box>}
 
         {plan && <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems="stretch">
-            {/* Free */}
             <Card variant="outlined" sx={{ flex: 1, borderRadius: 2 }}>
                 <CardContent>
                     <Typography variant="h5" fontWeight="bold">Free</Typography>
@@ -90,7 +94,6 @@ export function PremiumPage() {
                 </CardContent>
             </Card>
 
-            {/* Premium */}
             <Card variant="outlined" sx={{ flex: 1, borderRadius: 2, borderColor: PREMIUM_COLOR, borderWidth: 2 }}>
                 <CardContent>
                     <Stack direction="row" spacing={1} alignItems="center">

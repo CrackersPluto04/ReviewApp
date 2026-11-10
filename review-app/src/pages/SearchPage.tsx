@@ -7,6 +7,13 @@ import { mediaService } from '../services/MediaService';
 import { MyPagination } from '../components/MyPagination';
 import { MediaDto } from '../types/types';
 
+/**
+ * Media search results (`/search`) with a tab per type. The query, type and page live in the URL (`q`, `type` of
+ * `all`, `movie`, `series` or `music`, `page`), so a search can be linked and the back button works.
+ *
+ * The "Any" search is a single page without paging. The music tab shows no result count in its label, because
+ * its page count is an estimate (see `MediaService.searchMusic`).
+ */
 export function SearchPage() {
     const [searchParams, setSearchParams] = useSearchParams();
 
@@ -17,7 +24,6 @@ export function SearchPage() {
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
-    // Read from the URL parameters
     const query = searchParams.get('q') || '';
     const currentType = searchParams.get('type') || 'all';
     const page = Number.parseInt(searchParams.get('page') || '1', 10);
@@ -63,12 +69,10 @@ export function SearchPage() {
     };
 
     const handleTabChange = (_event: Event, newValue: string) => {
-        //setTotalCount(-1);
         setSearchParams({ q: query, type: newValue, page: '1' });
     };
 
     return <Box>
-        {/* Top Search Area */}
         <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
             <Typography variant="h6" sx={{ minWidth: 150 }}>
                 Search results for:
@@ -79,7 +83,6 @@ export function SearchPage() {
             </Box>
         </Box>
 
-        {/* Tabs */}
         <Tabs value={currentType} onChange={handleTabChange} variant="fullWidth" sx={{ mb: 2, borderBottom: 1, borderTop: 1, borderColor: 'divider' }}>
             <Tab label={"Any" + (currentType === 'all' && !loading ? ` (${totalCount})` : '')} value="all" disabled={loading} />
             <Tab label={"Movies" + (currentType === 'movie' && !loading ? ` (${totalCount})` : '')} value="movie" disabled={loading} />
@@ -87,11 +90,9 @@ export function SearchPage() {
             <Tab label="Music" value="music" disabled={loading} />
         </Tabs>
 
-        {/* Pagination Top */}
         {totalPages > 1 && !loading &&
             <MyPagination page={page} totalPages={totalPages} onPageChange={handlePageChange} size="medium" mt={2} mb={2} />}
 
-        {/* Results List */}
         {loading ? (
             <Box display="flex" justifyContent="center" mt={4}><CircularProgress /></Box>
         ) : results.length > 0 ? (
@@ -104,11 +105,9 @@ export function SearchPage() {
             </Typography>
         )}
 
-        {/* Pagination Bottom */}
         {totalPages > 1 && !loading &&
             <MyPagination page={page} totalPages={totalPages} onPageChange={handlePageChange} size="large" />}
 
-        {/* Search Specific Media Buttons */}
         {currentType === 'all' && results.length > 0 && !loading && (
             <Box display="flex" justifyContent="center" mt={4} gap={2}>
                 <Button variant="outlined" onClick={() => setSearchParams({ q: query, type: 'movie', page: '1' })}>
